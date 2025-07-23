@@ -1,0 +1,10 @@
+__pycache__/
+*.zip
+build/
+.lambda_package/
+*.pyc
+.poetry/
+poetry.lock
+.DS_Store
+.env
+.idea
