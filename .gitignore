@@ -8,3 +8,6 @@ poetry.lock
 .DS_Store
 .env
 .idea
+
+lambda/build/
+lambda/requirements.txt
