@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goldmine-lambda"
-version = "0.2.1"
+version = "0.3.0"
 description = "AWS Lambda functions for Goldmine game"
 authors = ["Todd Gerdy <toadimous@gmail.com>"]
 readme = "README.md"
