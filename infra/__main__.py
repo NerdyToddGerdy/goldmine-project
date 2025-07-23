@@ -1,6 +1,5 @@
 """An AWS Python Pulumi program"""
 import json
-from xml.sax import default_parser_list
 
 import pulumi
 import pulumi_aws as aws
@@ -25,6 +24,34 @@ aws.iam.RolePolicyAttachment(
     policy_arn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 )
 
+# Dynamo tables
+table = aws.dynamodb.Table(
+    "goldmineSaves",
+    attributes=[{
+        "name": "player_id",
+        "type": "S",
+    }],
+    hash_key="player_id",
+    billing_mode="PAY_PER_REQUEST",
+)
+
+lambda_policy = aws.iam.RolePolicy(
+    "lambdaDynamoPolicy",
+    role=lambda_role.id,
+    policy=table.arn.apply(lambda arn: json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+            ],
+            "Resource": arn,
+        }]
+    }))
+)
+
 # Deploy from the build/ folder directly - no zip!
 goldmine_lambda = aws.lambda_.Function(
     "goldmineLambda",
@@ -34,12 +61,18 @@ goldmine_lambda = aws.lambda_.Function(
     code=pulumi.AssetArchive({
         ".": pulumi.FileArchive("../lambda/build")
     }),
-    timeout=30
+    timeout=30,
+    environment=aws.lambda_.FunctionEnvironmentArgs(
+        variables={
+            "TABLE_NAME": table.name,
+        }
+    )
 )
 
 # Set up API Gateway
 api = aws.apigateway.RestApi(
     "goldmineApi",
+    name="goldmineApi"
 )
 
 resource = aws.apigateway.Resource(
@@ -49,7 +82,7 @@ resource = aws.apigateway.Resource(
     path_part="gold"
 )
 
-method = aws.apigateway.Method(
+post_method = aws.apigateway.Method(
     "goldmineMethod",
     rest_api=api.id,
     resource_id=resource.id,
@@ -57,11 +90,29 @@ method = aws.apigateway.Method(
     authorization="NONE"
 )
 
+get_method = aws.apigateway.Method(
+    "goldmineGetMethod",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method="GET",
+    authorization="NONE"
+)
+
 integration = aws.apigateway.Integration(
     "goldmineIntegration",
     rest_api=api.id,
     resource_id=resource.id,
-    http_method=method.http_method,
+    http_method=post_method.http_method,
+    integration_http_method="POST",
+    type="AWS_PROXY",
+    uri=goldmine_lambda.invoke_arn
+)
+
+get_integration = aws.apigateway.Integration(
+    "goldmineGetIntegration",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method=get_method.http_method,
     integration_http_method="POST",
     type="AWS_PROXY",
     uri=goldmine_lambda.invoke_arn
@@ -71,7 +122,10 @@ deployment = aws.apigateway.Deployment(
     "goldmineDeploy",
     rest_api=api.id,
     triggers={"redeploy": goldmine_lambda.urn},
-    opts=pulumi.ResourceOptions(depends_on=[integration])
+    opts=pulumi.ResourceOptions(depends_on=[
+        integration,
+        get_integration
+    ])
 )
 
 stage = aws.apigateway.Stage(
@@ -91,6 +145,7 @@ permission = aws.lambda_.Permission(
         lambda arn: f"{arn}*"
     )
 )
+
 
 # Output the API Endpoint URL
 pulumi.export(

@@ -22,10 +22,21 @@
 - [x] Test endpoint with `curl` and confirm `Hello from Goldmine` response
 
 
-## Phase 3: Add Storage
-- [ ] Create DynamoDB table in Pulumi
-- [ ] Update Lambda to save/load state
-- [ ] Test with curl or frontend
+## 🧠 Phase 3: DynamoDB Integration
+
+- [x] Create DynamoDB table (`goldmineSaves`) using Pulumi
+- [x] Define `player_id` as the partition key (string)
+- [x] Grant Lambda permission to `GetItem`, `PutItem`, `UpdateItem` on the table
+- [x] Pass table name to Lambda via environment variable (`TABLE_NAME`)
+- [x] Update Lambda `handler.py` to:
+  - [x] Handle `POST` requests and store `{ player_id, gold }`
+  - [x] Handle `GET` requests and retrieve `{ player_id, gold }`
+- [x] Add fallback when `queryStringParameters` is missing (avoid `NoneType.get`)
+- [x] Fix `Decimal` serialization using `DecimalEncoder` for `json.dumps()`
+- [x] Add standalone `test_api.py` script in `tests/`:
+  - [x] Dynamically resolves API URL via boto3
+  - [x] Sends POST and GET requests using `requests`
+- [x] Confirm save/load workflow works end-to-end with real AWS calls
 
 ## Phase 4: CI/CD
 - [ ] Add GitHub Actions (`.github/workflows/deploy.yml`)
