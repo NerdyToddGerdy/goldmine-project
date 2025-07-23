@@ -1,16 +1,14 @@
-[project]
+[tool.poetry]
 name = "goldmine-lambda"
-version = "0.2.0"
+version = "0.2.1"
 description = "AWS Lambda functions for Goldmine game"
-authors = [
-    {name = "Todd Gerdy",email = "toadimous@gmail.com"}
-]
+authors = ["Todd Gerdy <toadimous@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "boto3 (>=1.39.11,<2.0.0)"
-]
+package-mode = false  # ← disables packaging
 
+[tool.poetry.dependencies]
+python = "^3.12"
+boto3 = ">=1.39.11,<2.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
