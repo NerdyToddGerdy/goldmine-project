@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Goldmine Tycoon</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="game-container">
+        <!-- Background Stream -->
+        <img src="assets/stream.png" id="background" alt="" />
+
+        <!-- Truck Image -->
+        <img src="assets/truck.png" id="truck" alt=""/>
+
+        <!-- Miner Character -->
+        <img src="assets/PanningJoe.png" id="miner" alt=""/>
+
+        <!-- Click Buttons -->
+        <button id="scoop-btn" class="game-button" style="top: 50%; left: 20%;">Scoop</button>
+        <button id="pan-btn" class="game-button" style="top: 60%; left: 50%;">Pan</button>
+        <button id="sell-btn" class="game-button" style="top: 70%; left: 80%;">Sell</button>
+        <div id="status"></div>
+    </div>
+    <script type="module" src="src/index.ts"></script>
+</body>
+</html>

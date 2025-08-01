@@ -1,0 +1,45 @@
+body {
+    margin: 0;
+    background: #f8f8f8;
+    font-family: sans-serif;
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#background {
+    width: 100%;
+    display: block;
+}
+
+#truck {
+    position: absolute;
+    top: 20%;
+    right: 10%;
+    width: 200px;
+}
+
+#miner {
+    position: absolute;
+    bottom: 5%;
+    left: 5%;
+    width: 150px;
+}
+
+.game-button {
+    position: absolute;
+    background: gold;
+    border: 2px solid #000;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.game-button:hover {
+    background: orange;
+}
