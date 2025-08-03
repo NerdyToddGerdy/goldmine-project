@@ -1,0 +1,23 @@
+# pyscript-stubs/js.pyi
+
+from typing import Any, Dict, Awaitable
+
+class Console:
+    def log(self, message: str) -> None: ...
+    def error(self, message: str) -> None: ...
+    def warn(self, message: str) -> None: ...
+    def info(self, message: str) -> None: ...
+
+class Document:
+    def getElementById(self, element_id: str): ...
+
+class JSObject:
+    """Represents a generic JavaScript Object"""
+    def fromEntries(self, entries: Any) -> Dict[str, Any]: ...
+
+async def fetch(url: str, method: str = "GET", headers: Any = None, body: Any = None) -> Awaitable[Any]: ...
+
+# Simulated `js` module available in PyScript
+console: Console
+document: Document
+Object: JSObject

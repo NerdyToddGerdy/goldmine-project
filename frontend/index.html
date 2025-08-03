@@ -11,16 +11,18 @@
         <!-- Background Stream -->
         <img src="assets/stream.png" id="background" alt="" />
 
-        <!-- Truck Image -->
-        <img src="assets/truck.png" id="truck" alt=""/>
-
-        <!-- Miner Character -->
-        <img src="assets/PanningJoe.png" id="miner" alt=""/>
-
         <!-- Click Buttons -->
-        <button id="scoop-btn" class="game-button" style="top: 50%; left: 20%;">Scoop</button>
-        <button id="pan-btn" class="game-button" style="top: 60%; left: 50%;">Pan</button>
-        <button id="sell-btn" class="game-button" style="top: 70%; left: 80%;">Sell</button>
+        <img id="scoop-btn" class="game-button" src="assets/buttons/shovel_and_bucket.png" alt="Scoop">
+        <img id="pan-btn" class="game-button" src="assets/buttons/PanningJoe.png" alt="Pan">
+        <img id="sell-btn" class="game-button" src="assets/buttons/truck.png" alt="Sell">
+
+        <!--HUD-->
+        <div id="hud">
+            <span id="hud-paydirt">Paydirt: 0</span>
+            <span id="hud-gold">Gold: 0</span>
+            <span id="hud-money">Money: 0</span>
+        </div>
+
         <div id="status"></div>
     </div>
     <script type="module" src="src/index.ts"></script>

@@ -1,5 +1,5 @@
 // src/api.ts
-const BASE_URL = "https://your-api-id.execute-api.us-east-1.amazonaws.com/dev/gold";
+const BASE_URL = "https://0gzo542ykg.execute-api.us-east-1.amazonaws.com/dev/gold";
 
 export async function saveGold(playerId: string, gold: number) {
     try {

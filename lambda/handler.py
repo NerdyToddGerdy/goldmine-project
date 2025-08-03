@@ -33,6 +33,11 @@ def handler(event, context):
         gold = item.get("gold", Decimal(0))
         return {
             "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+            },
             "body": json.dumps({
                 "player_id": player_id,
                 "gold": float(gold),

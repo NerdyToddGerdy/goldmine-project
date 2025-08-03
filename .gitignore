@@ -1,13 +1,34 @@
+# Python
 __pycache__/
-*.zip
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
 build/
-.lambda_package/
-*.pyc
-.poetry/
-poetry.lock
-.DS_Store
 .env
-.idea
+.venv
+poetry.lock
 
-lambda/build/
-lambda/requirements.txt
+# Lambda Zip
+*.zip
+
+# Pulumi
+*.stack.yaml
+*.pulumi/
+
+# Node / TypeScript
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/package-lock.json
+
+# IDE / Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -98,6 +98,53 @@ get_method = aws.apigateway.Method(
     authorization="NONE"
 )
 
+# OPTIONS method for CORS
+options_method = aws.apigateway.Method(
+    "goldmineOptionsMethod",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method="OPTIONS",
+    authorization="NONE"
+)
+
+options_integration = aws.apigateway.Integration(
+    "goldmineOptionsIntegration",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method=options_method.http_method,
+    type="MOCK",
+    request_templates={"application/json": '{"statusCode": 200}'},
+    passthrough_behavior="WHEN_NO_MATCH",
+)
+
+# Integration response for OPTIONS
+options_integration_response = aws.apigateway.IntegrationResponse(
+    "goldmineOptionsIntegrationResponse",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method=options_method.http_method,
+    status_code="200",
+    response_parameters={
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,POST,OPTIONS'",
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type'",
+    },
+)
+
+# Method response for OPTIONS
+options_method_response = aws.apigateway.MethodResponse(
+    "goldmineOptionsMethodResponse",
+    rest_api=api.id,
+    resource_id=resource.id,
+    http_method=options_method.http_method,
+    status_code="200",
+    response_parameters={
+        "method.response.header.Access-Control-Allow-Origin": True,
+        "method.response.header.Access-Control-Allow-Methods": True,
+        "method.response.header.Access-Control-Allow-Headers": True,
+    }
+)
+
 integration = aws.apigateway.Integration(
     "goldmineIntegration",
     rest_api=api.id,
