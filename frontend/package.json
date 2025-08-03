@@ -1,6 +1,6 @@
 {
   "name": "goldmine-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Frontend for Goldmine Tycoon game",
   "type": "module",
   "scripts": {
@@ -16,6 +16,5 @@
     "eslint": "8.57.0",
     "@typescript-eslint/parser": "7.18.0",
     "@typescript-eslint/eslint-plugin": "7.18.0"
-}
-
+  }
 }
