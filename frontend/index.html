@@ -8,6 +8,22 @@
 </head>
 <body>
     <div id="game-container">
+        <!--HUD-->
+        <div id="hud">
+            <div class="hud-item">
+                <img src="assets/icons/paydirt.png" alt="Paydirt" class="hud-icon">
+                <span id="paydirt-count">0 / 10</span>
+            </div>
+            <div class="hud-item">
+                <img src="assets/icons/goldnugget.png" alt="Gold" class="hud-icon">
+                <span id="gold-count">0</span>
+            </div>
+            <div class="hud-item">
+                <img src="assets/icons/money.png" alt="Money" class="hud-icon">
+                <span id="money-count">0</span>
+            </div>
+        </div>
+
         <div id="floating-feedback"></div>
         <!-- Background Stream -->
         <img src="assets/stream.png" id="background" alt="" />
@@ -17,12 +33,7 @@
         <img id="pan-btn" class="game-button" src="assets/buttons/PanningJoe.png" alt="Pan">
         <img id="sell-btn" class="game-button" src="assets/buttons/truck.png" alt="Sell">
 
-        <!--HUD-->
-        <div id="hud">
-            <span id="hud-paydirt">Paydirt: 0</span>
-            <span id="hud-gold">Gold: 0</span>
-            <span id="hud-money">Money: 0</span>
-        </div>
+
 
         <!-- Upgrade Shop Panel -->
         <div id = "upgrades-panel" class="hidden">
@@ -35,6 +46,10 @@
             <div class="upgrade-item">
                 <span id="shovel-info"></span>
                 <button id="buy-shovel">Upgrade Shovel</button>
+            </div>
+            <div class="upgrade-item">
+                <span id="pan-info"></span>
+                <button id="buy-pan">Upgrade Pan</button>
             </div>
 
             <button id="close-upgrades">Close</button>

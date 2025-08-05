@@ -22,5 +22,12 @@ export const upgrades = {
         cost: 75,
         effect: 1,
         description: "Increase how much paydirt you scoop per click."
+    },
+    pan: {
+        name: "Pan Quality",
+        level: 0,
+        effect: 1,
+        cost: 100,
+        description: "Increase the efficiency of your pan."
     }
 };

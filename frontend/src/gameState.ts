@@ -7,12 +7,15 @@
 // export let bucketCapacity = 10; // Max paydirt bucket can hold
 // export let shovelEfficiency = 1; // Paydirt scooped per click
 
+import {upgrades} from "./upgrades";
+
 export const gameState = {
     paydirt: 0,
     gold: 0,
     money: 0,
     bucketCapacity: 10,
     shovelEfficiency: 1,
+    panQuality: 1
 }
 
 
@@ -37,10 +40,16 @@ export function scoop() {
  * @returns the amount of gold you get from panning
  */
 export function pan() {
-    if (gameState.paydirt > 0) {
-        gameState.paydirt -= 1;
-        gameState.gold += 1;
+    const paydirtNeeded = 1;
+
+    if (gameState.paydirt >= paydirtNeeded) {
+        gameState.paydirt -= paydirtNeeded;
+        const panBonus = upgrades.pan.effect;
+        gameState.gold += panBonus;
+    } else {
+        console.log("Not enough paydirt to pan!");
     }
+
     return {
         paydirt: gameState.paydirt,
         gold: gameState.gold

@@ -2,19 +2,29 @@ import {upgrades} from "../upgrades";
 import {purchaseUpgrade} from "../upgradeLogic";
 import {updateHUD} from "../index";
 import {showFloatingText} from "./floatingFeedback";
+import {gameState} from "../gameState";
+
+export function updateUpgradeUI() {
+    const bucketInfo = document.getElementById("bucket-info")!;
+    const shovelInfo = document.getElementById("shovel-info")!;
+    const panInfo = document.getElementById("pan-info")!;
+    bucketInfo.innerText = `Bucket Lv ${upgrades.bucket.level} → Capacity: ${upgrades.bucket.effect}, Cost: $${upgrades.bucket.cost}`;
+    shovelInfo.innerText = `Shovel Lv ${upgrades.shovel.level} → Efficiency: ${upgrades.shovel.effect}, Cost: $${upgrades.shovel.cost}`;
+    panInfo.innerText = `Pan Lv ${upgrades.pan.level} → Gold Multiplier: x${upgrades.pan.effect}, Cost: $${upgrades.pan.cost}`;
+
+    const buyBucketBtn = document.getElementById('buy-bucket') as HTMLButtonElement;
+    const buyShovelBtn = document.getElementById('buy-shovel') as HTMLButtonElement;
+    const buyPanBtn = document.getElementById('buy-pan') as HTMLButtonElement;
+
+    buyBucketBtn.disabled = gameState.money < upgrades.bucket.cost;
+    buyShovelBtn.disabled = gameState.money < upgrades.shovel.cost;
+    buyPanBtn.disabled = gameState.money < upgrades.pan.cost;
+}
 
 export function initUpgradePanel() {
     const panel = document.getElementById("upgrades-panel")!;
     const openBtn = document.getElementById("open-upgrades")!;
     const closeBtn = document.getElementById("close-upgrades")!;
-
-    const bucketInfo = document.getElementById("bucket-info")!;
-    const shovelInfo = document.getElementById("shovel-info")!;
-
-    function updateUpgradeUI() {
-        bucketInfo.innerText = `Bucket Lv ${upgrades.bucket.level} → Capacity: ${upgrades.bucket.effect}, Cost: $${upgrades.bucket.cost}`;
-        shovelInfo.innerText = `Shovel Lv ${upgrades.shovel.level} → Efficiency: ${upgrades.shovel.effect}, Cost: $${upgrades.shovel.cost}`;
-    }
 
     document.getElementById("buy-bucket")?.addEventListener("click", () => {
         if (purchaseUpgrade("bucket")) {

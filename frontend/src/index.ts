@@ -3,15 +3,15 @@
 // import { saveGold } from "./api";
 
 import {gameState, pan, scoop, sell} from "./gameState";
-import { initUpgradePanel } from "./ui/upgradePanel"
+import { initUpgradePanel, updateUpgradeUI } from "./ui/upgradePanel"
 import {showFloatingText} from "./ui/floatingFeedback";
 
 
 // HUD
 const statusDiv = document.getElementById("status") as HTMLDivElement;
-const hudPaydirt = document.getElementById("hud-paydirt") as HTMLDivElement;
-const hudGold = document.getElementById("hud-gold") as HTMLDivElement;
-const hudMoney = document.getElementById("hud-money") as HTMLDivElement;
+// const hudPaydirt = document.getElementById("hud-paydirt") as HTMLDivElement;
+// const hudGold = document.getElementById("hud-gold") as HTMLDivElement;
+// const hudMoney = document.getElementById("hud-money") as HTMLDivElement;
 
 // Buttons
 const scoopBtn = document.getElementById("scoop-btn") as HTMLImageElement;
@@ -19,9 +19,11 @@ const panBtn = document.getElementById("pan-btn") as HTMLImageElement;
 const sellBtn = document.getElementById("sell-btn") as HTMLImageElement;
 
 export function updateHUD() {
-    hudPaydirt.innerText = `Paydirt: ${gameState.paydirt}/${gameState.bucketCapacity}`;
-    hudGold.innerText = `Gold: ${gameState.gold}`;
-    hudMoney.innerText = `Money: $${gameState.money}`;
+    document.getElementById('gold-count')!.textContent = gameState.gold.toFixed();
+    document.getElementById('paydirt-count')!.textContent = `${gameState.paydirt.toFixed(1)} / ${gameState.bucketCapacity}`;
+    document.getElementById('money-count')!.textContent = gameState.money.toFixed();
+
+    updateUpgradeUI();
 
     //Disable scoop if bucket is full
     if (gameState.paydirt >= gameState.bucketCapacity) {
@@ -29,7 +31,7 @@ export function updateHUD() {
     }
 
     disableButton(scoopBtn, gameState.paydirt >= gameState.bucketCapacity);
-    disableButton(panBtn, gameState.paydirt === 0);
+    disableButton(panBtn, gameState.paydirt < 1);
     disableButton(sellBtn, gameState.gold === 0);
 }
 
@@ -37,7 +39,7 @@ function showMessage(msg: string) {
     statusDiv.innerText = msg;
 }
 
-scoopBtn.addEventListener("click", (event) => {
+scoopBtn.addEventListener("click", () => {
     const result = scoop();
     updateHUD();
     if (!result.full) {

@@ -3,7 +3,7 @@
 import {upgrades} from "./upgrades";
 import {gameState} from "./gameState";
 
-export function purchaseUpgrade(type: "bucket" | "shovel") {
+export function purchaseUpgrade(type: "bucket" | "shovel" | "pan") {
     const upgrade = upgrades[type]; // No
 
     if (!upgrade) {
@@ -20,10 +20,16 @@ export function purchaseUpgrade(type: "bucket" | "shovel") {
         upgrade.level++;
         if (type === "bucket") {
             gameState.bucketCapacity += 5;
-            upgrade.effect +=5;
+            upgrade.effect = gameState.bucketCapacity;
         } else if (type === "shovel") {
             gameState.shovelEfficiency += 0.5;
             upgrade.effect = gameState.shovelEfficiency;
+        } else if (type === "pan") {
+            // TODO: the button is not clickable
+            // TODO: the close button for the Updgrades is not styled.
+            // TODO: figure out how to not highlight the background.
+            gameState.panQuality += 0.2;
+            upgrade.effect += gameState.panQuality; // +20 % yield each upgrade
         }
 
         // Increase cost for next upgrade
@@ -32,7 +38,7 @@ export function purchaseUpgrade(type: "bucket" | "shovel") {
         return true;
     }
 
-    console.warn("Note enough money for upgrade:", type);
+    console.warn("Not enough money for upgrade:", type);
     return false;
 
 }
