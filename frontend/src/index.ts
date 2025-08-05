@@ -2,7 +2,9 @@
 
 // import { saveGold } from "./api";
 
-import {bucketCapacity, gold, money, pan, paydirt, scoop, sell, shovelEfficiency} from "./gameState";
+import {gameState, pan, scoop, sell} from "./gameState";
+import { initUpgradePanel } from "./ui/upgradePanel"
+import {showFloatingText} from "./ui/floatingFeedback";
 
 
 // HUD
@@ -16,30 +18,32 @@ const scoopBtn = document.getElementById("scoop-btn") as HTMLImageElement;
 const panBtn = document.getElementById("pan-btn") as HTMLImageElement;
 const sellBtn = document.getElementById("sell-btn") as HTMLImageElement;
 
-function updateHUD() {
-    hudPaydirt.innerText = `Paydirt: ${paydirt}/${bucketCapacity}`;
-    hudGold.innerText = `Gold: ${gold}`;
-    hudMoney.innerText = `Money: $${money}`;
+export function updateHUD() {
+    hudPaydirt.innerText = `Paydirt: ${gameState.paydirt}/${gameState.bucketCapacity}`;
+    hudGold.innerText = `Gold: ${gameState.gold}`;
+    hudMoney.innerText = `Money: $${gameState.money}`;
 
     //Disable scoop if bucket is full
-    if (paydirt >= bucketCapacity) {
+    if (gameState.paydirt >= gameState.bucketCapacity) {
         statusDiv.innerText = "Bucket is full! Pan or upgrade to scoop more.";
     }
 
-    disableButton(scoopBtn, paydirt >= bucketCapacity);
-    disableButton(panBtn, paydirt === 0);
-    disableButton(sellBtn, gold === 0);
+    disableButton(scoopBtn, gameState.paydirt >= gameState.bucketCapacity);
+    disableButton(panBtn, gameState.paydirt === 0);
+    disableButton(sellBtn, gameState.gold === 0);
 }
 
 function showMessage(msg: string) {
     statusDiv.innerText = msg;
 }
 
-scoopBtn.addEventListener("click", () => {
+scoopBtn.addEventListener("click", (event) => {
     const result = scoop();
     updateHUD();
     if (!result.full) {
-        showMessage(`Scooped ${shovelEfficiency} paydirt`)
+        showMessage(`Scooped ${gameState.shovelEfficiency} paydirt`);
+        const rect = scoopBtn.getBoundingClientRect();
+        showFloatingText(gameState.shovelEfficiency, rect.x, rect.y);
     }
 })
 
@@ -47,12 +51,16 @@ panBtn.addEventListener("click", () => {
     const { paydirt, gold } = pan();
     updateHUD();
     showMessage(`Panned gold! Paydirt: ${paydirt}, Gold: ${gold}`);
+    const rect = panBtn.getBoundingClientRect();
+    showFloatingText(1, rect.x - 50, rect.y);
 })
 
 sellBtn.addEventListener("click", () => {
     const money = sell();
     updateHUD();
     showMessage(`Sold gold! Money: $${money}`);
+    const rect = sellBtn.getBoundingClientRect();
+    showFloatingText(money, rect.x, rect.y);
 })
 
 // Disable Button Function
@@ -69,3 +77,7 @@ function disableButton(button: HTMLImageElement, disabled: boolean) {
 
 // Initialize HUD on page load.
 updateHUD();
+
+document.addEventListener("DOMContentLoaded", () => {
+    initUpgradePanel();
+})

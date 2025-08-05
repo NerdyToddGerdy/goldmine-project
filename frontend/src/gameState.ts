@@ -1,33 +1,50 @@
 // Current Resources
-export let paydirt = 0;
-export let gold = 0;
-export let money = 0;
+// export let paydirt = 0;
+// export let gold = 0;
+// export let money = 0;
+//
+// // Player Equipment
+// export let bucketCapacity = 10; // Max paydirt bucket can hold
+// export let shovelEfficiency = 1; // Paydirt scooped per click
 
-// Player Equipment
-export let bucketCapacity = 10; // Max paydirt bucket can hold
-export let shovelEfficiency = 1; // Paydirt scooped per click
+export const gameState = {
+    paydirt: 0,
+    gold: 0,
+    money: 0,
+    bucketCapacity: 10,
+    shovelEfficiency: 1,
+}
 
 
 /**
  * @returns the amount of paydirt after scooping dirt
  */
 export function scoop() {
-    if (paydirt + shovelEfficiency > bucketCapacity) {
-        return { bucketCapacity, full: true}
+    if (gameState.paydirt + gameState.shovelEfficiency > gameState.bucketCapacity) {
+        return {
+            paydirt: gameState.bucketCapacity,
+            full: true
+        }
     }
-    paydirt += shovelEfficiency;
-    return { paydirt, full: false}
+    gameState.paydirt += gameState.shovelEfficiency;
+    return {
+        paydirt: gameState.paydirt,
+        full: false
+    }
 }
 
 /**
  * @returns the amount of gold you get from panning
  */
 export function pan() {
-    if (paydirt > 0) {
-        paydirt -= 1;
-        gold += 1;
+    if (gameState.paydirt > 0) {
+        gameState.paydirt -= 1;
+        gameState.gold += 1;
     }
-    return {paydirt, gold}
+    return {
+        paydirt: gameState.paydirt,
+        gold: gameState.gold
+    }
 }
 
 /**
@@ -35,17 +52,17 @@ export function pan() {
  */
 export function sell() {
     // TODO: Add random sell value within range (range can be upgraded later)
-    if (gold > 0) {
-        money += gold * 10;
-        gold = 0;
+    if (gameState.gold > 0) {
+        gameState.money += gameState.gold * 10;
+        gameState.gold = 0;
     }
-    return money;
+    return gameState.money;
 }
 
 export function upgradeBucket(newCapacity: number) {
-    bucketCapacity = newCapacity;
+    gameState.bucketCapacity = newCapacity;
 }
 
 export function upgradeShovel(newEfficiency: number) {
-    shovelEfficiency = newEfficiency;
+    gameState.shovelEfficiency = newEfficiency;
 }

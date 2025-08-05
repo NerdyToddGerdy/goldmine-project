@@ -8,6 +8,7 @@
 </head>
 <body>
     <div id="game-container">
+        <div id="floating-feedback"></div>
         <!-- Background Stream -->
         <img src="assets/stream.png" id="background" alt="" />
 
@@ -23,7 +24,25 @@
             <span id="hud-money">Money: 0</span>
         </div>
 
+        <!-- Upgrade Shop Panel -->
+        <div id = "upgrades-panel" class="hidden">
+            <h2>Upgrades</h2>
+
+            <div class="upgrade-item">
+                <span id="bucket-info"></span>
+                <button id="buy-bucket">Upgrade Bucket</button>
+            </div>
+            <div class="upgrade-item">
+                <span id="shovel-info"></span>
+                <button id="buy-shovel">Upgrade Shovel</button>
+            </div>
+
+            <button id="close-upgrades">Close</button>
+        </div>
+
         <div id="status"></div>
+        <img id="open-upgrades" src="assets/buttons/upgrades.png" alt="upgrades" />
+
     </div>
     <script type="module" src="src/index.ts"></script>
 </body>
