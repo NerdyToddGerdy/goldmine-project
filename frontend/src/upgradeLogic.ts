@@ -26,7 +26,7 @@ export function purchaseUpgrade(type: "bucket" | "shovel" | "pan") {
             upgrade.effect = gameState.shovelEfficiency;
         } else if (type === "pan") {
             // TODO: the button is not clickable
-            // TODO: the close button for the Updgrades is not styled.
+            // TODO: the close button for the Upgrades is not styled.
             // TODO: figure out how to not highlight the background.
             gameState.panQuality += 0.2;
             upgrade.effect += gameState.panQuality; // +20 % yield each upgrade
