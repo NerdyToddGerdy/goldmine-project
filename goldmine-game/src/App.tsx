@@ -1,27 +1,18 @@
 import './App.css'
+import {Controls} from "./components/Controls.tsx";
+import {HUD} from "./components/HUD.tsx";
 
 function App() {
 
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-100">
-          <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/70 backdrop-blur">
-            <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-              <h1 className="font-arcade text-xs sm:text-sm">Gold Mine Tycoon</h1>
-              <span className="text-xs text-slate-400">Phase 1 • MVP</span>
-            </div>
-          </header>
-
-          <main className="mx-auto max-w-5xl px-4 py-10">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8">
-              <h2 className="mb-2 text-xl font-semibold">Hello, Miner ⛏️</h2>
-              <p className="text-slate-300">Vite + TS + Tailwind is live.</p>
-            </div>
-          </main>
-
-          <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-400">
-            Built with Vite • Tailwind
-          </footer>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100">
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <h1 className="text-3xl font-bold">Gold Mine Tycoon</h1>
+        <Controls />
+        <HUD />
+        {/* Game UI continues here... */}
         </div>
+    </div>
     );
 }
 
