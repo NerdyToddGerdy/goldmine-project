@@ -11,3 +11,28 @@ poetry.lock
 
 lambda/build/
 lambda/requirements.txt
+
+# --- Node / JS ---
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+dist/
+.build/
+.tmp/
+.temp/
+
+# --- Vite/React/TypeScript ---
+.vite/
+*.tsbuildinfo
+
+# --- Env / Secrets ---
+.env.*.local
+!.env.example
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+Thumbs.db
