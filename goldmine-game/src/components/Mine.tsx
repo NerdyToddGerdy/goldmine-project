@@ -1,0 +1,176 @@
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { ProgressBar } from "./ui";
+import { formatNumber } from "../utils/format";
+
+export function Mine() {
+    const bucketFilled = useGameStore((s) => s.bucketFilled);
+    const panFilled = useGameStore((s) => s.panFilled);
+    const gold = useGameStore((s) => s.gold);
+    const money = useGameStore((s) => s.money);
+    const scoopPower = useGameStore((s) => s.scoopPower);
+    const sluicePower = useGameStore((s) => s.sluicePower);
+    const panPower = useGameStore((s) => s.panPower);
+    const unlockedPanning = useGameStore((s) => s.unlockedPanning);
+    const unlockedTown = useGameStore((s) => s.unlockedTown);
+    const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
+    const shovels = useGameStore((s) => s.shovels);
+    const pans = useGameStore((s) => s.pans);
+    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
+    const separatorWorkers = useGameStore((s) => s.separatorWorkers);
+    const sluiceGear = useGameStore((s) => s.sluiceGear);
+    const separatorGear = useGameStore((s) => s.separatorGear);
+
+    const hasFurnace = useGameStore((s) => s.hasFurnace);
+
+    const scoopDirt = () => gameStore.getState().scoopDirt();
+    const emptyBucket = () => gameStore.getState().emptyBucket();
+    const panForGold = () => gameStore.getState().panForGold();
+    const sellGold = () => gameStore.getState().sellGold();
+
+    // Manual actions now benefit from gear upgrades
+    let extractionRate = BASE_EXTRACTION;
+    extractionRate += sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * sluiceGear;
+    extractionRate += separatorWorkers * UPGRADES.separatorWorker.extractionBonus * separatorGear;
+
+    const goldPerPan = panPower * extractionRate;
+    const effectiveSluicePower = hasSluiceBox ? sluicePower * sluiceGear : 1;
+    const bucketToPanel = bucketFilled * effectiveSluicePower;
+
+    const bucketIsFull = bucketFilled >= BUCKET_CAPACITY;
+    const panIsFull = panFilled >= PAN_CAPACITY;
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-amber-900">⛏️ The Mine</h2>
+
+            {/* Manual Actions */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-amber-800">Actions</h3>
+
+                {/* Bucket Section - Combined UI */}
+                <div className="p-4 bg-white border-2 border-amber-300 rounded-xl space-y-3">
+                    {/* Bucket Progress Bar */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-amber-900">🪣 Bucket</span>
+                            <span className="text-sm font-semibold text-amber-700">
+                                {bucketFilled.toFixed(1)} / {BUCKET_CAPACITY}
+                            </span>
+                        </div>
+                        <ProgressBar value={bucketFilled} max={BUCKET_CAPACITY} color="amber" />
+                        {bucketIsFull && (
+                            <div className="text-xs text-amber-700 mt-2 text-center font-semibold">
+                                Bucket is full! Empty it to continue scooping.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Scoop Button */}
+                    <button
+                        onClick={scoopDirt}
+                        disabled={bucketIsFull}
+                        className="w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        🪨 Scoop Dirt (+{scoopPower.toFixed(1)})
+                    </button>
+
+                    {/* Empty Bucket Button */}
+                    {unlockedPanning && (
+                        <button
+                            onClick={emptyBucket}
+                            disabled={bucketFilled === 0 || panIsFull}
+                            className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {hasSluiceBox
+                                ? `🚿 Empty Bucket → Pan (+${bucketToPanel.toFixed(1)})`
+                                : `🪣 Empty Bucket → Pan (+${bucketFilled.toFixed(1)})`
+                            }
+                        </button>
+                    )}
+                </div>
+
+                {/* Pan/Sluice Section */}
+                {unlockedPanning && (
+                    <div className="p-4 bg-white border-2 border-yellow-300 rounded-xl space-y-3">
+                        {/* Pan Progress Bar */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-yellow-900">
+                                    {hasSluiceBox ? '🚿 Sluice Box' : '🥘 Pan'}
+                                </span>
+                                <span className="text-sm font-semibold text-yellow-700">
+                                    {panFilled.toFixed(1)} / {PAN_CAPACITY}
+                                </span>
+                            </div>
+                            <ProgressBar value={panFilled} max={PAN_CAPACITY} color="yellow" />
+                            {panIsFull && (
+                                <div className="text-xs text-yellow-700 mt-2 text-center font-semibold">
+                                    Pan is full! Start panning to make room.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pan for Gold Button */}
+                        <button
+                            onClick={panForGold}
+                            disabled={panFilled < 1}
+                            className="w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
+                        </button>
+                    </div>
+                )}
+
+                {/* Sell Gold */}
+                {gold > 0 && (
+                    <div className="p-4 bg-white border-2 border-green-300 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-green-900">💰 Gold</span>
+                            <span className="text-sm font-semibold text-green-700">{formatNumber(gold)} oz</span>
+                        </div>
+                        <button
+                            onClick={sellGold}
+                            className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                        >
+                            {hasFurnace
+                                ? `💵 Sell Gold (${((1 - SMELTING_FEE_PERCENT) * 100).toFixed(0)}% after fee)`
+                                : '💵 Sell Gold (no fee)'
+                            }
+                        </button>
+                    </div>
+                )}
+
+                {/* Sluice Box unlock message */}
+                {!hasSluiceBox && money < EQUIPMENT.sluiceBox.cost && unlockedPanning && (
+                    <div className="text-sm text-blue-700 italic text-center p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                        💡 Save up ${EQUIPMENT.sluiceBox.cost} in Town to unlock the Sluice Box - it converts bucket dirt to paydirt for better yields!
+                    </div>
+                )}
+
+                {!unlockedPanning && bucketFilled < 2 && (
+                    <div className="text-sm text-amber-700 italic text-center">
+                        Scoop bucket to 2 to unlock panning!
+                    </div>
+                )}
+            </div>
+
+            {/* Automation Status */}
+            {(shovels > 0 || pans > 0) && (
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                    <h3 className="text-sm font-semibold text-amber-800 mb-2">Automation</h3>
+                    <div className="text-sm space-y-1 text-amber-700">
+                        {shovels > 0 && <div>🪨 {shovels} Miners (auto-digging)</div>}
+                        {pans > 0 && <div>✨ {pans} Prospectors (auto-panning)</div>}
+                    </div>
+                </div>
+            )}
+
+            {/* Unlock message */}
+            {!unlockedTown && gold < 0.5 && unlockedPanning && (
+                <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
+                    Get 0.5 gold to unlock Town tab!
+                </div>
+            )}
+        </div>
+    );
+}

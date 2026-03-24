@@ -1,4 +1,4 @@
-import {useGameStore} from "../store/gameStore.ts";
+import {gameStore, useGameStore} from "../store/gameStore.ts";
 import {useEffect, useRef} from "react";
 
 /**
@@ -7,7 +7,6 @@ import {useEffect, useRef} from "react";
 * because we only request a frame when mounted and cancel on unmount.
 */
 export function useGameLoop() {
-    const step = useGameStore((s) => s.stepSimulation)
     const isPaused = useGameStore((s) => s.isPaused)
     const rafRef = useRef<number | null>(null)
     const lastRef = useRef<number | null>(null)
@@ -20,7 +19,8 @@ export function useGameLoop() {
             const dt = now - lastRef.current
             lastRef.current = now
 
-            step(dt)
+            // Call stepSimulation directly from the store
+            gameStore.getState().stepSimulation(dt)
             rafRef.current = requestAnimationFrame(frame)
         }
 
@@ -33,7 +33,7 @@ export function useGameLoop() {
             rafRef.current = null
             lastRef.current = null
         }
-    }, [step])
+    }, [])
 
     // When pausing/resuming, we want to reset the last timestamp so we don;'t get a huge dt sp
     useEffect(() => {
