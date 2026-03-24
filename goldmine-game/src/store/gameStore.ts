@@ -766,37 +766,29 @@ export const gameStore = createStore<GameState>()(
                 } else if (upgrade === 'sluiceBox') {
                     const cost = EQUIPMENT.sluiceBox.cost;
                     if (s.money >= cost && !s.hasSluiceBox) {
-                        set({
-                            money: s.money - cost,
-                            hasSluiceBox: true,
-                        });
+                        set({ money: s.money - cost, hasSluiceBox: true });
+                        get().addToast('🚿 Sluice Box purchased! Sluice Operators now available.', 'info');
                         return true;
                     }
                 } else if (upgrade === 'magneticSeparator') {
                     const cost = EQUIPMENT.magneticSeparator.cost;
                     if (s.money >= cost && !s.hasMagneticSeparator) {
-                        set({
-                            money: s.money - cost,
-                            hasMagneticSeparator: true,
-                        });
+                        set({ money: s.money - cost, hasMagneticSeparator: true });
+                        get().addToast('🧲 Magnetic Separator purchased! Separator Technicians now available.', 'info');
                         return true;
                     }
                 } else if (upgrade === 'oven') {
                     const cost = EQUIPMENT.oven.cost;
                     if (s.money >= cost && !s.hasOven) {
-                        set({
-                            money: s.money - cost,
-                            hasOven: true,
-                        });
+                        set({ money: s.money - cost, hasOven: true });
+                        get().addToast('🔥 Oven purchased! Oven Operators now available.', 'info');
                         return true;
                     }
                 } else if (upgrade === 'furnace') {
                     const cost = EQUIPMENT.furnace.cost;
                     if (s.money >= cost && !s.hasFurnace) {
-                        set({
-                            money: s.money - cost,
-                            hasFurnace: true,
-                        });
+                        set({ money: s.money - cost, hasFurnace: true });
+                        get().addToast('⚗️ Furnace purchased! Furnace Operators now available. Sell fee removed.', 'info');
                         return true;
                     }
                 } else if (upgrade === 'bankerWorker') {
