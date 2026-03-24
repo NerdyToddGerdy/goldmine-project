@@ -1,7 +1,7 @@
 // Central place to define what we persist and how to migrate between versions.
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 11 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 12 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -282,13 +282,19 @@ export type SaveV11 = Omit<SaveV10, 'version'> & {
     darkMode: boolean;
 };
 
+// v12: Removed dead fields hasBankCounter + unlockedShop; added unlockedBanking (Phase 2 gate)
+export type SaveV12 = Omit<SaveV11, 'version' | 'hasBankCounter' | 'unlockedShop'> & {
+    version: 12;
+    unlockedBanking: boolean;
+};
+
 // Adding latest type alias
-export type LatestSave = SaveV11;
+export type LatestSave = SaveV12;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV11();
+        return defaultSaveV12();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -686,10 +692,55 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 11);
     }
 
-    // Already v11, ensure fields exist
-    const s = raw as Partial<SaveV11>;
+    if (fromVersion < 12) {
+        // v11 → v12: drop hasBankCounter + unlockedShop, add unlockedBanking
+        const s = raw as Partial<SaveV11>;
+        return migrateToLatest({
+            version: 12,
+            tickCount: s.tickCount ?? 0,
+            timeScale: s.timeScale ?? 1,
+            location: s.location ?? 'mine',
+            bucketFilled: s.bucketFilled ?? 0,
+            panFilled: s.panFilled ?? 0,
+            dirt: s.dirt ?? 0,
+            paydirt: s.paydirt ?? 0,
+            gold: s.gold ?? 0,
+            money: s.money ?? 0,
+            investmentSafeBonds: s.investmentSafeBonds ?? 0,
+            investmentStocks: s.investmentStocks ?? 0,
+            investmentHighRisk: s.investmentHighRisk ?? 0,
+            lastRiskCheck: s.lastRiskCheck ?? 0,
+            shovels: s.shovels ?? 0,
+            pans: s.pans ?? 0,
+            carts: s.carts ?? 0,
+            sluiceWorkers: s.sluiceWorkers ?? 0,
+            separatorWorkers: s.separatorWorkers ?? 0,
+            ovenWorkers: s.ovenWorkers ?? 0,
+            furnaceWorkers: s.furnaceWorkers ?? 0,
+            bankerWorkers: s.bankerWorkers ?? 0,
+            hasSluiceBox: s.hasSluiceBox ?? false,
+            hasMagneticSeparator: s.hasMagneticSeparator ?? false,
+            hasOven: s.hasOven ?? false,
+            hasFurnace: s.hasFurnace ?? false,
+            scoopPower: s.scoopPower ?? 1,
+            sluicePower: s.sluicePower ?? 1,
+            panPower: s.panPower ?? 1,
+            sluiceGear: s.sluiceGear ?? 1,
+            separatorGear: s.separatorGear ?? 1,
+            ovenGear: s.ovenGear ?? 1,
+            furnaceGear: s.furnaceGear ?? 1,
+            unlockedPanning: s.unlockedPanning ?? false,
+            unlockedTown: s.unlockedTown ?? false,
+            unlockedBanking: false,
+            timePlayed: s.timePlayed ?? 0,
+            darkMode: s.darkMode ?? false,
+        }, 12);
+    }
+
+    // Already v12, ensure fields exist
+    const s = raw as Partial<SaveV12>;
     return {
-        version: 11,
+        version: 12,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -715,7 +766,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         hasMagneticSeparator: s.hasMagneticSeparator ?? false,
         hasOven: s.hasOven ?? false,
         hasFurnace: s.hasFurnace ?? false,
-        hasBankCounter: s.hasBankCounter ?? false,
         scoopPower: s.scoopPower ?? 1,
         sluicePower: s.sluicePower ?? 1,
         panPower: s.panPower ?? 1,
@@ -725,7 +775,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceGear: s.furnaceGear ?? 1,
         unlockedPanning: s.unlockedPanning ?? false,
         unlockedTown: s.unlockedTown ?? false,
-        unlockedShop: s.unlockedShop ?? false,
+        unlockedBanking: s.unlockedBanking ?? false,
         timePlayed: s.timePlayed ?? 0,
         darkMode: s.darkMode ?? false,
     };
@@ -1009,5 +1059,14 @@ export function defaultSaveV11(): SaveV11 {
         version: 11,
         timePlayed: 0,
         darkMode: false,
+    };
+}
+
+export function defaultSaveV12(): SaveV12 {
+    const { hasBankCounter: _hbc, unlockedShop: _us, version: _v, ...rest } = defaultSaveV11();
+    return {
+        ...rest,
+        version: 12,
+        unlockedBanking: false,
     };
 }

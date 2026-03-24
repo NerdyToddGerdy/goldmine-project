@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV11, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV12, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -101,7 +101,6 @@ export type GameState = {
     hasMagneticSeparator: boolean // unlocks separator workers
     hasOven: boolean // unlocks oven workers
     hasFurnace: boolean // unlocks furnace workers
-    hasBankCounter: boolean // unlocks banker workers
 
     // Manual action power
     scoopPower: number // dirt per manual scoop
@@ -117,7 +116,7 @@ export type GameState = {
     // Unlock flags
     unlockedPanning: boolean
     unlockedTown: boolean
-    unlockedShop: boolean
+    unlockedBanking: boolean // Phase 2: unlocked after first prestige
 
     // Settings (persisted)
     timePlayed: number // total ticks played
@@ -295,7 +294,6 @@ export const gameStore = createStore<GameState>()(
             hasMagneticSeparator: false,
             hasOven: false,
             hasFurnace: false,
-            hasBankCounter: false,
 
             // Manual powers
             scoopPower: 1,
@@ -311,7 +309,7 @@ export const gameStore = createStore<GameState>()(
             // Unlocks
             unlockedPanning: false,
             unlockedTown: false,
-            unlockedShop: false,
+            unlockedBanking: false,
 
             // Settings
             timePlayed: 0,
@@ -354,7 +352,6 @@ export const gameStore = createStore<GameState>()(
                     hasMagneticSeparator: false,
                     hasOven: false,
                     hasFurnace: false,
-                    hasBankCounter: false,
                     scoopPower: 1,
                     sluicePower: 1,
                     panPower: 1,
@@ -364,7 +361,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
-                    unlockedShop: false,
+                    unlockedBanking: false,
                     _accumulator: 0,
                 }))
             },
@@ -399,7 +396,6 @@ export const gameStore = createStore<GameState>()(
                     hasMagneticSeparator: false,
                     hasOven: false,
                     hasFurnace: false,
-                    hasBankCounter: false,
                     scoopPower: 1,
                     sluicePower: 1,
                     panPower: 1,
@@ -409,7 +405,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
-                    unlockedShop: false,
+                    unlockedBanking: false,
                     timePlayed: 0,
                     darkMode: false,
                     _accumulator: 0,
@@ -447,7 +443,6 @@ export const gameStore = createStore<GameState>()(
                     hasMagneticSeparator: s.hasMagneticSeparator,
                     hasOven: s.hasOven,
                     hasFurnace: s.hasFurnace,
-                    hasBankCounter: s.hasBankCounter,
                     scoopPower: s.scoopPower,
                     sluicePower: s.sluicePower,
                     panPower: s.panPower,
@@ -457,7 +452,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: s.furnaceGear,
                     unlockedPanning: s.unlockedPanning,
                     unlockedTown: s.unlockedTown,
-                    unlockedShop: s.unlockedShop,
+                    unlockedBanking: s.unlockedBanking,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                 };
@@ -504,7 +499,6 @@ export const gameStore = createStore<GameState>()(
                     hasMagneticSeparator: migrated.hasMagneticSeparator,
                     hasOven: migrated.hasOven,
                     hasFurnace: migrated.hasFurnace,
-                    hasBankCounter: migrated.hasBankCounter,
                     scoopPower: migrated.scoopPower,
                     sluicePower: migrated.sluicePower,
                     panPower: migrated.panPower,
@@ -514,7 +508,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: migrated.furnaceGear,
                     unlockedPanning: migrated.unlockedPanning,
                     unlockedTown: migrated.unlockedTown,
-                    unlockedShop: migrated.unlockedShop,
+                    unlockedBanking: migrated.unlockedBanking,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
                 }));
@@ -626,10 +620,6 @@ export const gameStore = createStore<GameState>()(
 
             travelTo: (location: 'mine' | 'town') => {
                 set({ location });
-                // Unlock shop on first visit to town
-                if (location === 'town') {
-                    set((_s) => ({ unlockedShop: true }));
-                }
             },
 
             sellGold: () => {
@@ -1134,7 +1124,6 @@ export const gameStore = createStore<GameState>()(
             hasMagneticSeparator: state.hasMagneticSeparator,
             hasOven: state.hasOven,
             hasFurnace: state.hasFurnace,
-            hasBankCounter: state.hasBankCounter,
             scoopPower: state.scoopPower,
             sluicePower: state.sluicePower,
             panPower: state.panPower,
@@ -1144,7 +1133,7 @@ export const gameStore = createStore<GameState>()(
             furnaceGear: state.furnaceGear,
             unlockedPanning: state.unlockedPanning,
             unlockedTown: state.unlockedTown,
-            unlockedShop: state.unlockedShop,
+            unlockedBanking: state.unlockedBanking,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
         }),
@@ -1153,7 +1142,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV11();
+                return defaultSaveV12();
             }
         },
         onRehydrateStorage: ()=> (state) => {

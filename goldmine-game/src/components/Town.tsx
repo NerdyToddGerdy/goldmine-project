@@ -7,7 +7,7 @@ type TownTab = 'banking' | 'shop' | 'laborOffice';
 type ShopTab = 'gear' | 'equipment';
 
 export function Town() {
-    const [activeTab, setActiveTab] = useState<TownTab>('banking');
+    const [activeTab, setActiveTab] = useState<TownTab>('shop');
     const [shopTab, setShopTab] = useState<ShopTab>('gear');
 
     const money = useGameStore((s) => s.money);
@@ -24,6 +24,7 @@ export function Town() {
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const unlockedBanking = useGameStore((s) => s.unlockedBanking);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
@@ -64,14 +65,18 @@ export function Town() {
             {/* Main Tabs */}
             <div className="flex gap-2 border-b-2 border-green-200">
                 <button
-                    onClick={() => setActiveTab('banking')}
+                    onClick={() => unlockedBanking && setActiveTab('banking')}
+                    disabled={!unlockedBanking}
+                    title={unlockedBanking ? undefined : 'Investments unlock after first prestige'}
                     className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
                         activeTab === 'banking'
                             ? 'bg-green-100 text-green-900 border-2 border-b-0 border-green-200'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80'
+                            : unlockedBanking
+                                ? 'bg-white/50 text-green-700 hover:bg-white/80'
+                                : 'bg-white/30 text-gray-400 cursor-not-allowed'
                     }`}
                 >
-                    🏦 Banking
+                    🏦 Banking {!unlockedBanking && '🔒'}
                 </button>
                 <button
                     onClick={() => setActiveTab('shop')}
@@ -98,7 +103,13 @@ export function Town() {
             {/* Tab Content */}
             <div>
                 {activeTab === 'banking' && (
-                    <Banking />
+                    unlockedBanking
+                        ? <Banking />
+                        : (
+                            <div className="p-6 text-center text-gray-500 italic">
+                                🔒 Investments unlock after your first prestige.
+                            </div>
+                        )
                 )}
 
                 {activeTab === 'shop' && (
