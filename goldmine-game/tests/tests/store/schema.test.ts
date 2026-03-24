@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { migrateToLatest, defaultSaveV10 } from "../../../src/store/schema";
+import { migrateToLatest, defaultSaveV11 } from "../../../src/store/schema";
 
 describe("migrateToLatest", () => {
     it("migrates v1 dirtyGold -> paydirt", () => {
@@ -11,7 +11,7 @@ describe("migrateToLatest", () => {
             dirtyGold: 9,
         };
         const out = migrateToLatest(v1, 1);
-        expect(out.version).toBe(10);
+        expect(out.version).toBe(11);
         expect(out.tickCount).toBe(7);
         expect(out.timeScale).toBe(2);
         expect(out.gold).toBe(3);
@@ -20,7 +20,7 @@ describe("migrateToLatest", () => {
 
     it("handles empty input with defaults", () => {
         const out = migrateToLatest(undefined, undefined);
-        expect(out).toEqual(defaultSaveV10());
+        expect(out).toEqual(defaultSaveV11());
     });
 
     it("passes through v2 shape filling defaults", () => {

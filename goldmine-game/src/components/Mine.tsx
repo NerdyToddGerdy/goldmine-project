@@ -1,5 +1,6 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { ProgressBar } from "./ui";
+import { formatNumber } from "../utils/format";
 
 export function Mine() {
     const bucketFilled = useGameStore((s) => s.bucketFilled);
@@ -19,9 +20,12 @@ export function Mine() {
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
 
+    const hasFurnace = useGameStore((s) => s.hasFurnace);
+
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
     const panForGold = () => gameStore.getState().panForGold();
+    const sellGold = () => gameStore.getState().sellGold();
 
     // Manual actions now benefit from gear upgrades
     let extractionRate = BASE_EXTRACTION;
@@ -113,6 +117,25 @@ export function Mine() {
                             className="w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
+                        </button>
+                    </div>
+                )}
+
+                {/* Sell Gold */}
+                {gold > 0 && (
+                    <div className="p-4 bg-white border-2 border-green-300 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-green-900">💰 Gold</span>
+                            <span className="text-sm font-semibold text-green-700">{formatNumber(gold)} oz</span>
+                        </div>
+                        <button
+                            onClick={sellGold}
+                            className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                        >
+                            {hasFurnace
+                                ? `💵 Sell Gold (${((1 - SMELTING_FEE_PERCENT) * 100).toFixed(0)}% after fee)`
+                                : '💵 Sell Gold (no fee)'
+                            }
                         </button>
                     </div>
                 )}

@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
 import { UpgradeButton, WorkerRow } from "./ui";
@@ -34,8 +34,10 @@ export function Town() {
 
     const shovelCost = getUpgradeCost('shovel', shovels);
     const panCost = getUpgradeCost('pan', pans);
-    const betterShovelCost = getUpgradeCost('betterShovel', scoopPower - 1);
-    const betterPanCost = getUpgradeCost('betterPan', panPower - 1);
+    const shovelTier = scoopPower - 1; // 0 = base, 5 = max
+    const panTier = panPower - 1;
+    const betterShovelCost = shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0;
+    const betterPanCost = panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
     const betterSeparatorCost = getUpgradeCost('betterSeparator', separatorGear - 1);
     const betterOvenCost = getUpgradeCost('betterOven', ovenGear - 1);
@@ -130,21 +132,27 @@ export function Town() {
                             {shopTab === 'gear' && (
                             <>
                                 <UpgradeButton
-                                    name="Better Shovel"
-                                    description={`Manual scoop power: ${scoopPower} → ${scoopPower + 1}`}
+                                    name="Shovel Upgrade"
+                                    description={shovelTier < MAX_TOOL_TIER
+                                        ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click`
+                                        : 'Maximum shovel tier reached'}
                                     cost={betterShovelCost}
-                                    currentLevel={scoopPower - 1}
-                                    canAfford={money >= betterShovelCost}
+                                    currentLevel={shovelTier}
+                                    maxLevel={MAX_TOOL_TIER}
+                                    canAfford={money >= betterShovelCost && shovelTier < MAX_TOOL_TIER}
                                     onBuy={() => buyUpgrade('betterShovel')}
                                     icon="⛏️"
                                 />
 
                                 <UpgradeButton
-                                    name="Better Pan"
-                                    description={`Manual pan power: ${panPower} → ${panPower + 1}`}
+                                    name="Pan Upgrade"
+                                    description={panTier < MAX_TOOL_TIER
+                                        ? `Pan power: ${panPower} → ${panPower + 1} gold/pan`
+                                        : 'Maximum pan tier reached'}
                                     cost={betterPanCost}
-                                    currentLevel={panPower - 1}
-                                    canAfford={money >= betterPanCost}
+                                    currentLevel={panTier}
+                                    maxLevel={MAX_TOOL_TIER}
+                                    canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
                                     onBuy={() => buyUpgrade('betterPan')}
                                     icon="🥘"
                                 />

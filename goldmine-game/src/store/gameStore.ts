@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV10, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV11, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -116,6 +116,10 @@ export type GameState = {
     unlockedTown: boolean
     unlockedShop: boolean
 
+    // Settings (persisted)
+    timePlayed: number // total ticks played
+    darkMode: boolean
+
     // Toasts (transient, not persisted)
     toasts: Toast[]
 
@@ -151,6 +155,9 @@ export type GameState = {
     // Toasts
     addToast: (message: string, type?: ToastType) => void
     dismissToast: (id: number) => void
+
+    // Settings
+    setDarkMode: (dark: boolean) => void
 }
 
 // Upgrade costs and definitions
@@ -183,6 +190,11 @@ export const EQUIPMENT = {
 // Constants
 export const SMELTING_FEE_PERCENT = 0.15; // 15% fee when selling gold
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
+
+// Tool upgrade tiers (5 tiers, fixed costs)
+export const MAX_TOOL_TIER = 5;
+export const SHOVEL_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
+export const PAN_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 
 // Wage system - base wages per second
 export const WORKER_WAGES = {
@@ -298,6 +310,10 @@ export const gameStore = createStore<GameState>()(
             unlockedTown: false,
             unlockedShop: false,
 
+            // Settings
+            timePlayed: 0,
+            darkMode: false,
+
             _accumulator: 0,
 
             pause: () => set({ isPaused: true}),
@@ -391,8 +407,11 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     unlockedShop: false,
+                    timePlayed: 0,
+                    darkMode: false,
                     _accumulator: 0,
-                })
+                });
+                document.documentElement.classList.remove('dark');
             },
 
             exportSave: () => {
@@ -436,6 +455,8 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: s.unlockedPanning,
                     unlockedTown: s.unlockedTown,
                     unlockedShop: s.unlockedShop,
+                    timePlayed: s.timePlayed,
+                    darkMode: s.darkMode,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -491,7 +512,15 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: migrated.unlockedPanning,
                     unlockedTown: migrated.unlockedTown,
                     unlockedShop: migrated.unlockedShop,
+                    timePlayed: migrated.timePlayed,
+                    darkMode: migrated.darkMode,
                 }));
+                // Apply darkMode immediately
+                if (migrated.darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             },
 
             stepSimulation: (dtMs: number) => {
@@ -564,6 +593,7 @@ export const gameStore = createStore<GameState>()(
             },
 
             panForGold: () => {
+                let townJustUnlocked = false;
                 set((s) => {
                     if (s.panFilled < 1) return s; // Need material in the pan
 
@@ -578,6 +608,7 @@ export const gameStore = createStore<GameState>()(
 
                     // Unlock town after getting some gold
                     const newTownUnlock = s.gold + baseGold >= 0.5 && !s.unlockedTown;
+                    if (newTownUnlock) townJustUnlocked = true;
 
                     return {
                         panFilled: s.panFilled - materialUsed,
@@ -585,6 +616,9 @@ export const gameStore = createStore<GameState>()(
                         unlockedTown: s.unlockedTown || newTownUnlock,
                     };
                 });
+                if (townJustUnlocked) {
+                    get().addToast('🏘️ Town unlocked! Visit to buy upgrades.', 'info');
+                }
             },
 
             travelTo: (location: 'mine' | 'town') => {
@@ -599,9 +633,9 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.gold < 0.01) return s;
 
-                    // Manual selling uses base value with smelting fee
                     const baseValue = s.gold;
-                    const fee = baseValue * SMELTING_FEE_PERCENT;
+                    // Smelting fee only applies once Furnace is unlocked
+                    const fee = s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                     const finalValue = baseValue - fee;
 
                     return {
@@ -669,7 +703,9 @@ export const gameStore = createStore<GameState>()(
                         return true;
                     }
                 } else if (upgrade === 'betterShovel') {
-                    const cost = getUpgradeCost('betterShovel', s.scoopPower - 1);
+                    const tier = s.scoopPower - 1; // 0-indexed current tier
+                    if (tier >= MAX_TOOL_TIER) return false;
+                    const cost = SHOVEL_TIER_COSTS[tier];
                     if (s.money >= cost) {
                         set({
                             money: s.money - cost,
@@ -678,7 +714,9 @@ export const gameStore = createStore<GameState>()(
                         return true;
                     }
                 } else if (upgrade === 'betterPan') {
-                    const cost = getUpgradeCost('betterPan', s.panPower - 1);
+                    const tier = s.panPower - 1; // 0-indexed current tier
+                    if (tier >= MAX_TOOL_TIER) return false;
+                    const cost = PAN_TIER_COSTS[tier];
                     if (s.money >= cost) {
                         set({
                             money: s.money - cost,
@@ -893,8 +931,20 @@ export const gameStore = createStore<GameState>()(
                 set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
             },
 
+            setDarkMode: (dark: boolean) => {
+                set({ darkMode: dark });
+                if (dark) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            },
+
             _fixedTick: () => {
                 set((s) => {
+                    // Increment time played each tick
+                    const newTimePlayed = s.timePlayed + 1;
+
                     // Check if we can afford to pay workers this tick
                     const payrollPerTick = getTotalPayroll(s) / 60;
                     const canAffordWorkers = s.money >= payrollPerTick;
@@ -1038,6 +1088,7 @@ export const gameStore = createStore<GameState>()(
 
                     return {
                         tickCount: s.tickCount + 1,
+                        timePlayed: newTimePlayed,
                         bucketFilled: newBucketFilled,
                         panFilled: newPanFilled,
                         dirt: s.dirt + dirtChange,
@@ -1095,13 +1146,15 @@ export const gameStore = createStore<GameState>()(
             unlockedPanning: state.unlockedPanning,
             unlockedTown: state.unlockedTown,
             unlockedShop: state.unlockedShop,
+            timePlayed: state.timePlayed,
+            darkMode: state.darkMode,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV10();
+                return defaultSaveV11();
             }
         },
         onRehydrateStorage: ()=> (state) => {
@@ -1109,6 +1162,12 @@ export const gameStore = createStore<GameState>()(
             // Ensure transient flags are sensible after load
             state.isPaused = false;
             state._accumulator = 0;
+            // Apply persisted dark mode preference
+            if (state.darkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
         }
     }
     )
