@@ -14,16 +14,28 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV13, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV15, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
 
-// Bucket capacity for manual scooping
+// Bucket capacity for manual scooping (base value)
 export const BUCKET_CAPACITY = 10;
 
-// Pan/Sluice capacity for processing
+// Pan/Sluice capacity for processing (base value)
 export const PAN_CAPACITY = 20;
+
+// Dynamic capacity helpers — use these wherever state is available
+export function getEffectiveBucketCapacity(dustBucketSize: number): number {
+    return BUCKET_CAPACITY + 5 * dustBucketSize;
+}
+export function getEffectivePanCapacity(dustPanCapacity: number): number {
+    return PAN_CAPACITY + 10 * dustPanCapacity;
+}
+// Manual pan click: base 1 unit, +0.5 per panSpeed level
+export function getEffectivePanClickAmount(dustPanSpeed: number): number {
+    return 1 + 0.5 * dustPanSpeed;
+}
 
 // Investment system constants
 export const INVESTMENTS = {
@@ -124,6 +136,15 @@ export type GameState = {
     runMoneyEarned: number  // cumulative money income this run (resets on prestige)
     prestigeCount: number   // total prestiges completed
 
+    // Legacy Dust upgrades (permanent, survive prestige and reset)
+    dustScoopBoost: number  // 0-3: +10% bucket fill speed per level
+    dustPanYield: number    // 0-3: +10% gold extraction per level
+    dustGoldValue: number   // 0-3: +10% sell price per level
+    dustHeadStart: number   // 0-3: begin each run with bonus money
+    dustBucketSize: number  // 0-3: +5 bucket capacity per level
+    dustPanSpeed: number    // 0-3: +20% pan processing rate per level
+    dustPanCapacity: number // 0-3: +10 pan capacity per level
+
     // Settings (persisted)
     timePlayed: number // total ticks played
     darkMode: boolean
@@ -169,6 +190,9 @@ export type GameState = {
 
     // Prestige
     prestige: () => void
+
+    // Legacy Dust shop
+    buyDustUpgrade: (type: 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity') => boolean
 }
 
 // Upgrade costs and definitions
@@ -202,8 +226,14 @@ export const EQUIPMENT = {
 export const SMELTING_FEE_PERCENT = 0.15; // 15% fee when selling gold
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
 
-// Tool upgrade tiers (5 tiers, fixed costs)
-export const MAX_TOOL_TIER = 5;
+// Legacy Dust upgrade shop
+export const DUST_UPGRADE_MAX_LEVEL = 3;
+export const DUST_UPGRADE_COSTS = [5, 15, 40] as const; // cost per level (0→1, 1→2, 2→3)
+export const DUST_HEAD_START_AMOUNTS = [0, 25, 75, 200] as const; // starting money per headStart level
+
+// Tool upgrade tiers (5 tiers, fixed costs) — defined in data/tools.ts
+export { MAX_TOOL_TIER, TOOL_TIERS } from "../data/tools";
+import { MAX_TOOL_TIER } from "../data/tools";
 export const SHOVEL_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 export const PAN_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 
@@ -325,6 +355,15 @@ export const gameStore = createStore<GameState>()(
             runMoneyEarned: 0,
             prestigeCount: 0,
 
+            // Legacy Dust upgrades
+            dustScoopBoost: 0,
+            dustPanYield: 0,
+            dustGoldValue: 0,
+            dustHeadStart: 0,
+            dustBucketSize: 0,
+            dustPanSpeed: 0,
+            dustPanCapacity: 0,
+
             // Settings
             timePlayed: 0,
             darkMode: false,
@@ -349,7 +388,7 @@ export const gameStore = createStore<GameState>()(
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
-                    money: 0,
+                    money: DUST_HEAD_START_AMOUNTS[s.dustHeadStart],
                     investmentSafeBonds: 0,
                     investmentStocks: 0,
                     investmentHighRisk: 0,
@@ -378,6 +417,7 @@ export const gameStore = createStore<GameState>()(
                     unlockedBanking: false,
                     runMoneyEarned: 0,
                     _accumulator: 0,
+                    // dustUpgrades preserved (permanent)
                 }))
             },
             // Hard reset: wipe LocalStorage + restore defaults
@@ -424,6 +464,13 @@ export const gameStore = createStore<GameState>()(
                     legacyDust: 0,
                     runMoneyEarned: 0,
                     prestigeCount: 0,
+                    dustScoopBoost: 0,
+                    dustPanYield: 0,
+                    dustGoldValue: 0,
+                    dustHeadStart: 0,
+                    dustBucketSize: 0,
+                    dustPanSpeed: 0,
+                    dustPanCapacity: 0,
                     timePlayed: 0,
                     darkMode: false,
                     _accumulator: 0,
@@ -474,6 +521,13 @@ export const gameStore = createStore<GameState>()(
                     legacyDust: s.legacyDust,
                     runMoneyEarned: s.runMoneyEarned,
                     prestigeCount: s.prestigeCount,
+                    dustScoopBoost: s.dustScoopBoost,
+                    dustPanYield: s.dustPanYield,
+                    dustGoldValue: s.dustGoldValue,
+                    dustHeadStart: s.dustHeadStart,
+                    dustBucketSize: s.dustBucketSize,
+                    dustPanSpeed: s.dustPanSpeed,
+                    dustPanCapacity: s.dustPanCapacity,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                 };
@@ -533,6 +587,13 @@ export const gameStore = createStore<GameState>()(
                     legacyDust: migrated.legacyDust,
                     runMoneyEarned: migrated.runMoneyEarned,
                     prestigeCount: migrated.prestigeCount,
+                    dustScoopBoost: migrated.dustScoopBoost,
+                    dustPanYield: migrated.dustPanYield,
+                    dustGoldValue: migrated.dustGoldValue,
+                    dustHeadStart: migrated.dustHeadStart,
+                    dustBucketSize: migrated.dustBucketSize,
+                    dustPanSpeed: migrated.dustPanSpeed,
+                    dustPanCapacity: migrated.dustPanCapacity,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
                 }));
@@ -562,11 +623,12 @@ export const gameStore = createStore<GameState>()(
             // Game Actions
             scoopDirt: () => {
                 set((s) => {
+                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize);
                     // Can't scoop if bucket is full
-                    if (s.bucketFilled >= BUCKET_CAPACITY) return s;
+                    if (s.bucketFilled >= bucketCap) return s;
 
-                    const gained = s.scoopPower;
-                    const newFilled = Math.min(s.bucketFilled + gained, BUCKET_CAPACITY);
+                    const gained = s.scoopPower * (1 + 0.1 * s.dustScoopBoost);
+                    const newFilled = Math.min(s.bucketFilled + gained, bucketCap);
 
                     // Unlock panning after bucket gets to 2 or more for the first time
                     const newUnlocks = newFilled >= 2 && !s.unlockedPanning;
@@ -589,7 +651,8 @@ export const gameStore = createStore<GameState>()(
                         : 1;
                     const amountToAdd = s.bucketFilled * effectiveSluicePower;
 
-                    const newPanFilled = Math.min(s.panFilled + amountToAdd, PAN_CAPACITY);
+                    const panCap = getEffectivePanCapacity(s.dustPanCapacity);
+                    const newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
 
                     return {
                         panFilled: newPanFilled,
@@ -618,14 +681,14 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.panFilled < 1) return s; // Need material in the pan
 
-                    const materialUsed = Math.min(s.panFilled, 1);
+                    const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed));
 
                     // Manual panning benefits from gear upgrades
                     let extractionRate = BASE_EXTRACTION;
                     extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                     extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
 
-                    let baseGold = materialUsed * s.panPower * extractionRate;
+                    let baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
 
                     // Unlock town after getting some gold
                     const newTownUnlock = s.gold + baseGold >= 0.5 && !s.unlockedTown;
@@ -653,7 +716,7 @@ export const gameStore = createStore<GameState>()(
                     const baseValue = s.gold;
                     // Smelting fee only applies once Furnace is unlocked
                     const fee = s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
-                    const finalValue = baseValue - fee;
+                    const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
 
                     return {
                         money: s.money + finalValue,
@@ -958,6 +1021,13 @@ export const gameStore = createStore<GameState>()(
                     legacyDust: s.legacyDust + dust,
                     prestigeCount: s.prestigeCount + 1,
                     unlockedBanking: true,
+                    dustScoopBoost: s.dustScoopBoost,
+                    dustPanYield: s.dustPanYield,
+                    dustGoldValue: s.dustGoldValue,
+                    dustHeadStart: s.dustHeadStart,
+                    dustBucketSize: s.dustBucketSize,
+                    dustPanSpeed: s.dustPanSpeed,
+                    dustPanCapacity: s.dustPanCapacity,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                     timeScale: s.timeScale,
@@ -970,7 +1040,7 @@ export const gameStore = createStore<GameState>()(
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
-                    money: 0,
+                    money: DUST_HEAD_START_AMOUNTS[s.dustHeadStart],
                     investmentSafeBonds: 0,
                     investmentStocks: 0,
                     investmentHighRisk: 0,
@@ -1003,6 +1073,33 @@ export const gameStore = createStore<GameState>()(
                 get().addToast(`✨ New Creek! You earned ${dust} Legacy Dust.`, 'info');
             },
 
+            buyDustUpgrade: (type) => {
+                const s = get();
+                let current: number;
+                if (type === 'scoopBoost') current = s.dustScoopBoost;
+                else if (type === 'panYield') current = s.dustPanYield;
+                else if (type === 'goldValue') current = s.dustGoldValue;
+                else if (type === 'headStart') current = s.dustHeadStart;
+                else if (type === 'bucketSize') current = s.dustBucketSize;
+                else if (type === 'panSpeed') current = s.dustPanSpeed;
+                else current = s.dustPanCapacity;
+
+                if (current >= DUST_UPGRADE_MAX_LEVEL) return false;
+                const cost = DUST_UPGRADE_COSTS[current];
+                if (s.legacyDust < cost) return false;
+
+                const next = current + 1;
+                if (type === 'scoopBoost') set({ legacyDust: s.legacyDust - cost, dustScoopBoost: next });
+                else if (type === 'panYield') set({ legacyDust: s.legacyDust - cost, dustPanYield: next });
+                else if (type === 'goldValue') set({ legacyDust: s.legacyDust - cost, dustGoldValue: next });
+                else if (type === 'headStart') set({ legacyDust: s.legacyDust - cost, dustHeadStart: next });
+                else if (type === 'bucketSize') set({ legacyDust: s.legacyDust - cost, dustBucketSize: next });
+                else if (type === 'panSpeed') set({ legacyDust: s.legacyDust - cost, dustPanSpeed: next });
+                else set({ legacyDust: s.legacyDust - cost, dustPanCapacity: next });
+
+                return true;
+            },
+
             _fixedTick: () => {
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
 
@@ -1021,26 +1118,29 @@ export const gameStore = createStore<GameState>()(
                     const effectiveSeparatorWorkers = canAffordWorkers ? s.separatorWorkers : 0;
                     const effectiveBankerWorkers = canAffordWorkers ? s.bankerWorkers : 0;
 
-                    // Automation: miners fill the bucket
-                    const dirtPerTick = (effectiveShovels * UPGRADES.shovel.dirtPerSec) / 60; // per tick at 60fps
+                    // Automation: miners fill the bucket (boosted by dustScoopBoost)
+                    const dirtPerTick = (effectiveShovels * UPGRADES.shovel.dirtPerSec * (1 + 0.1 * s.dustScoopBoost)) / 60; // per tick at 60fps
                     let newBucketFilled = s.bucketFilled;
                     let newPanFilled = s.panFilled;
 
+                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize);
+                    const panCap = getEffectivePanCapacity(s.dustPanCapacity);
+
                     if (dirtPerTick > 0) {
                         // Check if bucket is full and pan has space - auto-empty bucket
-                        if (s.bucketFilled >= BUCKET_CAPACITY && s.panFilled < PAN_CAPACITY) {
+                        if (s.bucketFilled >= bucketCap && s.panFilled < panCap) {
                             // Auto-empty bucket to pan (with sluice multiplier and gear bonus)
                             const effectiveSluicePower = s.hasSluiceBox
                                 ? s.sluicePower * s.sluiceGear
                                 : 1;
                             const amountToAdd = s.bucketFilled * effectiveSluicePower;
-                            newPanFilled = Math.min(s.panFilled + amountToAdd, PAN_CAPACITY);
+                            newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
                             newBucketFilled = 0; // Empty the bucket
                         }
 
                         // Add dirt to bucket (stop when full)
-                        if (newBucketFilled < BUCKET_CAPACITY) {
-                            newBucketFilled = Math.min(newBucketFilled + dirtPerTick, BUCKET_CAPACITY);
+                        if (newBucketFilled < bucketCap) {
+                            newBucketFilled = Math.min(newBucketFilled + dirtPerTick, bucketCap);
                         }
                     }
 
@@ -1055,11 +1155,11 @@ export const gameStore = createStore<GameState>()(
                         extractionRate += effectiveSluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                         extractionRate += effectiveSeparatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
 
-                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate) / (60 * BASE_EXTRACTION);
+                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate * (1 + 0.2 * s.dustPanSpeed)) / (60 * BASE_EXTRACTION);
                         const panConsumed = Math.min(newPanFilled, panRate);
 
                         newPanFilled -= panConsumed;
-                        goldGained = panConsumed * extractionRate;
+                        goldGained = panConsumed * extractionRate * (1 + 0.1 * s.dustPanYield);
                     }
 
                     // Automation: bankers sell gold
@@ -1086,7 +1186,7 @@ export const gameStore = createStore<GameState>()(
 
                             const baseValue = goldSold * valueMultiplier;
                             const fee = baseValue * effectiveFeePercent;
-                            moneyGained = baseValue - fee;
+                            moneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                         }
                     }
 
@@ -1216,6 +1316,13 @@ export const gameStore = createStore<GameState>()(
             legacyDust: state.legacyDust,
             runMoneyEarned: state.runMoneyEarned,
             prestigeCount: state.prestigeCount,
+            dustScoopBoost: state.dustScoopBoost,
+            dustPanYield: state.dustPanYield,
+            dustGoldValue: state.dustGoldValue,
+            dustHeadStart: state.dustHeadStart,
+            dustBucketSize: state.dustBucketSize,
+            dustPanSpeed: state.dustPanSpeed,
+            dustPanCapacity: state.dustPanCapacity,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
         }),
@@ -1224,7 +1331,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV13();
+                return defaultSaveV15();
             }
         },
         onRehydrateStorage: ()=> (state) => {

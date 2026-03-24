@@ -17,6 +17,9 @@ export function ResourceBar() {
     const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
 
+    const legacyDust = useGameStore((s) => s.legacyDust);
+    const prestigeCount = useGameStore((s) => s.prestigeCount);
+
     // Calculate total payroll
     const totalPayroll = useGameStore((s) => getTotalPayroll(s));
 
@@ -68,6 +71,9 @@ export function ResourceBar() {
                 <ResourceCard label="Gold" value={gold} rate={goldRate} icon="✨" color="yellow" />
                 <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
             </div>
+            {prestigeCount > 0 && (
+                <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
+            )}
             {totalPayroll > 0 && (
                 <div className="rounded-2xl border border-orange-200 dark:border-orange-800 shadow-sm p-3 bg-orange-50 dark:bg-orange-900/20">
                     <div className="flex items-center justify-between">

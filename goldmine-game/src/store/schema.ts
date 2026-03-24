@@ -1,7 +1,7 @@
 // Central place to define what we persist and how to migrate between versions.
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 13 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 15 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -296,13 +296,30 @@ export type SaveV13 = Omit<SaveV12, 'version'> & {
     prestigeCount: number;
 };
 
+// v14: Legacy Dust upgrade shop — permanent per-level upgrades
+export type SaveV14 = Omit<SaveV13, 'version'> & {
+    version: 14;
+    dustScoopBoost: number; // 0-3: +10% bucket fill speed per level
+    dustPanYield: number;   // 0-3: +10% gold extraction per level
+    dustGoldValue: number;  // 0-3: +10% sell price per level
+    dustHeadStart: number;  // 0-3: begin each run with bonus money
+};
+
+// v15: Larger Bucket, Faster Panning, Larger Pan dust upgrades
+export type SaveV15 = Omit<SaveV14, 'version'> & {
+    version: 15;
+    dustBucketSize: number;   // 0-3: +5 bucket capacity per level
+    dustPanSpeed: number;     // 0-3: +20% pan processing rate per level
+    dustPanCapacity: number;  // 0-3: +10 pan capacity per level
+};
+
 // Adding latest type alias
-export type LatestSave = SaveV13;
+export type LatestSave = SaveV15;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV13();
+        return defaultSaveV15();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -793,10 +810,117 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 13);
     }
 
-    // Already v13, ensure fields exist
-    const s = raw as Partial<SaveV13>;
+    if (fromVersion < 14) {
+        // v13 → v14: add Legacy Dust upgrade shop fields
+        const s = raw as Partial<SaveV13>;
+        return migrateToLatest({
+            version: 14,
+            tickCount: s.tickCount ?? 0,
+            timeScale: s.timeScale ?? 1,
+            location: s.location ?? 'mine',
+            bucketFilled: s.bucketFilled ?? 0,
+            panFilled: s.panFilled ?? 0,
+            dirt: s.dirt ?? 0,
+            paydirt: s.paydirt ?? 0,
+            gold: s.gold ?? 0,
+            money: s.money ?? 0,
+            investmentSafeBonds: s.investmentSafeBonds ?? 0,
+            investmentStocks: s.investmentStocks ?? 0,
+            investmentHighRisk: s.investmentHighRisk ?? 0,
+            lastRiskCheck: s.lastRiskCheck ?? 0,
+            shovels: s.shovels ?? 0,
+            pans: s.pans ?? 0,
+            carts: s.carts ?? 0,
+            sluiceWorkers: s.sluiceWorkers ?? 0,
+            separatorWorkers: s.separatorWorkers ?? 0,
+            ovenWorkers: s.ovenWorkers ?? 0,
+            furnaceWorkers: s.furnaceWorkers ?? 0,
+            bankerWorkers: s.bankerWorkers ?? 0,
+            hasSluiceBox: s.hasSluiceBox ?? false,
+            hasMagneticSeparator: s.hasMagneticSeparator ?? false,
+            hasOven: s.hasOven ?? false,
+            hasFurnace: s.hasFurnace ?? false,
+            scoopPower: s.scoopPower ?? 1,
+            sluicePower: s.sluicePower ?? 1,
+            panPower: s.panPower ?? 1,
+            sluiceGear: s.sluiceGear ?? 1,
+            separatorGear: s.separatorGear ?? 1,
+            ovenGear: s.ovenGear ?? 1,
+            furnaceGear: s.furnaceGear ?? 1,
+            unlockedPanning: s.unlockedPanning ?? false,
+            unlockedTown: s.unlockedTown ?? false,
+            unlockedBanking: s.unlockedBanking ?? false,
+            timePlayed: s.timePlayed ?? 0,
+            darkMode: s.darkMode ?? false,
+            legacyDust: s.legacyDust ?? 0,
+            runMoneyEarned: s.runMoneyEarned ?? 0,
+            prestigeCount: s.prestigeCount ?? 0,
+            dustScoopBoost: 0,
+            dustPanYield: 0,
+            dustGoldValue: 0,
+            dustHeadStart: 0,
+        }, 14);
+    }
+
+    if (fromVersion < 15) {
+        // v14 → v15: add Larger Bucket, Faster Panning, Larger Pan dust upgrades
+        const s = raw as Partial<SaveV14>;
+        return migrateToLatest({
+            version: 15,
+            tickCount: s.tickCount ?? 0,
+            timeScale: s.timeScale ?? 1,
+            location: s.location ?? 'mine',
+            bucketFilled: s.bucketFilled ?? 0,
+            panFilled: s.panFilled ?? 0,
+            dirt: s.dirt ?? 0,
+            paydirt: s.paydirt ?? 0,
+            gold: s.gold ?? 0,
+            money: s.money ?? 0,
+            investmentSafeBonds: s.investmentSafeBonds ?? 0,
+            investmentStocks: s.investmentStocks ?? 0,
+            investmentHighRisk: s.investmentHighRisk ?? 0,
+            lastRiskCheck: s.lastRiskCheck ?? 0,
+            shovels: s.shovels ?? 0,
+            pans: s.pans ?? 0,
+            carts: s.carts ?? 0,
+            sluiceWorkers: s.sluiceWorkers ?? 0,
+            separatorWorkers: s.separatorWorkers ?? 0,
+            ovenWorkers: s.ovenWorkers ?? 0,
+            furnaceWorkers: s.furnaceWorkers ?? 0,
+            bankerWorkers: s.bankerWorkers ?? 0,
+            hasSluiceBox: s.hasSluiceBox ?? false,
+            hasMagneticSeparator: s.hasMagneticSeparator ?? false,
+            hasOven: s.hasOven ?? false,
+            hasFurnace: s.hasFurnace ?? false,
+            scoopPower: s.scoopPower ?? 1,
+            sluicePower: s.sluicePower ?? 1,
+            panPower: s.panPower ?? 1,
+            sluiceGear: s.sluiceGear ?? 1,
+            separatorGear: s.separatorGear ?? 1,
+            ovenGear: s.ovenGear ?? 1,
+            furnaceGear: s.furnaceGear ?? 1,
+            unlockedPanning: s.unlockedPanning ?? false,
+            unlockedTown: s.unlockedTown ?? false,
+            unlockedBanking: s.unlockedBanking ?? false,
+            timePlayed: s.timePlayed ?? 0,
+            darkMode: s.darkMode ?? false,
+            legacyDust: s.legacyDust ?? 0,
+            runMoneyEarned: s.runMoneyEarned ?? 0,
+            prestigeCount: s.prestigeCount ?? 0,
+            dustScoopBoost: s.dustScoopBoost ?? 0,
+            dustPanYield: s.dustPanYield ?? 0,
+            dustGoldValue: s.dustGoldValue ?? 0,
+            dustHeadStart: s.dustHeadStart ?? 0,
+            dustBucketSize: 0,
+            dustPanSpeed: 0,
+            dustPanCapacity: 0,
+        }, 15);
+    }
+
+    // Already v15, ensure fields exist
+    const s = raw as Partial<SaveV15>;
     return {
-        version: 13,
+        version: 15,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -837,6 +961,13 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         legacyDust: s.legacyDust ?? 0,
         runMoneyEarned: s.runMoneyEarned ?? 0,
         prestigeCount: s.prestigeCount ?? 0,
+        dustScoopBoost: s.dustScoopBoost ?? 0,
+        dustPanYield: s.dustPanYield ?? 0,
+        dustGoldValue: s.dustGoldValue ?? 0,
+        dustHeadStart: s.dustHeadStart ?? 0,
+        dustBucketSize: s.dustBucketSize ?? 0,
+        dustPanSpeed: s.dustPanSpeed ?? 0,
+        dustPanCapacity: s.dustPanCapacity ?? 0,
     };
 }
 
@@ -1138,5 +1269,28 @@ export function defaultSaveV13(): SaveV13 {
         legacyDust: 0,
         runMoneyEarned: 0,
         prestigeCount: 0,
+    };
+}
+
+export function defaultSaveV14(): SaveV14 {
+    const { version: _v, ...rest } = defaultSaveV13();
+    return {
+        ...rest,
+        version: 14,
+        dustScoopBoost: 0,
+        dustPanYield: 0,
+        dustGoldValue: 0,
+        dustHeadStart: 0,
+    };
+}
+
+export function defaultSaveV15(): SaveV15 {
+    const { version: _v, ...rest } = defaultSaveV14();
+    return {
+        ...rest,
+        version: 15,
+        dustBucketSize: 0,
+        dustPanSpeed: 0,
+        dustPanCapacity: 0,
     };
 }

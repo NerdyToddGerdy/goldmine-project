@@ -1,9 +1,10 @@
 import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
+import { PrestigeShop } from "./PrestigeShop";
 import { UpgradeButton, WorkerRow } from "./ui";
 
-type TownTab = 'banking' | 'shop' | 'laborOffice';
+type TownTab = 'banking' | 'shop' | 'laborOffice' | 'legacy';
 type ShopTab = 'gear' | 'equipment';
 
 export function Town() {
@@ -25,6 +26,7 @@ export function Town() {
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const unlockedBanking = useGameStore((s) => s.unlockedBanking);
+    const prestigeCount = useGameStore((s) => s.prestigeCount);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
@@ -98,6 +100,18 @@ export function Town() {
                 >
                     👷 Labor Office
                 </button>
+                {prestigeCount > 0 && (
+                    <button
+                        onClick={() => setActiveTab('legacy')}
+                        className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
+                            activeTab === 'legacy'
+                                ? 'bg-amber-100 text-amber-900 border-2 border-b-0 border-amber-200'
+                                : 'bg-white/50 text-amber-700 hover:bg-white/80'
+                        }`}
+                    >
+                        ✨ Legacy
+                    </button>
+                )}
             </div>
 
             {/* Tab Content */}
@@ -263,6 +277,10 @@ export function Town() {
                             )}
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'legacy' && prestigeCount > 0 && (
+                    <PrestigeShop />
                 )}
 
                 {activeTab === 'laborOffice' && (

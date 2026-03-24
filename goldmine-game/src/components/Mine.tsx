@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES, SMELTING_FEE_PERCENT, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, SMELTING_FEE_PERCENT, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -22,7 +22,12 @@ export function Mine() {
     const separatorGear = useGameStore((s) => s.separatorGear);
 
     const hasFurnace = useGameStore((s) => s.hasFurnace);
+    const dustBucketSize = useGameStore((s) => s.dustBucketSize);
+    const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
+
+    const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize);
+    const effectivePanCap = getEffectivePanCapacity(dustPanCapacity);
     const [showPrestigeModal, setShowPrestigeModal] = useState(false);
 
     const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
@@ -32,6 +37,11 @@ export function Mine() {
     const emptyBucket = () => gameStore.getState().emptyBucket();
     const panForGold = () => gameStore.getState().panForGold();
     const sellGold = () => gameStore.getState().sellGold();
+    const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
+    const hireProspector = () => gameStore.getState().buyUpgrade('pan');
+
+    const minerCost = getUpgradeCost('shovel', shovels);
+    const prospectorCost = getUpgradeCost('pan', pans);
 
     // Manual actions now benefit from gear upgrades
     let extractionRate = BASE_EXTRACTION;
@@ -42,8 +52,8 @@ export function Mine() {
     const effectiveSluicePower = hasSluiceBox ? sluicePower * sluiceGear : 1;
     const bucketToPanel = bucketFilled * effectiveSluicePower;
 
-    const bucketIsFull = bucketFilled >= BUCKET_CAPACITY;
-    const panIsFull = panFilled >= PAN_CAPACITY;
+    const bucketIsFull = bucketFilled >= effectiveBucketCap;
+    const panIsFull = panFilled >= effectivePanCap;
 
     return (
         <div className="space-y-6">
@@ -60,10 +70,10 @@ export function Mine() {
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-semibold text-amber-900">🪣 Bucket</span>
                             <span className="text-sm font-semibold text-amber-700">
-                                {bucketFilled.toFixed(1)} / {BUCKET_CAPACITY}
+                                {bucketFilled.toFixed(1)} / {effectiveBucketCap}
                             </span>
                         </div>
-                        <ProgressBar value={bucketFilled} max={BUCKET_CAPACITY} color="amber" />
+                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" />
                         {bucketIsFull && (
                             <div className="text-xs text-amber-700 mt-2 text-center font-semibold">
                                 Bucket is full! Empty it to continue scooping.
@@ -93,6 +103,20 @@ export function Mine() {
                             }
                         </button>
                     )}
+
+                    {/* Helper: Hire Miner */}
+                    <div className="flex items-center justify-between pt-1 border-t border-amber-100">
+                        <span className="text-sm text-amber-700">
+                            👷 Miners: <span className="font-semibold">{shovels}</span>
+                        </span>
+                        <button
+                            onClick={hireMiner}
+                            disabled={money < minerCost}
+                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        >
+                            Hire ${minerCost}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Pan/Sluice Section */}
@@ -105,10 +129,10 @@ export function Mine() {
                                     {hasSluiceBox ? '🚿 Sluice Box' : '🥘 Pan'}
                                 </span>
                                 <span className="text-sm font-semibold text-yellow-700">
-                                    {panFilled.toFixed(1)} / {PAN_CAPACITY}
+                                    {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
-                            <ProgressBar value={panFilled} max={PAN_CAPACITY} color="yellow" />
+                            <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" />
                             {panIsFull && (
                                 <div className="text-xs text-yellow-700 mt-2 text-center font-semibold">
                                     Pan is full! Start panning to make room.
@@ -124,6 +148,20 @@ export function Mine() {
                         >
                             ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
                         </button>
+
+                        {/* Helper: Hire Prospector */}
+                        <div className="flex items-center justify-between pt-1 border-t border-yellow-100">
+                            <span className="text-sm text-yellow-700">
+                                🧑‍🔬 Prospectors: <span className="font-semibold">{pans}</span>
+                            </span>
+                            <button
+                                onClick={hireProspector}
+                                disabled={money < prospectorCost}
+                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                Hire ${prospectorCost}
+                            </button>
+                        </div>
                     </div>
                 )}
 
