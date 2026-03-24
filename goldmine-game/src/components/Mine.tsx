@@ -1,4 +1,5 @@
 import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES } from "../store/gameStore";
+import { ProgressBar } from "./ui";
 
 export function Mine() {
     const bucketFilled = useGameStore((s) => s.bucketFilled);
@@ -31,9 +32,7 @@ export function Mine() {
     const effectiveSluicePower = hasSluiceBox ? sluicePower * sluiceGear : 1;
     const bucketToPanel = bucketFilled * effectiveSluicePower;
 
-    const bucketPercent = (bucketFilled / BUCKET_CAPACITY) * 100;
     const bucketIsFull = bucketFilled >= BUCKET_CAPACITY;
-    const panPercent = (panFilled / PAN_CAPACITY) * 100;
     const panIsFull = panFilled >= PAN_CAPACITY;
 
     return (
@@ -54,14 +53,7 @@ export function Mine() {
                                 {bucketFilled.toFixed(1)} / {BUCKET_CAPACITY}
                             </span>
                         </div>
-                        <div className="w-full bg-amber-100 rounded-full h-6 overflow-hidden border border-amber-300">
-                            <div
-                                className="h-full bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-300 flex items-center justify-center text-white text-xs font-bold"
-                                style={{ width: `${bucketPercent}%` }}
-                            >
-                                {bucketPercent > 15 && `${bucketPercent.toFixed(0)}%`}
-                            </div>
-                        </div>
+                        <ProgressBar value={bucketFilled} max={BUCKET_CAPACITY} color="amber" />
                         {bucketIsFull && (
                             <div className="text-xs text-amber-700 mt-2 text-center font-semibold">
                                 Bucket is full! Empty it to continue scooping.
@@ -106,14 +98,7 @@ export function Mine() {
                                     {panFilled.toFixed(1)} / {PAN_CAPACITY}
                                 </span>
                             </div>
-                            <div className="w-full bg-yellow-100 rounded-full h-6 overflow-hidden border border-yellow-300">
-                                <div
-                                    className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600 transition-all duration-300 flex items-center justify-center text-white text-xs font-bold"
-                                    style={{ width: `${panPercent}%` }}
-                                >
-                                    {panPercent > 15 && `${panPercent.toFixed(0)}%`}
-                                </div>
-                            </div>
+                            <ProgressBar value={panFilled} max={PAN_CAPACITY} color="yellow" />
                             {panIsFull && (
                                 <div className="text-xs text-yellow-700 mt-2 text-center font-semibold">
                                     Pan is full! Start panning to make room.

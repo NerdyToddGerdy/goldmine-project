@@ -1,7 +1,7 @@
 import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType } from "../store/gameStore";
-import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
+import { UpgradeButton, WorkerRow } from "./ui";
 
 type TownTab = 'banking' | 'shop' | 'laborOffice';
 type ShopTab = 'gear' | 'equipment';
@@ -133,8 +133,8 @@ export function Town() {
                                     name="Better Shovel"
                                     description={`Manual scoop power: ${scoopPower} → ${scoopPower + 1}`}
                                     cost={betterShovelCost}
-                                    owned={scoopPower - 1}
-                                    money={money}
+                                    currentLevel={scoopPower - 1}
+                                    canAfford={money >= betterShovelCost}
                                     onBuy={() => buyUpgrade('betterShovel')}
                                     icon="⛏️"
                                 />
@@ -143,8 +143,8 @@ export function Town() {
                                     name="Better Pan"
                                     description={`Manual pan power: ${panPower} → ${panPower + 1}`}
                                     cost={betterPanCost}
-                                    owned={panPower - 1}
-                                    money={money}
+                                    currentLevel={panPower - 1}
+                                    canAfford={money >= betterPanCost}
                                     onBuy={() => buyUpgrade('betterPan')}
                                     icon="🥘"
                                 />
@@ -154,8 +154,8 @@ export function Town() {
                                         name="Better Sluice Box"
                                         description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
                                         cost={betterSluiceCost}
-                                        owned={sluiceGear - 1}
-                                        money={money}
+                                        currentLevel={sluiceGear - 1}
+                                        canAfford={money >= betterSluiceCost}
                                         onBuy={() => buyUpgrade('betterSluice')}
                                         icon="🚿"
                                     />
@@ -166,8 +166,8 @@ export function Town() {
                                         name="Better Separator"
                                         description={`Separator extraction: ${(UPGRADES.separatorWorker.extractionBonus * separatorGear * 100).toFixed(0)}% → ${(UPGRADES.separatorWorker.extractionBonus * (separatorGear + 1) * 100).toFixed(0)}% per worker`}
                                         cost={betterSeparatorCost}
-                                        owned={separatorGear - 1}
-                                        money={money}
+                                        currentLevel={separatorGear - 1}
+                                        canAfford={money >= betterSeparatorCost}
                                         onBuy={() => buyUpgrade('betterSeparator')}
                                         icon="🧲"
                                     />
@@ -178,8 +178,8 @@ export function Town() {
                                         name="Better Oven"
                                         description={`Oven value bonus: ${(UPGRADES.ovenWorker.valueBonus * ovenGear * 100).toFixed(0)}% → ${(UPGRADES.ovenWorker.valueBonus * (ovenGear + 1) * 100).toFixed(0)}% per worker`}
                                         cost={betterOvenCost}
-                                        owned={ovenGear - 1}
-                                        money={money}
+                                        currentLevel={ovenGear - 1}
+                                        canAfford={money >= betterOvenCost}
                                         onBuy={() => buyUpgrade('betterOven')}
                                         icon="🔥"
                                     />
@@ -190,8 +190,8 @@ export function Town() {
                                         name="Better Furnace"
                                         description={`Furnace value bonus: ${(UPGRADES.furnaceWorker.valueBonus * furnaceGear * 100).toFixed(0)}% → ${(UPGRADES.furnaceWorker.valueBonus * (furnaceGear + 1) * 100).toFixed(0)}% per worker`}
                                         cost={betterFurnaceCost}
-                                        owned={furnaceGear - 1}
-                                        money={money}
+                                        currentLevel={furnaceGear - 1}
+                                        canAfford={money >= betterFurnaceCost}
                                         onBuy={() => buyUpgrade('betterFurnace')}
                                         icon="⚗️"
                                     />
@@ -201,44 +201,44 @@ export function Town() {
 
                             {shopTab === 'equipment' && (
                             <>
-                                <EquipmentButton
+                                <UpgradeButton
                                     name="Sluice Box"
                                     description="Converts dirt into paydirt for better gold yields. Unlocks Sluice Operators."
                                     cost={EQUIPMENT.sluiceBox.cost}
-                                    owned={hasSluiceBox}
-                                    money={money}
+                                    locked={hasSluiceBox}
+                                    canAfford={money >= EQUIPMENT.sluiceBox.cost && !hasSluiceBox}
                                     onBuy={() => buyUpgrade('sluiceBox')}
-                                    icon="🚿"
+                                    icon={hasSluiceBox ? '✅' : '🚿'}
                                 />
 
-                                <EquipmentButton
+                                <UpgradeButton
                                     name="Magnetic Separator"
                                     description="Unlocks Separator Technicians for better gold extraction"
                                     cost={EQUIPMENT.magneticSeparator.cost}
-                                    owned={hasMagneticSeparator}
-                                    money={money}
+                                    locked={hasMagneticSeparator}
+                                    canAfford={money >= EQUIPMENT.magneticSeparator.cost && !hasMagneticSeparator}
                                     onBuy={() => buyUpgrade('magneticSeparator')}
-                                    icon="🧲"
+                                    icon={hasMagneticSeparator ? '✅' : '🧲'}
                                 />
 
-                                <EquipmentButton
+                                <UpgradeButton
                                     name="Oven"
                                     description="Unlocks Oven Operators who increase gold selling value"
                                     cost={EQUIPMENT.oven.cost}
-                                    owned={hasOven}
-                                    money={money}
+                                    locked={hasOven}
+                                    canAfford={money >= EQUIPMENT.oven.cost && !hasOven}
                                     onBuy={() => buyUpgrade('oven')}
-                                    icon="🔥"
+                                    icon={hasOven ? '✅' : '🔥'}
                                 />
 
-                                <EquipmentButton
+                                <UpgradeButton
                                     name="Furnace"
                                     description="Unlocks Furnace Operators for better gold value (removes fee!)"
                                     cost={EQUIPMENT.furnace.cost}
-                                    owned={hasFurnace}
-                                    money={money}
+                                    locked={hasFurnace}
+                                    canAfford={money >= EQUIPMENT.furnace.cost && !hasFurnace}
                                     onBuy={() => buyUpgrade('furnace')}
-                                    icon="⚗️"
+                                    icon={hasFurnace ? '✅' : '⚗️'}
                                 />
                             </>
                             )}
@@ -249,97 +249,105 @@ export function Town() {
                 {activeTab === 'laborOffice' && (
                     <div className="space-y-3">
                         <h3 className="text-lg font-semibold text-green-800">👷 Hire Workers</h3>
-                                <UpgradeButton
-                                    name="Miner"
-                                    description={`Digs ${UPGRADES.shovel.dirtPerSec} dirt/sec automatically`}
-                                    cost={shovelCost}
-                                    owned={shovels}
-                                    money={money}
-                                    onBuy={() => buyUpgrade('shovel')}
-                                    onFire={() => fireWorker('shovel')}
-                                    wage={shovelTotalWage}
-                                    icon="👷"
-                                />
 
-                                <UpgradeButton
-                                    name="Prospector"
-                                    description={`Pans ${UPGRADES.pan.goldPerSec} gold/sec automatically`}
-                                    cost={panCost}
-                                    owned={pans}
-                                    money={money}
-                                    onBuy={() => buyUpgrade('pan')}
-                                    onFire={() => fireWorker('pan')}
-                                    wage={panTotalWage}
-                                    icon="🧑‍🔬"
-                                />
+                        <WorkerRow
+                            name="Miner"
+                            description={`Digs ${UPGRADES.shovel.dirtPerSec} dirt/sec automatically`}
+                            count={shovels}
+                            hireCost={shovelCost}
+                            wage={shovelTotalWage}
+                            canHire={money >= shovelCost}
+                            canFire={shovels > 0}
+                            onHire={() => buyUpgrade('shovel')}
+                            onFire={() => fireWorker('shovel')}
+                            icon="👷"
+                        />
 
-                                {hasSluiceBox && (
-                                    <UpgradeButton
-                                        name="Sluice Operator"
-                                        description={`Converts 1 dirt/sec to paydirt automatically, +${(UPGRADES.sluiceWorker.extractionBonus * 100).toFixed(0)}% gold extraction`}
-                                        cost={sluiceWorkerCost}
-                                        owned={sluiceWorkers}
-                                        money={money}
-                                        onBuy={() => buyUpgrade('sluiceWorker')}
-                                        onFire={() => fireWorker('sluiceWorker')}
-                                        wage={sluiceWorkerTotalWage}
-                                        icon="🚿"
-                                    />
-                                )}
+                        <WorkerRow
+                            name="Prospector"
+                            description={`Pans ${UPGRADES.pan.goldPerSec} gold/sec automatically`}
+                            count={pans}
+                            hireCost={panCost}
+                            wage={panTotalWage}
+                            canHire={money >= panCost}
+                            canFire={pans > 0}
+                            onHire={() => buyUpgrade('pan')}
+                            onFire={() => fireWorker('pan')}
+                            icon="🧑‍🔬"
+                        />
 
-                                {hasMagneticSeparator && (
-                                    <UpgradeButton
-                                        name="Separator Technician"
-                                        description={`Boosts automated gold extraction by +${(UPGRADES.separatorWorker.extractionBonus * 100).toFixed(0)}% per worker`}
-                                        cost={separatorWorkerCost}
-                                        owned={separatorWorkers}
-                                        money={money}
-                                        onBuy={() => buyUpgrade('separatorWorker')}
-                                        onFire={() => fireWorker('separatorWorker')}
-                                        wage={separatorWorkerTotalWage}
-                                        icon="🧲"
-                                    />
-                                )}
+                        {hasSluiceBox && (
+                            <WorkerRow
+                                name="Sluice Operator"
+                                description={`+${(UPGRADES.sluiceWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
+                                count={sluiceWorkers}
+                                hireCost={sluiceWorkerCost}
+                                wage={sluiceWorkerTotalWage}
+                                canHire={money >= sluiceWorkerCost}
+                                canFire={sluiceWorkers > 0}
+                                onHire={() => buyUpgrade('sluiceWorker')}
+                                onFire={() => fireWorker('sluiceWorker')}
+                                icon="🚿"
+                            />
+                        )}
 
-                                {hasOven && (
-                                    <UpgradeButton
-                                        name="Oven Operator"
-                                        description={`Boosts automated gold selling value by +${(UPGRADES.ovenWorker.valueBonus * 100).toFixed(0)}% per worker`}
-                                        cost={ovenWorkerCost}
-                                        owned={ovenWorkers}
-                                        money={money}
-                                        onBuy={() => buyUpgrade('ovenWorker')}
-                                        onFire={() => fireWorker('ovenWorker')}
-                                        wage={ovenWorkerTotalWage}
-                                        icon="🔥"
-                                    />
-                                )}
+                        {hasMagneticSeparator && (
+                            <WorkerRow
+                                name="Separator Technician"
+                                description={`+${(UPGRADES.separatorWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
+                                count={separatorWorkers}
+                                hireCost={separatorWorkerCost}
+                                wage={separatorWorkerTotalWage}
+                                canHire={money >= separatorWorkerCost}
+                                canFire={separatorWorkers > 0}
+                                onHire={() => buyUpgrade('separatorWorker')}
+                                onFire={() => fireWorker('separatorWorker')}
+                                icon="🧲"
+                            />
+                        )}
 
-                                {hasFurnace && (
-                                    <UpgradeButton
-                                        name="Furnace Operator"
-                                        description={`Boosts automated gold selling value by +${(UPGRADES.furnaceWorker.valueBonus * 100).toFixed(0)}% per worker (first removes fee!)`}
-                                        cost={furnaceWorkerCost}
-                                        owned={furnaceWorkers}
-                                        money={money}
-                                        onBuy={() => buyUpgrade('furnaceWorker')}
-                                        onFire={() => fireWorker('furnaceWorker')}
-                                        wage={furnaceWorkerTotalWage}
-                                        icon="⚗️"
-                                    />
-                                )}
+                        {hasOven && (
+                            <WorkerRow
+                                name="Oven Operator"
+                                description={`+${(UPGRADES.ovenWorker.valueBonus * 100).toFixed(0)}% gold sell value per worker`}
+                                count={ovenWorkers}
+                                hireCost={ovenWorkerCost}
+                                wage={ovenWorkerTotalWage}
+                                canHire={money >= ovenWorkerCost}
+                                canFire={ovenWorkers > 0}
+                                onHire={() => buyUpgrade('ovenWorker')}
+                                onFire={() => fireWorker('ovenWorker')}
+                                icon="🔥"
+                            />
+                        )}
 
-                                <UpgradeButton
-                                    name="Banker"
-                                    description={`Automatically sells ${UPGRADES.bankerWorker.goldPerSec} gold/sec for money (applies value bonuses)`}
-                                    cost={bankerWorkerCost}
-                                    owned={bankerWorkers}
-                                    money={money}
-                                    onBuy={() => buyUpgrade('bankerWorker')}
-                                    onFire={() => fireWorker('bankerWorker')}
-                                    wage={bankerWorkerTotalWage}
-                                    icon="🏦"
-                                />
+                        {hasFurnace && (
+                            <WorkerRow
+                                name="Furnace Operator"
+                                description={`+${(UPGRADES.furnaceWorker.valueBonus * 100).toFixed(0)}% gold value, reduces smelting fee`}
+                                count={furnaceWorkers}
+                                hireCost={furnaceWorkerCost}
+                                wage={furnaceWorkerTotalWage}
+                                canHire={money >= furnaceWorkerCost}
+                                canFire={furnaceWorkers > 0}
+                                onHire={() => buyUpgrade('furnaceWorker')}
+                                onFire={() => fireWorker('furnaceWorker')}
+                                icon="⚗️"
+                            />
+                        )}
+
+                        <WorkerRow
+                            name="Banker"
+                            description={`Auto-sells ${UPGRADES.bankerWorker.goldPerSec} gold/sec (applies value bonuses)`}
+                            count={bankerWorkers}
+                            hireCost={bankerWorkerCost}
+                            wage={bankerWorkerTotalWage}
+                            canHire={money >= bankerWorkerCost}
+                            canFire={bankerWorkers > 0}
+                            onHire={() => buyUpgrade('bankerWorker')}
+                            onFire={() => fireWorker('bankerWorker')}
+                            icon="🏦"
+                        />
                     </div>
                 )}
             </div>
@@ -347,125 +355,3 @@ export function Town() {
     );
 }
 
-function UpgradeButton({
-    name,
-    description,
-    cost,
-    owned,
-    money,
-    onBuy,
-    onFire,
-    wage,
-    icon
-}: {
-    name: string;
-    description: string;
-    cost: number;
-    owned: number;
-    money: number;
-    onBuy: () => void;
-    onFire?: () => void;
-    wage?: number;
-    icon: string;
-}) {
-    const canAfford = money >= cost;
-    const canFire = owned > 0;
-
-    // If this is a worker (has onFire), show both hire and fire buttons
-    if (onFire) {
-        return (
-            <div className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                        <div className="font-semibold text-green-900">
-                            {icon} {name} <span className="text-sm text-gray-500">(owned: {owned})</span>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">{description}</div>
-                        {wage !== undefined && wage > 0 && (
-                            <div className="text-xs text-orange-600 dark:text-orange-500 mt-1">
-                                💰 Total wages: ${formatNumber(wage)}/sec
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                        <button
-                            onClick={onBuy}
-                            disabled={!canAfford}
-                            className="px-3 py-2 rounded-lg border border-green-400 bg-green-50 text-green-700 hover:bg-green-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                        >
-                            Hire ${cost}
-                        </button>
-                        <button
-                            onClick={onFire}
-                            disabled={!canFire}
-                            className="px-3 py-2 rounded-lg border border-red-400 bg-red-50 text-red-700 hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                        >
-                            Fire
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // For gear upgrades (no onFire), show original single-button layout
-    return (
-        <button
-            onClick={onBuy}
-            disabled={!canAfford}
-            className="w-full p-4 bg-white border-2 border-gray-200 hover:border-green-400 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
-        >
-            <div className="flex items-start justify-between">
-                <div className="flex-1">
-                    <div className="font-semibold text-green-900">
-                        {icon} {name} <span className="text-sm text-gray-500">(owned: {owned})</span>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">{description}</div>
-                </div>
-                <div className={`text-lg font-bold ml-4 ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
-                    ${cost}
-                </div>
-            </div>
-        </button>
-    );
-}
-
-function EquipmentButton({
-    name,
-    description,
-    cost,
-    owned,
-    money,
-    onBuy,
-    icon
-}: {
-    name: string;
-    description: string;
-    cost: number;
-    owned: boolean;
-    money: number;
-    onBuy: () => void;
-    icon: string;
-}) {
-    const canAfford = money >= cost && !owned;
-
-    return (
-        <button
-            onClick={onBuy}
-            disabled={!canAfford || owned}
-            className="w-full p-4 bg-white border-2 border-gray-200 hover:border-green-400 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
-        >
-            <div className="flex items-start justify-between">
-                <div className="flex-1">
-                    <div className="font-semibold text-green-900">
-                        {icon} {name} {owned && <span className="text-sm text-green-600">✓ Owned</span>}
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">{description}</div>
-                </div>
-                <div className={`text-lg font-bold ml-4 ${owned ? 'text-gray-400' : canAfford ? 'text-green-600' : 'text-red-600'}`}>
-                    ${cost}
-                </div>
-            </div>
-        </button>
-    );
-}
