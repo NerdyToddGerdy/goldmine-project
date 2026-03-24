@@ -1,6 +1,7 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES, SMELTING_FEE_PERCENT } from "../store/gameStore";
-import { ProgressBar } from "./ui";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, PAN_CAPACITY, UPGRADES, SMELTING_FEE_PERCENT, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
+import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
+import { useState } from "react";
 
 export function Mine() {
     const bucketFilled = useGameStore((s) => s.bucketFilled);
@@ -21,6 +22,11 @@ export function Mine() {
     const separatorGear = useGameStore((s) => s.separatorGear);
 
     const hasFurnace = useGameStore((s) => s.hasFurnace);
+    const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
+    const [showPrestigeModal, setShowPrestigeModal] = useState(false);
+
+    const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
+    const canPrestige = runMoneyEarned >= PRESTIGE_MONEY_THRESHOLD;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
@@ -170,6 +176,33 @@ export function Mine() {
                 <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
                     Get 0.5 gold to unlock Town tab!
                 </div>
+            )}
+
+            {/* Prestige card */}
+            {canPrestige && (
+                <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-xl space-y-3">
+                    <h3 className="text-lg font-semibold text-amber-900">⭐ New Creek Run</h3>
+                    <p className="text-sm text-amber-700">
+                        Earned <span className="font-semibold">${formatNumber(runMoneyEarned)}</span> this run
+                    </p>
+                    <p className="text-sm font-semibold text-amber-800">
+                        Reward: ✨ {dustReward} Legacy Dust
+                    </p>
+                    <button
+                        onClick={() => setShowPrestigeModal(true)}
+                        className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                    >
+                        Prestige!
+                    </button>
+                </div>
+            )}
+
+            {showPrestigeModal && (
+                <PrestigeModal
+                    dustReward={dustReward}
+                    onConfirm={() => { gameStore.getState().prestige(); setShowPrestigeModal(false); }}
+                    onCancel={() => setShowPrestigeModal(false)}
+                />
             )}
         </div>
     );

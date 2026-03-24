@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV12, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV13, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -52,6 +52,7 @@ export const INVESTMENTS = {
 
 export const RISK_CHECK_INTERVAL_MS = 60000; // Check for risk events every 60 seconds
 export const WITHDRAWAL_PENALTY = 0.05; // 5% penalty on withdrawal
+export const PRESTIGE_MONEY_THRESHOLD = 250; // cumulative money earned to unlock prestige
 
 export type ToastType = 'info' | 'warning' | 'error';
 
@@ -118,6 +119,11 @@ export type GameState = {
     unlockedTown: boolean
     unlockedBanking: boolean // Phase 2: unlocked after first prestige
 
+    // Prestige
+    legacyDust: number      // permanent currency, survives prestige
+    runMoneyEarned: number  // cumulative money income this run (resets on prestige)
+    prestigeCount: number   // total prestiges completed
+
     // Settings (persisted)
     timePlayed: number // total ticks played
     darkMode: boolean
@@ -160,6 +166,9 @@ export type GameState = {
 
     // Settings
     setDarkMode: (dark: boolean) => void
+
+    // Prestige
+    prestige: () => void
 }
 
 // Upgrade costs and definitions
@@ -311,6 +320,11 @@ export const gameStore = createStore<GameState>()(
             unlockedTown: false,
             unlockedBanking: false,
 
+            // Prestige
+            legacyDust: 0,
+            runMoneyEarned: 0,
+            prestigeCount: 0,
+
             // Settings
             timePlayed: 0,
             darkMode: false,
@@ -362,6 +376,7 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     unlockedBanking: false,
+                    runMoneyEarned: 0,
                     _accumulator: 0,
                 }))
             },
@@ -406,6 +421,9 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     unlockedBanking: false,
+                    legacyDust: 0,
+                    runMoneyEarned: 0,
+                    prestigeCount: 0,
                     timePlayed: 0,
                     darkMode: false,
                     _accumulator: 0,
@@ -453,6 +471,9 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: s.unlockedPanning,
                     unlockedTown: s.unlockedTown,
                     unlockedBanking: s.unlockedBanking,
+                    legacyDust: s.legacyDust,
+                    runMoneyEarned: s.runMoneyEarned,
+                    prestigeCount: s.prestigeCount,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                 };
@@ -509,6 +530,9 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: migrated.unlockedPanning,
                     unlockedTown: migrated.unlockedTown,
                     unlockedBanking: migrated.unlockedBanking,
+                    legacyDust: migrated.legacyDust,
+                    runMoneyEarned: migrated.runMoneyEarned,
+                    prestigeCount: migrated.prestigeCount,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
                 }));
@@ -633,6 +657,7 @@ export const gameStore = createStore<GameState>()(
 
                     return {
                         money: s.money + finalValue,
+                        runMoneyEarned: s.runMoneyEarned + finalValue,
                         gold: 0,
                     };
                 });
@@ -925,6 +950,59 @@ export const gameStore = createStore<GameState>()(
                 }
             },
 
+            prestige: () => {
+                const s = get();
+                const dust = Math.floor(Math.sqrt(s.runMoneyEarned));
+                set({
+                    // Permanent — keep and update
+                    legacyDust: s.legacyDust + dust,
+                    prestigeCount: s.prestigeCount + 1,
+                    unlockedBanking: true,
+                    timePlayed: s.timePlayed,
+                    darkMode: s.darkMode,
+                    timeScale: s.timeScale,
+                    // Reset run fields
+                    isPaused: false,
+                    tickCount: 0,
+                    location: 'mine',
+                    bucketFilled: 0,
+                    panFilled: 0,
+                    dirt: 0,
+                    paydirt: 0,
+                    gold: 0,
+                    money: 0,
+                    investmentSafeBonds: 0,
+                    investmentStocks: 0,
+                    investmentHighRisk: 0,
+                    lastRiskCheck: 0,
+                    shovels: 0,
+                    pans: 0,
+                    carts: 0,
+                    sluiceWorkers: 0,
+                    separatorWorkers: 0,
+                    ovenWorkers: 0,
+                    furnaceWorkers: 0,
+                    bankerWorkers: 0,
+                    hasSluiceBox: false,
+                    hasMagneticSeparator: false,
+                    hasOven: false,
+                    hasFurnace: false,
+                    scoopPower: 1,
+                    sluicePower: 1,
+                    panPower: 1,
+                    sluiceGear: 1,
+                    separatorGear: 1,
+                    ovenGear: 1,
+                    furnaceGear: 1,
+                    unlockedPanning: false,
+                    unlockedTown: false,
+                    runMoneyEarned: 0,
+                    _accumulator: 0,
+                    toasts: [],
+                });
+                get().addToast(`✨ New Creek! You earned ${dust} Legacy Dust.`, 'info');
+            },
+
             _fixedTick: () => {
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
 
@@ -1080,6 +1158,7 @@ export const gameStore = createStore<GameState>()(
                         paydirt: s.paydirt + paydirtChange,
                         gold: s.gold + goldGained - goldSold,
                         money: moneyAfterPayroll,
+                        runMoneyEarned: s.runMoneyEarned + moneyGained,
                         investmentSafeBonds: newInvestmentSafeBonds,
                         investmentStocks: newInvestmentStocks,
                         investmentHighRisk: newInvestmentHighRisk,
@@ -1134,6 +1213,9 @@ export const gameStore = createStore<GameState>()(
             unlockedPanning: state.unlockedPanning,
             unlockedTown: state.unlockedTown,
             unlockedBanking: state.unlockedBanking,
+            legacyDust: state.legacyDust,
+            runMoneyEarned: state.runMoneyEarned,
+            prestigeCount: state.prestigeCount,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
         }),
@@ -1142,7 +1224,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV12();
+                return defaultSaveV13();
             }
         },
         onRehydrateStorage: ()=> (state) => {
