@@ -3,6 +3,7 @@ import {Mine} from "./components/Mine.tsx";
 import {Town} from "./components/Town.tsx";
 import {Settings} from "./components/Settings.tsx";
 import {ResourceBar} from "./components/ResourceBar.tsx";
+import {ToastContainer} from "./components/ToastContainer.tsx";
 import {useGameLoop} from "./hooks/useGameLoop.ts";
 import {gameStore, useGameStore} from "./store/gameStore.ts";
 import {useState} from "react";
@@ -29,6 +30,7 @@ function App() {
 
     return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
+        <ToastContainer />
         <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
             <h1 className="text-3xl font-bold text-amber-900 dark:text-amber-100">💎 Gold Mine Tycoon</h1>
 

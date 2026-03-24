@@ -50,6 +50,16 @@ export const INVESTMENTS = {
 export const RISK_CHECK_INTERVAL_MS = 60000; // Check for risk events every 60 seconds
 export const WITHDRAWAL_PENALTY = 0.05; // 5% penalty on withdrawal
 
+export type ToastType = 'info' | 'warning' | 'error';
+
+export interface Toast {
+    id: number;
+    message: string;
+    type: ToastType;
+}
+
+let _toastId = 0;
+
 export type GameState = {
     // Core meta
     isPaused: boolean
@@ -106,6 +116,9 @@ export type GameState = {
     unlockedTown: boolean
     unlockedShop: boolean
 
+    // Toasts (transient, not persisted)
+    toasts: Toast[]
+
     // Internal Helpers
     _accumulator: number // leftover fractional time from RAF
 
@@ -134,6 +147,10 @@ export type GameState = {
     // Investments
     depositInvestment: (type: 'safeBonds' | 'stocks' | 'highRisk', amount: number) => boolean
     withdrawInvestment: (type: 'safeBonds' | 'stocks' | 'highRisk', amount: number) => boolean
+
+    // Toasts
+    addToast: (message: string, type?: ToastType) => void
+    dismissToast: (id: number) => void
 }
 
 // Upgrade costs and definitions
@@ -227,6 +244,7 @@ export const gameStore = createStore<GameState>()(
     persist(
         devtools((set, get) => ({
             isPaused: false,
+            toasts: [],
             tickCount: 0,
             timeScale: 1,
             location: 'mine',
@@ -292,6 +310,7 @@ export const gameStore = createStore<GameState>()(
                 set((s) => ({
                     ...s,
                     isPaused: false,
+                    toasts: [],
                     tickCount: 0,
                     location: 'mine',
                     bucketFilled: 0,
@@ -857,6 +876,21 @@ export const gameStore = createStore<GameState>()(
 
                 set(updates);
                 return true;
+            },
+
+            addToast: (message, type = 'info') => {
+                const id = ++_toastId;
+                set((s) => {
+                    const trimmed = s.toasts.length >= 3 ? s.toasts.slice(1) : s.toasts;
+                    return { toasts: [...trimmed, { id, message, type }] };
+                });
+                setTimeout(() => {
+                    get().dismissToast(id);
+                }, 4000);
+            },
+
+            dismissToast: (id) => {
+                set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
             },
 
             _fixedTick: () => {
