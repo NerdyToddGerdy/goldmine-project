@@ -51,7 +51,8 @@ export function Banking() {
                         currentBalance={investmentSafeBonds}
                         interestRate={INVESTMENTS.safeBonds.interestRate}
                         riskChance={INVESTMENTS.safeBonds.riskChance}
-                        riskLoss={INVESTMENTS.safeBonds.riskLoss}
+                        riskLossMin={INVESTMENTS.safeBonds.riskLossMin}
+                        riskLossMax={INVESTMENTS.safeBonds.riskLossMax}
                         money={money}
                         icon="🛡️"
                         color="blue"
@@ -63,7 +64,8 @@ export function Banking() {
                         currentBalance={investmentStocks}
                         interestRate={INVESTMENTS.stocks.interestRate}
                         riskChance={INVESTMENTS.stocks.riskChance}
-                        riskLoss={INVESTMENTS.stocks.riskLoss}
+                        riskLossMin={INVESTMENTS.stocks.riskLossMin}
+                        riskLossMax={INVESTMENTS.stocks.riskLossMax}
                         money={money}
                         icon="📊"
                         color="purple"
@@ -75,7 +77,8 @@ export function Banking() {
                         currentBalance={investmentHighRisk}
                         interestRate={INVESTMENTS.highRisk.interestRate}
                         riskChance={INVESTMENTS.highRisk.riskChance}
-                        riskLoss={INVESTMENTS.highRisk.riskLoss}
+                        riskLossMin={INVESTMENTS.highRisk.riskLossMin}
+                        riskLossMax={INVESTMENTS.highRisk.riskLossMax}
                         money={money}
                         icon="🎲"
                         color="red"
@@ -92,7 +95,8 @@ function InvestmentCard({
     currentBalance,
     interestRate,
     riskChance,
-    riskLoss,
+    riskLossMin,
+    riskLossMax,
     money,
     icon,
     color
@@ -102,7 +106,8 @@ function InvestmentCard({
     currentBalance: number;
     interestRate: number;
     riskChance: number;
-    riskLoss: number;
+    riskLossMin: number;
+    riskLossMax: number;
     money: number;
     icon: string;
     color: 'blue' | 'purple' | 'red';
@@ -168,7 +173,9 @@ function InvestmentCard({
                     <div className="text-sm mt-1">
                         <span className="text-green-600 font-semibold">+{(interestRate * 100).toFixed(1)}%/min</span>
                         <span className={`ml-2 ${colors.textMuted} text-xs`}>
-                            {(riskChance * 100).toFixed(0)}% risk/min ({(riskLoss * 100).toFixed(0)}% loss)
+                            {riskChance > 0
+                                ? `${(riskChance * 100).toFixed(0)}% risk/min (${(riskLossMin * 100).toFixed(0)}–${(riskLossMax * 100).toFixed(0)}% loss)`
+                                : 'No risk'}
                         </span>
                     </div>
                 </div>

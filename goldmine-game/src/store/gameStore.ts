@@ -30,20 +30,23 @@ export const INVESTMENTS = {
     safeBonds: {
         name: "Safe Bonds",
         interestRate: 0.02, // 2% per minute
-        riskChance: 0.01, // 1% chance per check
-        riskLoss: 0.10, // 10% loss on risk event
+        riskChance: 0,      // no risk events
+        riskLossMin: 0,
+        riskLossMax: 0,
     },
     stocks: {
         name: "Stocks",
         interestRate: 0.05, // 5% per minute
-        riskChance: 0.05, // 5% chance per check
-        riskLoss: 0.20, // 20% loss on risk event
+        riskChance: 0.05,   // 5% chance per 60s check
+        riskLossMin: 0.05,  // 5% min loss
+        riskLossMax: 0.15,  // 15% max loss
     },
     highRisk: {
         name: "High Risk",
         interestRate: 0.10, // 10% per minute
-        riskChance: 0.15, // 15% chance per check
-        riskLoss: 0.50, // 50% loss on risk event
+        riskChance: 0.15,   // 15% chance per 60s check
+        riskLossMin: 0.15,  // 15% min loss
+        riskLossMax: 0.40,  // 40% max loss
     },
 };
 
@@ -941,6 +944,8 @@ export const gameStore = createStore<GameState>()(
             },
 
             _fixedTick: () => {
+                const riskToasts: Array<{ message: string; type: ToastType }> = [];
+
                 set((s) => {
                     // Increment time played each tick
                     const newTimePlayed = s.timePlayed + 1;
@@ -1056,30 +1061,28 @@ export const gameStore = createStore<GameState>()(
                     const ticksPerRiskCheck = RISK_CHECK_INTERVAL_MS / FIXED_DT_MS; // 60000ms / 16.6667ms = 3600 ticks
 
                     if (ticksSinceLastRiskCheck >= ticksPerRiskCheck) {
-                        // Perform risk checks for each investment type
-                        if (newInvestmentSafeBonds > 0) {
-                            const riskRoll = Math.random();
-                            if (riskRoll < INVESTMENTS.safeBonds.riskChance) {
-                                // Risk event occurred - apply loss
-                                const loss = newInvestmentSafeBonds * INVESTMENTS.safeBonds.riskLoss;
-                                newInvestmentSafeBonds -= loss;
-                            }
+                        // Stocks: 5% chance per check, 5–15% random loss
+                        if (newInvestmentStocks > 0 && Math.random() < INVESTMENTS.stocks.riskChance) {
+                            const lossRate = INVESTMENTS.stocks.riskLossMin +
+                                Math.random() * (INVESTMENTS.stocks.riskLossMax - INVESTMENTS.stocks.riskLossMin);
+                            const loss = newInvestmentStocks * lossRate;
+                            newInvestmentStocks -= loss;
+                            riskToasts.push({
+                                message: `📉 Stock market dip! Lost $${loss.toFixed(2)} from Stocks.`,
+                                type: 'warning',
+                            });
                         }
-                        if (newInvestmentStocks > 0) {
-                            const riskRoll = Math.random();
-                            if (riskRoll < INVESTMENTS.stocks.riskChance) {
-                                // Risk event occurred - apply loss
-                                const loss = newInvestmentStocks * INVESTMENTS.stocks.riskLoss;
-                                newInvestmentStocks -= loss;
-                            }
-                        }
-                        if (newInvestmentHighRisk > 0) {
-                            const riskRoll = Math.random();
-                            if (riskRoll < INVESTMENTS.highRisk.riskChance) {
-                                // Risk event occurred - apply loss
-                                const loss = newInvestmentHighRisk * INVESTMENTS.highRisk.riskLoss;
-                                newInvestmentHighRisk -= loss;
-                            }
+
+                        // High Risk: 15% chance per check, 15–40% random loss
+                        if (newInvestmentHighRisk > 0 && Math.random() < INVESTMENTS.highRisk.riskChance) {
+                            const lossRate = INVESTMENTS.highRisk.riskLossMin +
+                                Math.random() * (INVESTMENTS.highRisk.riskLossMax - INVESTMENTS.highRisk.riskLossMin);
+                            const loss = newInvestmentHighRisk * lossRate;
+                            newInvestmentHighRisk -= loss;
+                            riskToasts.push({
+                                message: `💥 High-risk crash! Lost $${loss.toFixed(2)} from High Risk.`,
+                                type: 'error',
+                            });
                         }
 
                         // Update last risk check timestamp
@@ -1101,6 +1104,10 @@ export const gameStore = createStore<GameState>()(
                         lastRiskCheck: newLastRiskCheck,
                     };
                 });
+
+                for (const { message, type } of riskToasts) {
+                    get().addToast(message, type);
+                }
             },
 
     })),
