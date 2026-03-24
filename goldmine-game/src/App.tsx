@@ -11,7 +11,6 @@ type Tab = 'mine' | 'town' | 'settings';
 
 function App() {
     useGameLoop()
-    const location = useGameStore((s) => s.location)
     const unlockedTown = useGameStore((s) => s.unlockedTown)
     const [activeTab, setActiveTab] = useState<Tab>('mine')
 

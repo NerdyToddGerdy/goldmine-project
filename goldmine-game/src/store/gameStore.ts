@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV9, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV10, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -572,7 +572,7 @@ export const gameStore = createStore<GameState>()(
                 set({ location });
                 // Unlock shop on first visit to town
                 if (location === 'town') {
-                    set((s) => ({ unlockedShop: true }));
+                    set((_s) => ({ unlockedShop: true }));
                 }
             },
 

@@ -3,8 +3,6 @@ import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, BUCKET_CAPACITY, P
 export function Mine() {
     const bucketFilled = useGameStore((s) => s.bucketFilled);
     const panFilled = useGameStore((s) => s.panFilled);
-    const dirt = useGameStore((s) => s.dirt);
-    const paydirt = useGameStore((s) => s.paydirt);
     const gold = useGameStore((s) => s.gold);
     const money = useGameStore((s) => s.money);
     const scoopPower = useGameStore((s) => s.scoopPower);
@@ -12,7 +10,6 @@ export function Mine() {
     const panPower = useGameStore((s) => s.panPower);
     const unlockedPanning = useGameStore((s) => s.unlockedPanning);
     const unlockedTown = useGameStore((s) => s.unlockedTown);
-    const unlockedShop = useGameStore((s) => s.unlockedShop);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
     const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
@@ -23,7 +20,6 @@ export function Mine() {
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
-    const sluiceDirt = () => gameStore.getState().sluiceDirt();
     const panForGold = () => gameStore.getState().panForGold();
 
     // Manual actions now benefit from gear upgrades
