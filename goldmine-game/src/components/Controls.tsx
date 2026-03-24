@@ -1,39 +1,22 @@
-import {useGameStore} from "../store/gameStore.ts";
+import {gameStore, useGameStore} from "../store/gameStore.ts";
 
-export function Controls    () {
+export function Controls() {
     const isPaused = useGameStore((s) => s.isPaused)
-    const togglePause = useGameStore((s) => s.togglePause)
-    const timeScale = useGameStore((s) => s.timeScale)
-    const setTimeScale = useGameStore((s) => s.setTimeScale)
-    const reset = useGameStore((s) => s.reset)
+    const togglePause = () => gameStore.getState().togglePause()
     const tickCount = useGameStore((s) => s.tickCount)
 
     return (
-        <div className="flex flex-wrap items-center gap-3 p-3 rounded-2xl shadoe-sm bg-white/70">
-            <button className="px-4 py-2 rounded-xl shadow border hover:shadow-md active:scale-[0.98]"
-                    onClick={togglePause}>\
-                {isPaused ? 'Resume' : 'Pause'}
-            </button>
-            <label className="flex items-center gap-2">
-                <span className="text-sm">Speed</span>
-                <input
-                    type="range"
-                    min={0}
-                    max={3}
-                    step={0.1}
-                    value={timeScale}
-                    onChange={(e) => setTimeScale(parseFloat(e.target.value))}
-                />
-                <span className="w-10 text-right tabular-nums">{timeScale.toFixed(1)}*</span>
-            </label>
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-2xl shadow-sm bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700">
             <button
-                className="px-3 py-2 rounded-xl border shadow hover:shadow-md"
-                onClick={reset}
+                className="px-4 py-2 rounded-xl shadow border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 hover:shadow-md active:scale-[0.98] transition-all text-gray-900 dark:text-gray-100"
+                onClick={togglePause}
             >
-                Reset
+                {isPaused ? '▶️ Resume' : '⏸️ Pause'}
             </button>
 
-            <div className="ml-auto text-xs text-gray-600">ticks: {tickCount}</div>
+            <div className="ml-auto text-xs text-gray-600 dark:text-gray-400 font-mono">
+                Ticks: {tickCount.toLocaleString()}
+            </div>
         </div>
     )
 }
