@@ -1,4 +1,5 @@
 import { useGameStore, getTotalPayroll, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
@@ -74,7 +75,7 @@ export function ResourceBar() {
                             Total Payroll
                         </div>
                         <div className="text-lg font-semibold tabular-nums text-orange-900 dark:text-orange-100">
-                            💰 -${totalPayroll.toFixed(2)}/sec
+                            💰 -{formatNumber(totalPayroll)}/sec
                         </div>
                     </div>
                 </div>
@@ -125,8 +126,6 @@ function ResourceCard({
 
     const colors = colorClasses[color];
 
-    // Determine rate display
-    const ratePrefix = rate > 0 ? '+' : '';
     const rateColor = rate > 0
         ? 'text-green-600 dark:text-green-400'
         : rate < 0
@@ -139,10 +138,10 @@ function ResourceCard({
                 {label}
             </div>
             <div className={`text-2xl font-semibold tabular-nums ${colors.textValue}`}>
-                {icon} {value.toFixed(2)}
+                {icon} {formatNumber(value)}
             </div>
             <div className={`text-xs font-semibold tabular-nums ${rateColor} mt-1`}>
-                {ratePrefix}{rate.toFixed(2)}/sec
+                {formatRate(rate)}
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 import { gameStore, useGameStore, SMELTING_FEE_PERCENT, INVESTMENTS, WITHDRAWAL_PENALTY } from "../store/gameStore";
+import { formatNumber } from "../utils/format";
 import { useState } from "react";
 
 export function Banking() {
@@ -25,10 +26,10 @@ export function Banking() {
                     disabled={gold < 0.01}
                     className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <div>💰 Sell All Gold → ${finalValue.toFixed(2)}</div>
+                    <div>💰 Sell All Gold → ${formatNumber(finalValue)}</div>
                     {gold > 0 && (
                         <div className="text-xs opacity-80 mt-1">
-                            ({(SMELTING_FEE_PERCENT * 100).toFixed(0)}% smelting fee: -${fee.toFixed(2)})
+                            ({(SMELTING_FEE_PERCENT * 100).toFixed(0)}% smelting fee: -${formatNumber(fee)})
                         </div>
                     )}
                 </button>
@@ -172,7 +173,7 @@ function InvestmentCard({
                     </div>
                 </div>
                 <div className={`text-lg font-bold ${colors.text}`}>
-                    ${currentBalance.toFixed(4)}
+                    ${formatNumber(currentBalance)}
                 </div>
             </div>
 
@@ -231,7 +232,7 @@ function InvestmentCard({
             {/* Withdrawal penalty info */}
             {withdrawNum > 0 && canWithdraw && (
                 <div className="text-xs text-gray-600 italic">
-                    You'll receive: ${(withdrawNum * (1 - WITHDRAWAL_PENALTY)).toFixed(2)} (after {(WITHDRAWAL_PENALTY * 100).toFixed(0)}% penalty)
+                    You'll receive: ${formatNumber(withdrawNum * (1 - WITHDRAWAL_PENALTY))} (after {(WITHDRAWAL_PENALTY * 100).toFixed(0)}% penalty)
                 </div>
             )}
         </div>

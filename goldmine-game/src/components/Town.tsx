@@ -1,4 +1,5 @@
 import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType } from "../store/gameStore";
+import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
 
@@ -382,7 +383,7 @@ function UpgradeButton({
                         <div className="text-sm text-gray-600 mt-1">{description}</div>
                         {wage !== undefined && wage > 0 && (
                             <div className="text-xs text-orange-600 dark:text-orange-500 mt-1">
-                                💰 Total wages: ${wage.toFixed(2)}/sec
+                                💰 Total wages: ${formatNumber(wage)}/sec
                             </div>
                         )}
                     </div>
