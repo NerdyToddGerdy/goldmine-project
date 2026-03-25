@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV15, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV16, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -145,6 +145,16 @@ export type GameState = {
     dustPanSpeed: number    // 0-3: +20% pan processing rate per level
     dustPanCapacity: number // 0-3: +10 pan capacity per level
 
+    // Travel mechanic (persisted)
+    vehicleTier: number  // 0=on foot, 1=mule cart, 2=steam wagon, 3=motor truck
+    hasDriver: boolean   // hired a driver to auto-sell gold
+
+    // Travel state (transient, not persisted)
+    isTraveling: boolean
+    travelProgress: number       // ticks elapsed of current travel
+    travelDestination: 'mine' | 'town'
+    driverTripTicks: number      // driver's position in round-trip cycle
+
     // Settings (persisted)
     timePlayed: number // total ticks played
     darkMode: boolean
@@ -172,7 +182,10 @@ export type GameState = {
     emptyBucket: () => void // empties bucket into dirt or paydirt (depending on sluice box)
     sluiceDirt: () => void // manual action (costs dirt, produces paydirt) - DEPRECATED, use emptyBucket
     panForGold: () => void // manual action (costs paydirt)
-    travelTo: (location: 'mine' | 'town') => void
+    travelTo: (location: 'mine' | 'town') => void // instant location change (internal/dev use)
+    startTravel: (destination: 'mine' | 'town') => void // begins timed travel
+    buyVehicle: (tier: number) => boolean
+    buyDriver: () => boolean
     sellGold: () => void // convert all gold -> money
     buyUpgrade: (upgrade: string) => boolean // returns success
     fireWorker: (workerType: string) => boolean // fires one worker, returns success
@@ -221,6 +234,20 @@ export const EQUIPMENT = {
     furnace: { cost: 2500 }, // Unlocks furnace workers + removes fee
     bankCounter: { cost: 400 }, // Unlocks banker workers
 };
+
+// Vehicle tiers for travel mechanic
+export const VEHICLE_TIERS = [
+    { name: 'On Foot',     travelSecs: 15,  cost: 0 },
+    { name: 'Mule Cart',   travelSecs: 8,   cost: 150 },
+    { name: 'Steam Wagon', travelSecs: 4,   cost: 750 },
+    { name: 'Motor Truck', travelSecs: 2,   cost: 3000 },
+] as const;
+
+export const DRIVER_COST = 5000;
+
+export function getTravelDurationTicks(vehicleTier: number): number {
+    return (VEHICLE_TIERS[vehicleTier as 0|1|2|3]?.travelSecs ?? 60) * 60;
+}
 
 // Constants
 export const SMELTING_FEE_PERCENT = 0.15; // 15% fee when selling gold
@@ -364,6 +391,14 @@ export const gameStore = createStore<GameState>()(
             dustPanSpeed: 0,
             dustPanCapacity: 0,
 
+            // Travel mechanic
+            vehicleTier: 0,
+            hasDriver: false,
+            isTraveling: false,
+            travelProgress: 0,
+            travelDestination: 'mine' as const,
+            driverTripTicks: 0,
+
             // Settings
             timePlayed: 0,
             darkMode: false,
@@ -416,6 +451,12 @@ export const gameStore = createStore<GameState>()(
                     unlockedTown: false,
                     unlockedBanking: false,
                     runMoneyEarned: 0,
+                    vehicleTier: 0,
+                    hasDriver: false,
+                    isTraveling: false,
+                    travelProgress: 0,
+                    travelDestination: 'mine' as const,
+                    driverTripTicks: 0,
                     _accumulator: 0,
                     // dustUpgrades preserved (permanent)
                 }))
@@ -471,6 +512,12 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: 0,
                     dustPanSpeed: 0,
                     dustPanCapacity: 0,
+                    vehicleTier: 0,
+                    hasDriver: false,
+                    isTraveling: false,
+                    travelProgress: 0,
+                    travelDestination: 'mine' as const,
+                    driverTripTicks: 0,
                     timePlayed: 0,
                     darkMode: false,
                     _accumulator: 0,
@@ -528,6 +575,8 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: s.dustBucketSize,
                     dustPanSpeed: s.dustPanSpeed,
                     dustPanCapacity: s.dustPanCapacity,
+                    vehicleTier: s.vehicleTier,
+                    hasDriver: s.hasDriver,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                 };
@@ -594,6 +643,8 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: migrated.dustBucketSize,
                     dustPanSpeed: migrated.dustPanSpeed,
                     dustPanCapacity: migrated.dustPanCapacity,
+                    vehicleTier: migrated.vehicleTier,
+                    hasDriver: migrated.hasDriver,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
                 }));
@@ -677,7 +728,6 @@ export const gameStore = createStore<GameState>()(
             },
 
             panForGold: () => {
-                let townJustUnlocked = false;
                 set((s) => {
                     if (s.panFilled < 1) return s; // Need material in the pan
 
@@ -688,25 +738,45 @@ export const gameStore = createStore<GameState>()(
                     extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                     extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
 
-                    let baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
-
-                    // Unlock town after getting some gold
-                    const newTownUnlock = s.gold + baseGold >= 0.5 && !s.unlockedTown;
-                    if (newTownUnlock) townJustUnlocked = true;
+                    const baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
 
                     return {
                         panFilled: s.panFilled - materialUsed,
                         gold: s.gold + baseGold,
-                        unlockedTown: s.unlockedTown || newTownUnlock,
                     };
                 });
-                if (townJustUnlocked) {
-                    get().addToast('🏘️ Town unlocked! Visit to buy upgrades.', 'info');
-                }
             },
 
             travelTo: (location: 'mine' | 'town') => {
                 set({ location });
+            },
+
+            startTravel: (destination: 'mine' | 'town') => {
+                const s = get();
+                if (s.isTraveling || s.location === destination) return;
+                set({ isTraveling: true, travelDestination: destination, travelProgress: 0 });
+            },
+
+            buyVehicle: (tier: number) => {
+                const s = get();
+                if (tier < 1 || tier > 3) return false;
+                if (tier <= s.vehicleTier) return false;
+                if (tier !== s.vehicleTier + 1) return false; // must buy in order
+                const tierData = VEHICLE_TIERS[tier as 1|2|3];
+                if (s.money < tierData.cost) return false;
+                set({ money: s.money - tierData.cost, vehicleTier: tier });
+                get().addToast(`🚗 ${tierData.name} purchased! Travel: ${tierData.travelSecs}s`, 'info');
+                return true;
+            },
+
+            buyDriver: () => {
+                const s = get();
+                if (s.hasDriver) return false;
+                if (s.vehicleTier < 2) return false; // requires Steam Wagon
+                if (s.money < DRIVER_COST) return false;
+                set({ money: s.money - DRIVER_COST, hasDriver: true });
+                get().addToast('🤠 Driver hired! He will auto-sell your gold.', 'info');
+                return true;
             },
 
             sellGold: () => {
@@ -1067,6 +1137,12 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     runMoneyEarned: 0,
+                    vehicleTier: 0,
+                    hasDriver: false,
+                    isTraveling: false,
+                    travelProgress: 0,
+                    travelDestination: 'mine' as const,
+                    driverTripTicks: 0,
                     _accumulator: 0,
                     toasts: [],
                 });
@@ -1102,6 +1178,7 @@ export const gameStore = createStore<GameState>()(
 
             _fixedTick: () => {
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
+                let townJustUnlocked = false;
 
                 set((s) => {
                     // Increment time played each tick
@@ -1249,6 +1326,47 @@ export const gameStore = createStore<GameState>()(
                         newLastRiskCheck = s.tickCount;
                     }
 
+                    // Player travel progress
+                    let newIsTraveling = s.isTraveling;
+                    let newTravelProgress = s.travelProgress;
+                    let newLocation = s.location;
+
+                    if (s.isTraveling) {
+                        const travelDuration = getTravelDurationTicks(s.vehicleTier);
+                        newTravelProgress = s.travelProgress + 1;
+                        if (newTravelProgress >= travelDuration) {
+                            newLocation = s.travelDestination;
+                            newIsTraveling = false;
+                            newTravelProgress = 0;
+                            if (newLocation === 'town' && !s.unlockedTown) {
+                                townJustUnlocked = true;
+                            }
+                        }
+                    }
+
+                    // Driver round-trip: sell gold at town midpoint
+                    let driverGoldSold = 0;
+                    let driverMoneyGained = 0;
+                    let newDriverTripTicks = s.driverTripTicks;
+
+                    if (s.hasDriver) {
+                        const tripDuration = getTravelDurationTicks(s.vehicleTier);
+                        const availableGold = s.gold + goldGained - goldSold;
+                        if (availableGold > 0 || s.driverTripTicks > 0) {
+                            newDriverTripTicks = s.driverTripTicks + 1;
+                            // Driver arrives at town — sell all gold
+                            if (newDriverTripTicks === tripDuration && availableGold > 0) {
+                                driverGoldSold = availableGold;
+                                const fee = s.hasFurnace ? driverGoldSold * SMELTING_FEE_PERCENT : 0;
+                                driverMoneyGained = (driverGoldSold - fee) * (1 + 0.1 * s.dustGoldValue);
+                            }
+                            // Driver completes round-trip — reset counter
+                            if (newDriverTripTicks >= tripDuration * 2) {
+                                newDriverTripTicks = 0;
+                            }
+                        }
+                    }
+
                     return {
                         tickCount: s.tickCount + 1,
                         timePlayed: newTimePlayed,
@@ -1256,18 +1374,26 @@ export const gameStore = createStore<GameState>()(
                         panFilled: newPanFilled,
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
-                        gold: s.gold + goldGained - goldSold,
-                        money: moneyAfterPayroll,
-                        runMoneyEarned: s.runMoneyEarned + moneyGained,
+                        gold: s.gold + goldGained - goldSold - driverGoldSold,
+                        money: moneyAfterPayroll + driverMoneyGained,
+                        runMoneyEarned: s.runMoneyEarned + moneyGained + driverMoneyGained,
                         investmentSafeBonds: newInvestmentSafeBonds,
                         investmentStocks: newInvestmentStocks,
                         investmentHighRisk: newInvestmentHighRisk,
                         lastRiskCheck: newLastRiskCheck,
+                        isTraveling: newIsTraveling,
+                        travelProgress: newTravelProgress,
+                        location: newLocation,
+                        unlockedTown: s.unlockedTown || townJustUnlocked,
+                        driverTripTicks: newDriverTripTicks,
                     };
                 });
 
                 for (const { message, type } of riskToasts) {
                     get().addToast(message, type);
+                }
+                if (townJustUnlocked) {
+                    get().addToast('🏘️ You arrived at Town for the first time!', 'info');
                 }
             },
 
@@ -1323,6 +1449,8 @@ export const gameStore = createStore<GameState>()(
             dustBucketSize: state.dustBucketSize,
             dustPanSpeed: state.dustPanSpeed,
             dustPanCapacity: state.dustPanCapacity,
+            vehicleTier: state.vehicleTier,
+            hasDriver: state.hasDriver,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
         }),
@@ -1331,7 +1459,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV15();
+                return defaultSaveV16();
             }
         },
         onRehydrateStorage: ()=> (state) => {
@@ -1339,6 +1467,9 @@ export const gameStore = createStore<GameState>()(
             // Ensure transient flags are sensible after load
             state.isPaused = false;
             state._accumulator = 0;
+            state.isTraveling = false;
+            state.travelProgress = 0;
+            state.driverTripTicks = 0;
             // Apply persisted dark mode preference
             if (state.darkMode) {
                 document.documentElement.classList.add('dark');

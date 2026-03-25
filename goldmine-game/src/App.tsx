@@ -5,28 +5,42 @@ import {Settings} from "./components/Settings.tsx";
 import {ResourceBar} from "./components/ResourceBar.tsx";
 import {ToastContainer} from "./components/ToastContainer.tsx";
 import {useGameLoop} from "./hooks/useGameLoop.ts";
-import {gameStore, useGameStore} from "./store/gameStore.ts";
-import {useState} from "react";
+import {gameStore, useGameStore, VEHICLE_TIERS, getTravelDurationTicks} from "./store/gameStore.ts";
+import {useState, useEffect} from "react";
 
 type Tab = 'mine' | 'town' | 'settings';
 
 function App() {
     useGameLoop()
     const unlockedTown = useGameStore((s) => s.unlockedTown)
+    const location = useGameStore((s) => s.location)
+    const isTraveling = useGameStore((s) => s.isTraveling)
+    const travelProgress = useGameStore((s) => s.travelProgress)
+    const travelDestination = useGameStore((s) => s.travelDestination)
+    const vehicleTier = useGameStore((s) => s.vehicleTier)
     const [activeTab, setActiveTab] = useState<Tab>('mine')
 
-    const setLocation = (loc: 'mine' | 'town') => {
-        gameStore.getState().travelTo(loc);
-        setActiveTab(loc);
-    }
+    // Sync active tab when travel completes
+    useEffect(() => {
+        if (!isTraveling && (location === 'mine' || location === 'town')) {
+            setActiveTab(location);
+        }
+    }, [isTraveling, location]);
+
+    const handleTravelClick = (dest: 'mine' | 'town') => {
+        if (location === dest || isTraveling) return;
+        gameStore.getState().startTravel(dest);
+    };
 
     const handleTabClick = (tab: Tab) => {
         if (tab === 'settings') {
             setActiveTab('settings');
         } else {
-            setLocation(tab);
+            handleTravelClick(tab);
         }
     }
+
+    const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
     return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
@@ -72,6 +86,18 @@ function App() {
                     ⚙️ Settings
                 </button>
             </div>
+
+            {/* Travel countdown banner */}
+            {isTraveling && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between">
+                    <span className="font-semibold text-amber-900 text-sm">
+                        Traveling to {travelDestination === 'town' ? 'Town' : 'Mine'}... ({tierData.name})
+                    </span>
+                    <span className="text-lg font-bold text-amber-700">
+                        {Math.ceil((getTravelDurationTicks(vehicleTier) - travelProgress) / 60)}s
+                    </span>
+                </div>
+            )}
 
             {/* Tab content */}
             <div>

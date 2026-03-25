@@ -1,11 +1,12 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
 import { PrestigeShop } from "./PrestigeShop";
 import { UpgradeButton, WorkerRow } from "./ui";
+import { formatNumber } from "../utils/format";
 
 type TownTab = 'banking' | 'shop' | 'laborOffice' | 'legacy';
-type ShopTab = 'gear' | 'equipment';
+type ShopTab = 'gear' | 'equipment' | 'transport';
 
 export function Town() {
     const [activeTab, setActiveTab] = useState<TownTab>('shop');
@@ -27,6 +28,11 @@ export function Town() {
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const unlockedBanking = useGameStore((s) => s.unlockedBanking);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
+    const gold = useGameStore((s) => s.gold);
+    const vehicleTier = useGameStore((s) => s.vehicleTier);
+    const hasDriver = useGameStore((s) => s.hasDriver);
+    const isTraveling = useGameStore((s) => s.isTraveling);
+    const travelDestination = useGameStore((s) => s.travelDestination);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
@@ -60,9 +66,42 @@ export function Town() {
     const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
 
+    const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
+
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-green-900">🏘️ Town</h2>
+
+            {/* Gold Exchange */}
+            {gold > 0 && (
+                <div className="p-4 bg-white border-2 border-green-300 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-green-900">💰 Gold Exchange</span>
+                        <span className="text-sm font-semibold text-green-700">{formatNumber(gold)} oz</span>
+                    </div>
+                    <button
+                        onClick={() => gameStore.getState().sellGold()}
+                        className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                    >
+                        {hasFurnace
+                            ? `💵 Sell Gold (${((1 - SMELTING_FEE_PERCENT) * 100).toFixed(0)}% after fee)`
+                            : '💵 Sell Gold (no fee)'}
+                    </button>
+                </div>
+            )}
+
+            {/* Travel back to Mine */}
+            <div className="p-3 bg-white border border-amber-200 rounded-xl">
+                <button
+                    onClick={() => gameStore.getState().startTravel('mine')}
+                    disabled={isTraveling}
+                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isTraveling && travelDestination === 'mine'
+                        ? '🚗 Traveling to Mine...'
+                        : `⛏️ Travel to Mine (${tierData.travelSecs}s)`}
+                </button>
+            </div>
 
             {/* Main Tabs */}
             <div className="flex gap-2 border-b-2 border-green-200">
@@ -149,6 +188,16 @@ export function Town() {
                                 }`}
                             >
                                 🔧 Equipment
+                            </button>
+                            <button
+                                onClick={() => setShopTab('transport')}
+                                className={`px-4 py-2 font-semibold rounded-t-lg transition-all text-sm ${
+                                    shopTab === 'transport'
+                                        ? 'bg-gray-100 text-gray-900 border-2 border-b-0 border-gray-200'
+                                        : 'bg-white/50 text-gray-700 hover:bg-white/80'
+                                }`}
+                            >
+                                🚗 Transport
                             </button>
                         </div>
 
@@ -275,6 +324,31 @@ export function Town() {
                                 />
                             </>
                             )}
+
+                            {shopTab === 'transport' && (
+                            <div className="space-y-3">
+                                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800">
+                                    Current: <span className="font-semibold">{tierData.name}</span> — {tierData.travelSecs}s travel time
+                                </div>
+                                {(VEHICLE_TIERS.slice(1) as readonly {name: string; travelSecs: number; cost: number}[]).map((tier, i) => {
+                                    const tierIndex = i + 1;
+                                    const owned = vehicleTier >= tierIndex;
+                                    const isNext = tierIndex === vehicleTier + 1;
+                                    return (
+                                        <UpgradeButton
+                                            key={tierIndex}
+                                            name={tier.name}
+                                            description={`Reduces travel time to ${tier.travelSecs}s`}
+                                            cost={tier.cost}
+                                            locked={owned}
+                                            canAfford={isNext && money >= tier.cost}
+                                            onBuy={() => gameStore.getState().buyVehicle(tierIndex)}
+                                            icon={owned ? '✅' : tierIndex === 1 ? '🐴' : tierIndex === 2 ? '🚂' : '🚛'}
+                                        />
+                                    );
+                                })}
+                            </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -384,6 +458,20 @@ export function Town() {
                             onHire={() => buyUpgrade('bankerWorker')}
                             onFire={() => fireWorker('bankerWorker')}
                             icon="🏦"
+                        />
+
+                        <UpgradeButton
+                            name="Hire Driver"
+                            description={hasDriver
+                                ? 'Driver is working — auto-sells gold on round trips'
+                                : vehicleTier < 2
+                                    ? 'Requires Steam Wagon first'
+                                    : 'Auto-sells your gold at Town without you traveling'}
+                            cost={DRIVER_COST}
+                            locked={hasDriver}
+                            canAfford={!hasDriver && vehicleTier >= 2 && money >= DRIVER_COST}
+                            onBuy={() => gameStore.getState().buyDriver()}
+                            icon={hasDriver ? '✅' : '🤠'}
                         />
                     </div>
                 )}

@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, SMELTING_FEE_PERCENT, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -21,10 +21,12 @@ export function Mine() {
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
 
-    const hasFurnace = useGameStore((s) => s.hasFurnace);
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
+    const vehicleTier = useGameStore((s) => s.vehicleTier);
+    const isTraveling = useGameStore((s) => s.isTraveling);
+    const travelDestination = useGameStore((s) => s.travelDestination);
 
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity);
@@ -36,9 +38,9 @@ export function Mine() {
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
     const panForGold = () => gameStore.getState().panForGold();
-    const sellGold = () => gameStore.getState().sellGold();
     const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
     const hireProspector = () => gameStore.getState().buyUpgrade('pan');
+    const travelToTown = () => gameStore.getState().startTravel('town');
 
     const minerCost = getUpgradeCost('shovel', shovels);
     const prospectorCost = getUpgradeCost('pan', pans);
@@ -165,21 +167,16 @@ export function Mine() {
                     </div>
                 )}
 
-                {/* Sell Gold */}
-                {gold > 0 && (
-                    <div className="p-4 bg-white border-2 border-green-300 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-green-900">💰 Gold</span>
-                            <span className="text-sm font-semibold text-green-700">{formatNumber(gold)} oz</span>
-                        </div>
+                {/* Travel to Town — shown when player has gold but hasn't discovered Town yet */}
+                {!unlockedTown && gold >= 0.5 && (
+                    <div className="p-4 bg-green-50 border-2 border-green-300 rounded-xl space-y-3">
+                        <p className="text-sm font-semibold text-green-900">You have gold! Travel to Town to sell it.</p>
                         <button
-                            onClick={sellGold}
-                            className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                            onClick={travelToTown}
+                            disabled={isTraveling}
+                            className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {hasFurnace
-                                ? `💵 Sell Gold (${((1 - SMELTING_FEE_PERCENT) * 100).toFixed(0)}% after fee)`
-                                : '💵 Sell Gold (no fee)'
-                            }
+                            🚶 Travel to Town ({VEHICLE_TIERS[0].travelSecs}s)
                         </button>
                     </div>
                 )}
@@ -209,10 +206,25 @@ export function Mine() {
                 </div>
             )}
 
-            {/* Unlock message */}
+            {/* Hint: earn gold to travel */}
             {!unlockedTown && gold < 0.5 && unlockedPanning && (
                 <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
-                    Get 0.5 gold to unlock Town tab!
+                    Pan gold to 0.5 oz and you can travel to Town!
+                </div>
+            )}
+
+            {/* Travel to Town — recurring button once Town is known */}
+            {unlockedTown && (
+                <div className="p-4 bg-white border border-green-200 rounded-xl">
+                    <button
+                        onClick={travelToTown}
+                        disabled={isTraveling}
+                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isTraveling && travelDestination === 'town'
+                            ? '🚗 Traveling to Town...'
+                            : `🏘️ Travel to Town (${VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)`}
+                    </button>
                 </div>
             )}
 
