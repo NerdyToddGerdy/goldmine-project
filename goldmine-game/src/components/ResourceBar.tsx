@@ -1,4 +1,4 @@
-import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
@@ -27,6 +27,10 @@ export function ResourceBar() {
 
     const legacyDust = useGameStore((s) => s.legacyDust);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
+    const unlockedTown = useGameStore((s) => s.unlockedTown);
+    const goldPrice = useGameStore((s) => s.goldPrice);
+    const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
+    const tickCount = useGameStore((s) => s.tickCount);
 
     // Calculate total payroll, then subtract idle workers
     const totalPayroll = useGameStore((s) => getTotalPayroll(s));
@@ -79,16 +83,27 @@ export function ResourceBar() {
     // Money rate: auto-sell income - active payroll
     const moneyRate = autoSellIncome - activePayroll;
 
+    const goldPriceProgress = unlockedTown
+        ? Math.min(1, (tickCount - lastGoldPriceUpdate) / GOLD_PRICE_UPDATE_TICKS)
+        : undefined;
+
     return (
         <div className="space-y-1.5">
             <div className={`grid gap-2 ${prestigeCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <ResourceCard label="Gold" value={gold} rate={goldRate} icon="✨" color="yellow" />
+                <ResourceCard
+                    label="Gold"
+                    value={gold}
+                    rate={goldRate}
+                    icon="✨"
+                    color="yellow"
+                    priceInfo={goldPriceProgress !== undefined ? { price: goldPrice, progress: goldPriceProgress } : undefined}
+                />
                 <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
                 {prestigeCount > 0 && (
                     <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
                 )}
             </div>
-            {activePayroll > 0 && (
+            {totalPayroll > 0 && (
                 <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
                     <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wide">Payroll</span>
                     <span className="text-xs font-semibold tabular-nums text-orange-900 dark:text-orange-100">💰 -{formatNumber(activePayroll)}/sec</span>
@@ -103,13 +118,15 @@ function ResourceCard({
     value,
     rate,
     icon,
-    color
+    color,
+    priceInfo,
 }: {
     label: string;
     value: number;
     rate: number;
     icon: string;
     color: 'amber' | 'cyan' | 'yellow' | 'green';
+    priceInfo?: { price: number; progress: number };
 }) {
     const colorClasses = {
         amber: {
@@ -147,16 +164,31 @@ function ResourceCard({
         : 'text-gray-500 dark:text-gray-400';
 
     return (
-        <div className={`rounded-xl border ${colors.border} shadow-sm p-2 ${colors.bg}`}>
-            <div className={`text-xs uppercase tracking-wide ${colors.textLabel} font-semibold`}>
-                {label}
+        <div className={`rounded-xl border ${colors.border} shadow-sm overflow-hidden ${colors.bg}`}>
+            <div className="p-2">
+                <div className={`text-xs uppercase tracking-wide ${colors.textLabel} font-semibold`}>
+                    {label}
+                </div>
+                <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>
+                    {icon} {formatNumber(value)}
+                </div>
+                <div className={`text-xs font-semibold tabular-nums ${rateColor}`}>
+                    {formatRate(rate)}
+                </div>
+                {priceInfo && (
+                    <div className="text-xs tabular-nums text-gray-500 dark:text-gray-400 mt-0.5">
+                        📈 ${priceInfo.price.toFixed(2)}/oz
+                    </div>
+                )}
             </div>
-            <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>
-                {icon} {formatNumber(value)}
-            </div>
-            <div className={`text-xs font-semibold tabular-nums ${rateColor}`}>
-                {formatRate(rate)}
-            </div>
+            {priceInfo && (
+                <div className="h-1 bg-black/10 dark:bg-white/10">
+                    <div
+                        className="h-full bg-yellow-400 dark:bg-yellow-500 transition-[width] duration-300"
+                        style={{ width: `${priceInfo.progress * 100}%` }}
+                    />
+                </div>
+            )}
         </div>
     );
 }
