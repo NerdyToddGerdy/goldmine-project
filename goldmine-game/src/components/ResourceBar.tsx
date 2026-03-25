@@ -1,4 +1,4 @@
-import { useGameStore, getTotalPayroll, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
@@ -6,6 +6,7 @@ export function ResourceBar() {
     const money = useGameStore((s) => s.money);
 
     // Get worker counts and equipment
+    const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
     const separatorWorkers = useGameStore((s) => s.separatorWorkers);
@@ -16,18 +17,31 @@ export function ResourceBar() {
     const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
+    const hasFurnace = useGameStore((s) => s.hasFurnace);
+
+    // Bucket/pan state for idle detection
+    const bucketFilled = useGameStore((s) => s.bucketFilled);
+    const panFilled = useGameStore((s) => s.panFilled);
+    const dustBucketSize = useGameStore((s) => s.dustBucketSize);
+    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
 
     const legacyDust = useGameStore((s) => s.legacyDust);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
 
-    // Calculate total payroll
+    // Calculate total payroll, then subtract idle workers
     const totalPayroll = useGameStore((s) => getTotalPayroll(s));
+    const bucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
+    const minersIdle = bucketFilled >= bucketCap;
+    const prospectsIdle = panFilled < 1;
+    const activePayroll = totalPayroll
+        - (minersIdle ? getTotalWageForType('shovel', shovels) : 0)
+        - (prospectsIdle ? getTotalWageForType('pan', pans) : 0);
 
     // Check if workers can be paid
-    const canAffordWorkers = money >= totalPayroll / 60;
+    const canAffordWorkers = money >= activePayroll / 60;
 
-    // Calculate effective workers (0 if can't afford payroll)
-    const effectivePans = canAffordWorkers ? pans : 0;
+    // Calculate effective workers (0 if can't afford payroll or blocked)
+    const effectivePans = (canAffordWorkers && !prospectsIdle) ? pans : 0;
     const effectiveSluiceWorkers = canAffordWorkers ? sluiceWorkers : 0;
     const effectiveSeparatorWorkers = canAffordWorkers ? separatorWorkers : 0;
     const effectiveBankerWorkers = canAffordWorkers ? bankerWorkers : 0;
@@ -51,9 +65,9 @@ export function ResourceBar() {
         valueMultiplier += ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
         valueMultiplier += furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
 
-        // Calculate smelting fee (furnace workers reduce it)
-        let effectiveFeePercent = SMELTING_FEE_PERCENT;
-        if (furnaceWorkers > 0) {
+        // Smelting fee applies without a furnace; furnace workers reduce it
+        let effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
+        if (!hasFurnace && furnaceWorkers > 0) {
             effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (furnaceWorkers * 0.015));
         }
 
@@ -62,28 +76,22 @@ export function ResourceBar() {
         autoSellIncome = baseValue - fee;
     }
 
-    // Money rate: auto-sell income - payroll
-    const moneyRate = autoSellIncome - totalPayroll;
+    // Money rate: auto-sell income - active payroll
+    const moneyRate = autoSellIncome - activePayroll;
 
     return (
-        <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+            <div className={`grid gap-2 ${prestigeCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <ResourceCard label="Gold" value={gold} rate={goldRate} icon="✨" color="yellow" />
                 <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
+                {prestigeCount > 0 && (
+                    <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
+                )}
             </div>
-            {prestigeCount > 0 && (
-                <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
-            )}
-            {totalPayroll > 0 && (
-                <div className="rounded-2xl border border-orange-200 dark:border-orange-800 shadow-sm p-3 bg-orange-50 dark:bg-orange-900/20">
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs uppercase tracking-wide text-orange-600 dark:text-orange-400 font-semibold">
-                            Total Payroll
-                        </div>
-                        <div className="text-lg font-semibold tabular-nums text-orange-900 dark:text-orange-100">
-                            💰 -{formatNumber(totalPayroll)}/sec
-                        </div>
-                    </div>
+            {activePayroll > 0 && (
+                <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                    <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wide">Payroll</span>
+                    <span className="text-xs font-semibold tabular-nums text-orange-900 dark:text-orange-100">💰 -{formatNumber(activePayroll)}/sec</span>
                 </div>
             )}
         </div>
@@ -139,14 +147,14 @@ function ResourceCard({
         : 'text-gray-500 dark:text-gray-400';
 
     return (
-        <div className={`rounded-2xl border ${colors.border} shadow-sm p-4 ${colors.bg}`}>
+        <div className={`rounded-xl border ${colors.border} shadow-sm p-2 ${colors.bg}`}>
             <div className={`text-xs uppercase tracking-wide ${colors.textLabel} font-semibold`}>
                 {label}
             </div>
-            <div className={`text-2xl font-semibold tabular-nums ${colors.textValue}`}>
+            <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>
                 {icon} {formatNumber(value)}
             </div>
-            <div className={`text-xs font-semibold tabular-nums ${rateColor} mt-1`}>
+            <div className={`text-xs font-semibold tabular-nums ${rateColor}`}>
                 {formatRate(rate)}
             </div>
         </div>

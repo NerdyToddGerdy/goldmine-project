@@ -51,50 +51,57 @@ function App() {
     const emojiFlip = travelDestination === 'town' ? 'scaleX(-1)' : '';
 
     return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
+    <div className="w-full h-screen overflow-y-scroll bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
         <ToastContainer />
-        <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
-            <h1 className="text-3xl font-bold text-amber-900 dark:text-amber-100">💎 Gold Mine Tycoon</h1>
 
-            {/* Global Resources */}
-            <ResourceBar />
+        {/* Sticky header — shares scrollbar context with content, so widths always match */}
+        <div className="sticky top-0 z-10 bg-amber-50 dark:bg-gray-900">
+            <div className="w-full max-w-4xl mx-auto px-4 pt-4 pb-0">
+                <h1 className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-2">💎 Gold Mine Tycoon</h1>
 
-            {/* Tabs */}
-            <div className="flex gap-2 border-b-2 border-amber-200 dark:border-gray-700">
-                <button
-                    onClick={() => handleTabClick('mine')}
-                    className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
-                        activeTab === 'mine'
-                            ? 'bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 border-2 border-b-0 border-amber-200 dark:border-gray-700'
-                            : 'bg-white/50 dark:bg-gray-800/50 text-amber-700 dark:text-amber-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
-                    }`}
-                >
-                    ⛏️ Mine
-                </button>
-                {unlockedTown && (
+                {/* Global Resources */}
+                <ResourceBar />
+
+                {/* Tabs */}
+                <div className="mt-3 flex gap-2 border-b-2 border-amber-200 dark:border-gray-700">
                     <button
-                        onClick={() => handleTabClick('town')}
-                        className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
-                            activeTab === 'town'
-                                ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 border-2 border-b-0 border-green-200 dark:border-gray-700'
-                                : 'bg-white/50 dark:bg-gray-800/50 text-green-700 dark:text-green-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
+                        onClick={() => handleTabClick('mine')}
+                        className={`flex-1 px-6 py-3 font-semibold rounded-t-xl transition-all border-2 ${
+                            activeTab === 'mine'
+                                ? 'bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-gray-700 border-b-0'
+                                : 'bg-white/50 dark:bg-gray-800/50 text-amber-700 dark:text-amber-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
                         }`}
                     >
-                        🏘️ Town
+                        ⛏️ Mine
                     </button>
-                )}
-                <button
-                    onClick={() => handleTabClick('settings')}
-                    className={`px-6 py-3 font-semibold rounded-t-xl transition-all ml-auto ${
-                        activeTab === 'settings'
-                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-2 border-b-0 border-gray-200 dark:border-gray-700'
-                            : 'bg-white/50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80'
-                    }`}
-                >
-                    ⚙️ Settings
-                </button>
+                    {unlockedTown && (
+                        <button
+                            onClick={() => handleTabClick('town')}
+                            className={`flex-1 px-6 py-3 font-semibold rounded-t-xl transition-all border-2 ${
+                                activeTab === 'town'
+                                    ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 border-green-200 dark:border-gray-700 border-b-0'
+                                    : 'bg-white/50 dark:bg-gray-800/50 text-green-700 dark:text-green-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
+                            }`}
+                        >
+                            🏘️ Town
+                        </button>
+                    )}
+                    <button
+                        onClick={() => handleTabClick('settings')}
+                        className={`px-6 py-3 font-semibold rounded-t-xl transition-all ml-auto border-2 ${
+                            activeTab === 'settings'
+                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700 border-b-0'
+                                : 'bg-white/50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
+                        }`}
+                    >
+                        ⚙️ Settings
+                    </button>
+                </div>
             </div>
+        </div>
 
+        {/* Content — same scrolling context as header, so no width mismatch */}
+        <div className="w-full max-w-4xl mx-auto px-4 py-4 space-y-4">
             {/* Travel banner with progress bar + moving emoji */}
             {isTraveling && (
                 <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">

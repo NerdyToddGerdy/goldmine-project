@@ -1,4 +1,4 @@
-import { useGameStore, gameStore, DUST_UPGRADE_COSTS, DUST_UPGRADE_MAX_LEVEL, DUST_HEAD_START_AMOUNTS, BUCKET_CAPACITY, PAN_CAPACITY } from "../store/gameStore";
+import { useGameStore, gameStore, DUST_UPGRADE_COSTS, DUST_UPGRADE_MAX_LEVEL, DUST_HEAD_START_AMOUNTS } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 
 type DustUpgradeKey = 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity';
@@ -41,36 +41,6 @@ const DUST_UPGRADES: {
                 : `+$${curr}/run (maxed)`;
         },
     },
-    {
-        key: 'bucketSize',
-        name: 'Larger Bucket',
-        icon: '🪣',
-        description: (lvl) => {
-            const curr = BUCKET_CAPACITY + 5 * lvl;
-            const next = curr + 5;
-            return lvl < DUST_UPGRADE_MAX_LEVEL
-                ? `Bucket capacity: ${curr} → ${next}`
-                : `Bucket capacity: ${curr} (maxed)`;
-        },
-    },
-    {
-        key: 'panSpeed',
-        name: 'Faster Panning',
-        icon: '⚡',
-        description: (lvl) => `+${lvl * 20}% pan processing rate${lvl < DUST_UPGRADE_MAX_LEVEL ? ` → +${(lvl + 1) * 20}%` : ' (maxed)'}`,
-    },
-    {
-        key: 'panCapacity',
-        name: 'Larger Pan',
-        icon: '🍳',
-        description: (lvl) => {
-            const curr = PAN_CAPACITY + 10 * lvl;
-            const next = curr + 10;
-            return lvl < DUST_UPGRADE_MAX_LEVEL
-                ? `Pan capacity: ${curr} → ${next}`
-                : `Pan capacity: ${curr} (maxed)`;
-        },
-    },
 ];
 
 export function PrestigeShop() {
@@ -79,18 +49,11 @@ export function PrestigeShop() {
     const dustPanYield = useGameStore((s) => s.dustPanYield);
     const dustGoldValue = useGameStore((s) => s.dustGoldValue);
     const dustHeadStart = useGameStore((s) => s.dustHeadStart);
-    const dustBucketSize = useGameStore((s) => s.dustBucketSize);
-    const dustPanSpeed = useGameStore((s) => s.dustPanSpeed);
-    const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
-
     const levelOf = (key: DustUpgradeKey) => {
         if (key === 'scoopBoost') return dustScoopBoost;
         if (key === 'panYield') return dustPanYield;
         if (key === 'goldValue') return dustGoldValue;
-        if (key === 'headStart') return dustHeadStart;
-        if (key === 'bucketSize') return dustBucketSize;
-        if (key === 'panSpeed') return dustPanSpeed;
-        return dustPanCapacity;
+        return dustHeadStart;
     };
 
     const buy = (key: DustUpgradeKey) => gameStore.getState().buyDustUpgrade(key);

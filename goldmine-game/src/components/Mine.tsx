@@ -23,13 +23,15 @@ export function Mine() {
 
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
+    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
+    const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelDestination = useGameStore((s) => s.travelDestination);
 
-    const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize);
-    const effectivePanCap = getEffectivePanCapacity(dustPanCapacity);
+    const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
+    const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
     const [showPrestigeModal, setShowPrestigeModal] = useState(false);
 
     const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
@@ -76,17 +78,19 @@ export function Mine() {
                             </span>
                         </div>
                         <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" />
-                        {bucketIsFull && (
-                            <div className="text-xs text-amber-700 mt-2 text-center font-semibold">
-                                Bucket is full! Empty it to continue scooping.
-                            </div>
-                        )}
+                        <div className="h-5 mt-1 flex items-center justify-center">
+                            {bucketIsFull && (
+                                <span className="text-xs text-amber-700 font-semibold">
+                                    Bucket is full! Empty it to continue scooping.
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Scoop Button */}
                     <button
                         onClick={scoopDirt}
-                        disabled={bucketIsFull}
+                        disabled={bucketIsFull || isTraveling}
                         className="w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         🪨 Scoop Dirt (+{scoopPower.toFixed(1)})
@@ -96,7 +100,7 @@ export function Mine() {
                     {unlockedPanning && (
                         <button
                             onClick={emptyBucket}
-                            disabled={bucketFilled === 0 || panIsFull}
+                            disabled={bucketFilled === 0 || panIsFull || isTraveling}
                             className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasSluiceBox
@@ -113,7 +117,7 @@ export function Mine() {
                         </span>
                         <button
                             onClick={hireMiner}
-                            disabled={money < minerCost}
+                            disabled={money < minerCost || isTraveling}
                             className="px-3 py-1 text-xs font-semibold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                         >
                             Hire ${minerCost}
@@ -135,17 +139,19 @@ export function Mine() {
                                 </span>
                             </div>
                             <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" />
-                            {panIsFull && (
-                                <div className="text-xs text-yellow-700 mt-2 text-center font-semibold">
-                                    Pan is full! Start panning to make room.
-                                </div>
-                            )}
+                            <div className="h-5 mt-1 flex items-center justify-center">
+                                {panIsFull && (
+                                    <span className="text-xs text-yellow-700 font-semibold">
+                                        Pan is full! Start panning to make room.
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         {/* Pan for Gold Button */}
                         <button
                             onClick={panForGold}
-                            disabled={panFilled < 1}
+                            disabled={panFilled < 1 || isTraveling}
                             className="w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
@@ -158,7 +164,7 @@ export function Mine() {
                             </span>
                             <button
                                 onClick={hireProspector}
-                                disabled={money < prospectorCost}
+                                disabled={money < prospectorCost || isTraveling}
                                 className="px-3 py-1 text-xs font-semibold rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             >
                                 Hire ${prospectorCost}

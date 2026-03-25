@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV16, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV18, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -36,6 +36,12 @@ export function getEffectivePanCapacity(dustPanCapacity: number): number {
 export function getEffectivePanClickAmount(dustPanSpeed: number): number {
     return 1 + 0.5 * dustPanSpeed;
 }
+
+// Money-purchasable gear upgrade costs (3 levels each, resets on prestige)
+export const BUCKET_UPGRADE_COSTS = [15, 55, 175] as const;
+export const PAN_CAP_UPGRADE_COSTS = [15, 55, 175] as const;
+export const PAN_SPEED_UPGRADE_COSTS = [8, 30, 100] as const;
+export const MAX_GEAR_UPGRADE_LEVEL = 3;
 
 // Investment system constants
 export const INVESTMENTS = {
@@ -65,6 +71,11 @@ export const INVESTMENTS = {
 export const RISK_CHECK_INTERVAL_MS = 60000; // Check for risk events every 60 seconds
 export const WITHDRAWAL_PENALTY = 0.05; // 5% penalty on withdrawal
 export const PRESTIGE_MONEY_THRESHOLD = 250; // cumulative money earned to unlock prestige
+
+// Gold market price constants
+export const GOLD_PRICE_MIN = 0.60;
+export const GOLD_PRICE_MAX = 1.80;
+export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
 
 export type ToastType = 'info' | 'warning' | 'error';
 
@@ -145,6 +156,11 @@ export type GameState = {
     dustPanSpeed: number    // 0-3: +20% pan processing rate per level
     dustPanCapacity: number // 0-3: +10 pan capacity per level
 
+    // Money-purchasable gear upgrades (persisted, reset on prestige)
+    bucketUpgrades: number   // 0-3: +5 bucket capacity per level
+    panCapUpgrades: number   // 0-3: +10 pan capacity per level
+    panSpeedUpgrades: number // 0-3: +0.5 pan click amount per level
+
     // Travel mechanic (persisted)
     vehicleTier: number  // 0=on foot, 1=mule cart, 2=steam wagon, 3=motor truck
     hasDriver: boolean   // hired a driver to auto-sell gold
@@ -154,6 +170,10 @@ export type GameState = {
     travelProgress: number       // ticks elapsed of current travel
     travelDestination: 'mine' | 'town'
     driverTripTicks: number      // driver's position in round-trip cycle
+
+    // Gold market price (persisted)
+    goldPrice: number            // current $/oz market rate
+    lastGoldPriceUpdate: number  // tickCount at last price update
 
     // Settings (persisted)
     timePlayed: number // total ticks played
@@ -215,10 +235,10 @@ export const UPGRADES = {
     cart: { baseCost: 100, multiplier: 1.2 },
     betterShovel: { baseCost: 50, multiplier: 1.3 }, // increases manual scoop
     betterPan: { baseCost: 100, multiplier: 1.3 }, // increases manual pan
-    betterSluice: { baseCost: 150, multiplier: 1.4 }, // increases sluice worker bonus
-    betterSeparator: { baseCost: 500, multiplier: 1.5 }, // increases separator worker bonus
-    betterOven: { baseCost: 300, multiplier: 1.4 }, // increases oven worker bonus
-    betterFurnace: { baseCost: 1000, multiplier: 1.5 }, // increases furnace worker bonus
+    betterSluice: { baseCost: 75, multiplier: 1.4 }, // increases sluice worker bonus
+    betterSeparator: { baseCost: 250, multiplier: 1.5 }, // increases separator worker bonus
+    betterOven: { baseCost: 150, multiplier: 1.4 }, // increases oven worker bonus
+    betterFurnace: { baseCost: 500, multiplier: 1.5 }, // increases furnace worker bonus
     sluiceWorker: { baseCost: 75, multiplier: 1.2, extractionBonus: 0.1 }, // +10% extraction per worker
     separatorWorker: { baseCost: 300, multiplier: 1.25, extractionBonus: 0.15 }, // +15% extraction per worker
     ovenWorker: { baseCost: 150, multiplier: 1.2, valueBonus: 0.2 }, // +20% sell value per worker
@@ -391,6 +411,11 @@ export const gameStore = createStore<GameState>()(
             dustPanSpeed: 0,
             dustPanCapacity: 0,
 
+            // Money gear upgrades
+            bucketUpgrades: 0,
+            panCapUpgrades: 0,
+            panSpeedUpgrades: 0,
+
             // Travel mechanic
             vehicleTier: 0,
             hasDriver: false,
@@ -398,6 +423,10 @@ export const gameStore = createStore<GameState>()(
             travelProgress: 0,
             travelDestination: 'mine' as const,
             driverTripTicks: 0,
+
+            // Gold market price
+            goldPrice: 1.0,
+            lastGoldPriceUpdate: 0,
 
             // Settings
             timePlayed: 0,
@@ -457,6 +486,8 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
+                    goldPrice: 1.0,
+                    lastGoldPriceUpdate: 0,
                     _accumulator: 0,
                     // dustUpgrades preserved (permanent)
                 }))
@@ -512,12 +543,17 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: 0,
                     dustPanSpeed: 0,
                     dustPanCapacity: 0,
+                    bucketUpgrades: 0,
+                    panCapUpgrades: 0,
+                    panSpeedUpgrades: 0,
                     vehicleTier: 0,
                     hasDriver: false,
                     isTraveling: false,
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
+                    goldPrice: 1.0,
+                    lastGoldPriceUpdate: 0,
                     timePlayed: 0,
                     darkMode: false,
                     _accumulator: 0,
@@ -575,10 +611,15 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: s.dustBucketSize,
                     dustPanSpeed: s.dustPanSpeed,
                     dustPanCapacity: s.dustPanCapacity,
+                    bucketUpgrades: s.bucketUpgrades,
+                    panCapUpgrades: s.panCapUpgrades,
+                    panSpeedUpgrades: s.panSpeedUpgrades,
                     vehicleTier: s.vehicleTier,
                     hasDriver: s.hasDriver,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
+                    goldPrice: s.goldPrice,
+                    lastGoldPriceUpdate: s.lastGoldPriceUpdate,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -643,10 +684,15 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: migrated.dustBucketSize,
                     dustPanSpeed: migrated.dustPanSpeed,
                     dustPanCapacity: migrated.dustPanCapacity,
+                    bucketUpgrades: migrated.bucketUpgrades,
+                    panCapUpgrades: migrated.panCapUpgrades,
+                    panSpeedUpgrades: migrated.panSpeedUpgrades,
                     vehicleTier: migrated.vehicleTier,
                     hasDriver: migrated.hasDriver,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
+                    goldPrice: migrated.goldPrice,
+                    lastGoldPriceUpdate: migrated.lastGoldPriceUpdate,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -674,7 +720,7 @@ export const gameStore = createStore<GameState>()(
             // Game Actions
             scoopDirt: () => {
                 set((s) => {
-                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize);
+                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize + s.bucketUpgrades);
                     // Can't scoop if bucket is full
                     if (s.bucketFilled >= bucketCap) return s;
 
@@ -702,7 +748,7 @@ export const gameStore = createStore<GameState>()(
                         : 1;
                     const amountToAdd = s.bucketFilled * effectiveSluicePower;
 
-                    const panCap = getEffectivePanCapacity(s.dustPanCapacity);
+                    const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
                     const newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
 
                     return {
@@ -731,7 +777,7 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.panFilled < 1) return s; // Need material in the pan
 
-                    const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed));
+                    const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed + s.panSpeedUpgrades));
 
                     // Manual panning benefits from gear upgrades
                     let extractionRate = BASE_EXTRACTION;
@@ -783,9 +829,9 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.gold < 0.01) return s;
 
-                    const baseValue = s.gold;
-                    // Smelting fee only applies once Furnace is unlocked
-                    const fee = s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
+                    const baseValue = s.gold * s.goldPrice;
+                    // Smelting fee applies when you don't have a furnace (no furnace = pay to smelt elsewhere)
+                    const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                     const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
 
                     return {
@@ -946,6 +992,27 @@ export const gameStore = createStore<GameState>()(
                             money: s.money - cost,
                             bankerWorkers: s.bankerWorkers + 1,
                         });
+                        return true;
+                    }
+                } else if (upgrade === 'bucketUpgrade') {
+                    if (s.bucketUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    const cost = BUCKET_UPGRADE_COSTS[s.bucketUpgrades];
+                    if (s.money >= cost) {
+                        set({ money: s.money - cost, bucketUpgrades: s.bucketUpgrades + 1 });
+                        return true;
+                    }
+                } else if (upgrade === 'panCapUpgrade') {
+                    if (s.panCapUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    const cost = PAN_CAP_UPGRADE_COSTS[s.panCapUpgrades];
+                    if (s.money >= cost) {
+                        set({ money: s.money - cost, panCapUpgrades: s.panCapUpgrades + 1 });
+                        return true;
+                    }
+                } else if (upgrade === 'panSpeedUpgrade') {
+                    if (s.panSpeedUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    const cost = PAN_SPEED_UPGRADE_COSTS[s.panSpeedUpgrades];
+                    if (s.money >= cost) {
+                        set({ money: s.money - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
                         return true;
                     }
                 }
@@ -1137,6 +1204,9 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     runMoneyEarned: 0,
+                    bucketUpgrades: 0,
+                    panCapUpgrades: 0,
+                    panSpeedUpgrades: 0,
                     vehicleTier: 0,
                     hasDriver: false,
                     isTraveling: false,
@@ -1184,13 +1254,25 @@ export const gameStore = createStore<GameState>()(
                     // Increment time played each tick
                     const newTimePlayed = s.timePlayed + 1;
 
-                    // Check if we can afford to pay workers this tick
-                    const payrollPerTick = getTotalPayroll(s) / 60;
-                    const canAffordWorkers = s.money >= payrollPerTick;
+                    // Determine bucket/pan capacity and idle state before payroll
+                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize + s.bucketUpgrades);
+                    const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
+                    const minersIdle = s.bucketFilled >= bucketCap;   // bucket full → miners blocked
+                    const prospectsIdle = s.panFilled < 1;             // pan empty → prospectors blocked
+
+                    // Active payroll excludes idle workers
+                    const fullPayrollPerTick = getTotalPayroll(s) / 60;
+                    const minerWagePerTick = getTotalWageForType('shovel', s.shovels) / 60;
+                    const prospectWagePerTick = getTotalWageForType('pan', s.pans) / 60;
+                    const activePayrollPerTick = fullPayrollPerTick
+                        - (minersIdle ? minerWagePerTick : 0)
+                        - (prospectsIdle ? prospectWagePerTick : 0);
+
+                    const canAffordWorkers = s.money >= activePayrollPerTick;
 
                     // If we can't afford workers, they go idle (produce nothing)
-                    const effectiveShovels = canAffordWorkers ? s.shovels : 0;
-                    const effectivePans = canAffordWorkers ? s.pans : 0;
+                    const effectiveShovels = (canAffordWorkers && !minersIdle) ? s.shovels : 0;
+                    const effectivePans = (canAffordWorkers && !prospectsIdle) ? s.pans : 0;
                     const effectiveSluiceWorkers = canAffordWorkers ? s.sluiceWorkers : 0;
                     const effectiveSeparatorWorkers = canAffordWorkers ? s.separatorWorkers : 0;
                     const effectiveBankerWorkers = canAffordWorkers ? s.bankerWorkers : 0;
@@ -1199,9 +1281,6 @@ export const gameStore = createStore<GameState>()(
                     const dirtPerTick = (effectiveShovels * UPGRADES.shovel.dirtPerSec * (1 + 0.1 * s.dustScoopBoost)) / 60; // per tick at 60fps
                     let newBucketFilled = s.bucketFilled;
                     let newPanFilled = s.panFilled;
-
-                    const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize);
-                    const panCap = getEffectivePanCapacity(s.dustPanCapacity);
 
                     if (dirtPerTick > 0) {
                         // Check if bucket is full and pan has space - auto-empty bucket
@@ -1232,7 +1311,7 @@ export const gameStore = createStore<GameState>()(
                         extractionRate += effectiveSluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                         extractionRate += effectiveSeparatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
 
-                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate * (1 + 0.2 * s.dustPanSpeed)) / (60 * BASE_EXTRACTION);
+                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate * (1 + 0.2 * (s.dustPanSpeed + s.panSpeedUpgrades))) / (60 * BASE_EXTRACTION);
                         const panConsumed = Math.min(newPanFilled, panRate);
 
                         newPanFilled -= panConsumed;
@@ -1254,22 +1333,21 @@ export const gameStore = createStore<GameState>()(
                             valueMultiplier += s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
                             valueMultiplier += s.furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * s.furnaceGear;
 
-                            // Calculate smelting fee (furnace workers reduce/eliminate it)
-                            let effectiveFeePercent = SMELTING_FEE_PERCENT;
-                            // Each furnace worker reduces fee by 1/10th until it reaches 0
-                            if (s.furnaceWorkers > 0) {
+                            // Smelting fee applies without a furnace; furnace workers reduce it
+                            let effectiveFeePercent = !s.hasFurnace ? SMELTING_FEE_PERCENT : 0;
+                            if (!s.hasFurnace && s.furnaceWorkers > 0) {
                                 effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (s.furnaceWorkers * 0.015));
                             }
 
-                            const baseValue = goldSold * valueMultiplier;
+                            const baseValue = goldSold * valueMultiplier * s.goldPrice;
                             const fee = baseValue * effectiveFeePercent;
                             moneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                         }
                     }
 
-                    // Payroll: deduct wages only if workers were active
+                    // Payroll: deduct wages only for active (non-idle) workers
                     const moneyAfterPayroll = canAffordWorkers
-                        ? s.money + moneyGained - payrollPerTick
+                        ? s.money + moneyGained - activePayrollPerTick
                         : s.money + moneyGained;
 
                     // Investments: Calculate interest and check for risk events
@@ -1357,14 +1435,25 @@ export const gameStore = createStore<GameState>()(
                             // Driver arrives at town — sell all gold
                             if (newDriverTripTicks === tripDuration && availableGold > 0) {
                                 driverGoldSold = availableGold;
-                                const fee = s.hasFurnace ? driverGoldSold * SMELTING_FEE_PERCENT : 0;
-                                driverMoneyGained = (driverGoldSold - fee) * (1 + 0.1 * s.dustGoldValue);
+                                const baseValue = driverGoldSold * s.goldPrice;
+                                const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
+                                driverMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                             }
                             // Driver completes round-trip — reset counter
                             if (newDriverTripTicks >= tripDuration * 2) {
                                 newDriverTripTicks = 0;
                             }
                         }
+                    }
+
+                    // Gold market price update
+                    let newGoldPrice = s.goldPrice;
+                    let newLastGoldPriceUpdate = s.lastGoldPriceUpdate;
+                    if (s.tickCount - s.lastGoldPriceUpdate >= GOLD_PRICE_UPDATE_TICKS) {
+                        const swing = (Math.random() - 0.5) * 0.2;
+                        const reversion = (1.0 - s.goldPrice) * 0.1;
+                        newGoldPrice = Math.max(GOLD_PRICE_MIN, Math.min(GOLD_PRICE_MAX, s.goldPrice + swing + reversion));
+                        newLastGoldPriceUpdate = s.tickCount;
                     }
 
                     return {
@@ -1386,6 +1475,8 @@ export const gameStore = createStore<GameState>()(
                         location: newLocation,
                         unlockedTown: s.unlockedTown || townJustUnlocked,
                         driverTripTicks: newDriverTripTicks,
+                        goldPrice: newGoldPrice,
+                        lastGoldPriceUpdate: newLastGoldPriceUpdate,
                     };
                 });
 
@@ -1449,17 +1540,22 @@ export const gameStore = createStore<GameState>()(
             dustBucketSize: state.dustBucketSize,
             dustPanSpeed: state.dustPanSpeed,
             dustPanCapacity: state.dustPanCapacity,
+            bucketUpgrades: state.bucketUpgrades,
+            panCapUpgrades: state.panCapUpgrades,
+            panSpeedUpgrades: state.panSpeedUpgrades,
             vehicleTier: state.vehicleTier,
             hasDriver: state.hasDriver,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
+            goldPrice: state.goldPrice,
+            lastGoldPriceUpdate: state.lastGoldPriceUpdate,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV16();
+                return defaultSaveV18();
             }
         },
         onRehydrateStorage: ()=> (state) => {

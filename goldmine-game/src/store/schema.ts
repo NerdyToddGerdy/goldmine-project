@@ -1,7 +1,7 @@
 // Central place to define what we persist and how to migrate between versions.
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 16 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 18 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -320,13 +320,28 @@ export type SaveV16 = Omit<SaveV15, 'version'> & {
     hasDriver: boolean;   // hired a driver to auto-sell gold
 };
 
+// v17: Money-purchasable gear upgrades (bucket, pan cap, pan speed)
+export type SaveV17 = Omit<SaveV16, 'version'> & {
+    version: 17;
+    bucketUpgrades: number;  // 0-3, money-purchasable, resets on prestige
+    panCapUpgrades: number;
+    panSpeedUpgrades: number;
+};
+
+// v18: Randomized gold market price
+export type SaveV18 = Omit<SaveV17, 'version'> & {
+    version: 18;
+    goldPrice: number;           // current $/oz market rate
+    lastGoldPriceUpdate: number; // tickCount at last price update
+};
+
 // Adding latest type alias
-export type LatestSave = SaveV16;
+export type LatestSave = SaveV18;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV16();
+        return defaultSaveV18();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -981,10 +996,81 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 16);
     }
 
-    // Already v16, ensure fields exist
-    const s = raw as Partial<SaveV16>;
+    if (fromVersion < 17) {
+        // v16 → v17: add money-purchasable gear upgrade fields
+        const s = raw as Partial<SaveV16>;
+        return migrateToLatest({
+            version: 17,
+            tickCount: s.tickCount ?? 0,
+            timeScale: s.timeScale ?? 1,
+            location: s.location ?? 'mine',
+            bucketFilled: s.bucketFilled ?? 0,
+            panFilled: s.panFilled ?? 0,
+            dirt: s.dirt ?? 0,
+            paydirt: s.paydirt ?? 0,
+            gold: s.gold ?? 0,
+            money: s.money ?? 0,
+            investmentSafeBonds: s.investmentSafeBonds ?? 0,
+            investmentStocks: s.investmentStocks ?? 0,
+            investmentHighRisk: s.investmentHighRisk ?? 0,
+            lastRiskCheck: s.lastRiskCheck ?? 0,
+            shovels: s.shovels ?? 0,
+            pans: s.pans ?? 0,
+            carts: s.carts ?? 0,
+            sluiceWorkers: s.sluiceWorkers ?? 0,
+            separatorWorkers: s.separatorWorkers ?? 0,
+            ovenWorkers: s.ovenWorkers ?? 0,
+            furnaceWorkers: s.furnaceWorkers ?? 0,
+            bankerWorkers: s.bankerWorkers ?? 0,
+            hasSluiceBox: s.hasSluiceBox ?? false,
+            hasMagneticSeparator: s.hasMagneticSeparator ?? false,
+            hasOven: s.hasOven ?? false,
+            hasFurnace: s.hasFurnace ?? false,
+            scoopPower: s.scoopPower ?? 1,
+            sluicePower: s.sluicePower ?? 1,
+            panPower: s.panPower ?? 1,
+            sluiceGear: s.sluiceGear ?? 1,
+            separatorGear: s.separatorGear ?? 1,
+            ovenGear: s.ovenGear ?? 1,
+            furnaceGear: s.furnaceGear ?? 1,
+            unlockedPanning: s.unlockedPanning ?? false,
+            unlockedTown: s.unlockedTown ?? false,
+            unlockedBanking: s.unlockedBanking ?? false,
+            timePlayed: s.timePlayed ?? 0,
+            darkMode: s.darkMode ?? false,
+            legacyDust: s.legacyDust ?? 0,
+            runMoneyEarned: s.runMoneyEarned ?? 0,
+            prestigeCount: s.prestigeCount ?? 0,
+            dustScoopBoost: s.dustScoopBoost ?? 0,
+            dustPanYield: s.dustPanYield ?? 0,
+            dustGoldValue: s.dustGoldValue ?? 0,
+            dustHeadStart: s.dustHeadStart ?? 0,
+            dustBucketSize: s.dustBucketSize ?? 0,
+            dustPanSpeed: s.dustPanSpeed ?? 0,
+            dustPanCapacity: s.dustPanCapacity ?? 0,
+            vehicleTier: s.vehicleTier ?? 0,
+            hasDriver: s.hasDriver ?? false,
+            bucketUpgrades: 0,
+            panCapUpgrades: 0,
+            panSpeedUpgrades: 0,
+        }, 17);
+    }
+
+    if (fromVersion < 18) {
+        // v17 → v18: add gold market price fields
+        const s = raw as Partial<SaveV17>;
+        return migrateToLatest({
+            ...s,
+            version: 18,
+            goldPrice: 1.0,
+            lastGoldPriceUpdate: 0,
+        }, 18);
+    }
+
+    // Already v18, ensure fields exist
+    const s = raw as Partial<SaveV18>;
     return {
-        version: 16,
+        version: 18,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1034,6 +1120,11 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         dustPanCapacity: s.dustPanCapacity ?? 0,
         vehicleTier: s.vehicleTier ?? 0,
         hasDriver: s.hasDriver ?? false,
+        bucketUpgrades: s.bucketUpgrades ?? 0,
+        panCapUpgrades: s.panCapUpgrades ?? 0,
+        panSpeedUpgrades: s.panSpeedUpgrades ?? 0,
+        goldPrice: s.goldPrice ?? 1.0,
+        lastGoldPriceUpdate: s.lastGoldPriceUpdate ?? 0,
     };
 }
 
@@ -1368,5 +1459,26 @@ export function defaultSaveV16(): SaveV16 {
         version: 16,
         vehicleTier: 0,
         hasDriver: false,
+    };
+}
+
+export function defaultSaveV17(): SaveV17 {
+    const { version: _v, ...rest } = defaultSaveV16();
+    return {
+        ...rest,
+        version: 17,
+        bucketUpgrades: 0,
+        panCapUpgrades: 0,
+        panSpeedUpgrades: 0,
+    };
+}
+
+export function defaultSaveV18(): SaveV18 {
+    const { version: _v, ...rest } = defaultSaveV17();
+    return {
+        ...rest,
+        version: 18,
+        goldPrice: 1.0,
+        lastGoldPriceUpdate: 0,
     };
 }

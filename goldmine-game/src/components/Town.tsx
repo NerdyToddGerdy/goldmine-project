@@ -1,9 +1,8 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
 import { PrestigeShop } from "./PrestigeShop";
 import { UpgradeButton, WorkerRow } from "./ui";
-import { formatNumber } from "../utils/format";
 
 type TownTab = 'banking' | 'shop' | 'laborOffice' | 'legacy';
 type ShopTab = 'gear' | 'equipment' | 'transport';
@@ -26,9 +25,7 @@ export function Town() {
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
-    const unlockedBanking = useGameStore((s) => s.unlockedBanking);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
-    const gold = useGameStore((s) => s.gold);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
     const isTraveling = useGameStore((s) => s.isTraveling);
@@ -37,7 +34,9 @@ export function Town() {
     const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
-
+    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
+    const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
+    const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
     const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
     const fireWorker = (workerType: string) => gameStore.getState().fireWorker(workerType);
 
@@ -47,6 +46,9 @@ export function Town() {
     const panTier = panPower - 1;
     const betterShovelCost = shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0;
     const betterPanCost = panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0;
+    const bucketUpgradeCost = bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL ? BUCKET_UPGRADE_COSTS[bucketUpgrades] : 0;
+    const panCapUpgradeCost = panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0;
+    const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
     const betterSeparatorCost = getUpgradeCost('betterSeparator', separatorGear - 1);
     const betterOvenCost = getUpgradeCost('betterOven', ovenGear - 1);
@@ -72,24 +74,6 @@ export function Town() {
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-green-900">🏘️ Town</h2>
 
-            {/* Gold Exchange */}
-            {gold > 0 && (
-                <div className="p-4 bg-white border-2 border-green-300 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-green-900">💰 Gold Exchange</span>
-                        <span className="text-sm font-semibold text-green-700">{formatNumber(gold)} oz</span>
-                    </div>
-                    <button
-                        onClick={() => gameStore.getState().sellGold()}
-                        className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
-                    >
-                        {hasFurnace
-                            ? `💵 Sell Gold (${((1 - SMELTING_FEE_PERCENT) * 100).toFixed(0)}% after fee)`
-                            : '💵 Sell Gold (no fee)'}
-                    </button>
-                </div>
-            )}
-
             {/* Travel back to Mine */}
             <div className="p-3 bg-white border border-amber-200 rounded-xl">
                 <button
@@ -106,35 +90,31 @@ export function Town() {
             {/* Main Tabs */}
             <div className="flex gap-2 border-b-2 border-green-200">
                 <button
-                    onClick={() => unlockedBanking && setActiveTab('banking')}
-                    disabled={!unlockedBanking}
-                    title={unlockedBanking ? undefined : 'Investments unlock after first prestige'}
-                    className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
+                    onClick={() => setActiveTab('banking')}
+                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
                         activeTab === 'banking'
-                            ? 'bg-green-100 text-green-900 border-2 border-b-0 border-green-200'
-                            : unlockedBanking
-                                ? 'bg-white/50 text-green-700 hover:bg-white/80'
-                                : 'bg-white/30 text-gray-400 cursor-not-allowed'
+                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
+                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
                     }`}
                 >
-                    🏦 Banking {!unlockedBanking && '🔒'}
+                    🏦 Banking
                 </button>
                 <button
                     onClick={() => setActiveTab('shop')}
-                    className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
+                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
                         activeTab === 'shop'
-                            ? 'bg-green-100 text-green-900 border-2 border-b-0 border-green-200'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80'
+                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
+                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
                     }`}
                 >
                     🛒 Shop
                 </button>
                 <button
                     onClick={() => setActiveTab('laborOffice')}
-                    className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
+                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
                         activeTab === 'laborOffice'
-                            ? 'bg-green-100 text-green-900 border-2 border-b-0 border-green-200'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80'
+                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
+                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
                     }`}
                 >
                     👷 Labor Office
@@ -142,10 +122,10 @@ export function Town() {
                 {prestigeCount > 0 && (
                     <button
                         onClick={() => setActiveTab('legacy')}
-                        className={`px-4 py-2 font-semibold rounded-t-lg transition-all ${
+                        className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
                             activeTab === 'legacy'
-                                ? 'bg-amber-100 text-amber-900 border-2 border-b-0 border-amber-200'
-                                : 'bg-white/50 text-amber-700 hover:bg-white/80'
+                                ? 'bg-amber-100 text-amber-900 border-amber-200 border-b-0'
+                                : 'bg-white/50 text-amber-700 hover:bg-white/80 border-transparent'
                         }`}
                     >
                         ✨ Legacy
@@ -155,46 +135,38 @@ export function Town() {
 
             {/* Tab Content */}
             <div>
-                {activeTab === 'banking' && (
-                    unlockedBanking
-                        ? <Banking />
-                        : (
-                            <div className="p-6 text-center text-gray-500 italic">
-                                🔒 Investments unlock after your first prestige.
-                            </div>
-                        )
-                )}
+                {activeTab === 'banking' && <Banking />}
 
                 {activeTab === 'shop' && (
-                    <div className="space-y-4">
+                    <div className={`space-y-4${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
                         {/* Shop Sub-tabs */}
                         <div className="flex gap-2 border-b-2 border-gray-200">
                             <button
                                 onClick={() => setShopTab('gear')}
-                                className={`px-4 py-2 font-semibold rounded-t-lg transition-all text-sm ${
+                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
                                     shopTab === 'gear'
-                                        ? 'bg-gray-100 text-gray-900 border-2 border-b-0 border-gray-200'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80'
+                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
+                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
                                 }`}
                             >
                                 ⛏️ Gear
                             </button>
                             <button
                                 onClick={() => setShopTab('equipment')}
-                                className={`px-4 py-2 font-semibold rounded-t-lg transition-all text-sm ${
+                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
                                     shopTab === 'equipment'
-                                        ? 'bg-gray-100 text-gray-900 border-2 border-b-0 border-gray-200'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80'
+                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
+                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
                                 }`}
                             >
                                 🔧 Equipment
                             </button>
                             <button
                                 onClick={() => setShopTab('transport')}
-                                className={`px-4 py-2 font-semibold rounded-t-lg transition-all text-sm ${
+                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
                                     shopTab === 'transport'
-                                        ? 'bg-gray-100 text-gray-900 border-2 border-b-0 border-gray-200'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80'
+                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
+                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
                                 }`}
                             >
                                 🚗 Transport
@@ -229,6 +201,45 @@ export function Town() {
                                     canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
                                     onBuy={() => buyUpgrade('betterPan')}
                                     icon="🥘"
+                                />
+
+                                <UpgradeButton
+                                    name="Larger Bucket"
+                                    description={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}`
+                                        : `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`}
+                                    cost={bucketUpgradeCost}
+                                    currentLevel={bucketUpgrades}
+                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                    canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= bucketUpgradeCost}
+                                    onBuy={() => buyUpgrade('bucketUpgrade')}
+                                    icon="🪣"
+                                />
+
+                                <UpgradeButton
+                                    name="Larger Pan"
+                                    description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}`
+                                        : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
+                                    cost={panCapUpgradeCost}
+                                    currentLevel={panCapUpgrades}
+                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                    canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panCapUpgradeCost}
+                                    onBuy={() => buyUpgrade('panCapUpgrade')}
+                                    icon="🍳"
+                                />
+
+                                <UpgradeButton
+                                    name="Faster Panning"
+                                    description={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click`
+                                        : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`}
+                                    cost={panSpeedUpgradeCost}
+                                    currentLevel={panSpeedUpgrades}
+                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                    canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panSpeedUpgradeCost}
+                                    onBuy={() => buyUpgrade('panSpeedUpgrade')}
+                                    icon="⚡"
                                 />
 
                                 {hasSluiceBox && (
@@ -354,11 +365,13 @@ export function Town() {
                 )}
 
                 {activeTab === 'legacy' && prestigeCount > 0 && (
-                    <PrestigeShop />
+                    <div className={isTraveling ? 'pointer-events-none opacity-50' : ''}>
+                        <PrestigeShop />
+                    </div>
                 )}
 
                 {activeTab === 'laborOffice' && (
-                    <div className="space-y-3">
+                    <div className={`space-y-3${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
                         <h3 className="text-lg font-semibold text-green-800">👷 Hire Workers</h3>
 
                         <WorkerRow
