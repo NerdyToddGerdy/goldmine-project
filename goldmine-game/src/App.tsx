@@ -109,6 +109,12 @@ function App() {
                         <span className="font-semibold text-amber-900 text-sm">
                             Traveling to {travelDestination === 'town' ? 'Town' : 'Mine'}... ({tierData.name})
                         </span>
+                        <button
+                            onClick={() => gameStore.getState().cancelTravel()}
+                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                        >
+                            Cancel
+                        </button>
                     </div>
                     <div className="relative h-8">
                         {/* Fill bar — flex so ml-auto anchors fill to right for Mine direction */}

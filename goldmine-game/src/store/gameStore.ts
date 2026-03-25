@@ -204,6 +204,7 @@ export type GameState = {
     panForGold: () => void // manual action (costs paydirt)
     travelTo: (location: 'mine' | 'town') => void // instant location change (internal/dev use)
     startTravel: (destination: 'mine' | 'town') => void // begins timed travel
+    cancelTravel: () => void // aborts travel, player stays at current location
     buyVehicle: (tier: number) => boolean
     buyDriver: () => boolean
     sellGold: () => void // convert all gold -> money
@@ -801,6 +802,10 @@ export const gameStore = createStore<GameState>()(
                 const s = get();
                 if (s.isTraveling || s.location === destination) return;
                 set({ isTraveling: true, travelDestination: destination, travelProgress: 0 });
+            },
+
+            cancelTravel: () => {
+                set({ isTraveling: false, travelProgress: 0 });
             },
 
             buyVehicle: (tier: number) => {

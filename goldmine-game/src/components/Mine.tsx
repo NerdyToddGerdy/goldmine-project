@@ -63,6 +63,21 @@ export function Mine() {
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-amber-900">⛏️ The Mine</h2>
 
+            {/* Travel to Town — at top, mirrors Town page layout */}
+            {unlockedTown && (
+                <div className="p-3 bg-white border border-green-200 rounded-xl">
+                    <button
+                        onClick={travelToTown}
+                        disabled={isTraveling}
+                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isTraveling && travelDestination === 'town'
+                            ? '🚗 Traveling to Town...'
+                            : `🏘️ Travel to Town (${VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)`}
+                    </button>
+                </div>
+            )}
+
             {/* Manual Actions */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-amber-800">Actions</h3>
@@ -216,21 +231,6 @@ export function Mine() {
             {!unlockedTown && gold < 0.5 && unlockedPanning && (
                 <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
                     Pan gold to 0.5 oz and you can travel to Town!
-                </div>
-            )}
-
-            {/* Travel to Town — recurring button once Town is known */}
-            {unlockedTown && (
-                <div className="p-4 bg-white border border-green-200 rounded-xl">
-                    <button
-                        onClick={travelToTown}
-                        disabled={isTraveling}
-                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isTraveling && travelDestination === 'town'
-                            ? '🚗 Traveling to Town...'
-                            : `🏘️ Travel to Town (${VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)`}
-                    </button>
                 </div>
             )}
 
