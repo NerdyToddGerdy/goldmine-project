@@ -7,6 +7,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.1',
+        date: '2026-03-25',
+        title: 'CI: Node.js 24',
+        changes: [
+            'GitHub Actions updated to Node.js 24',
+        ],
+    },
+    {
         version: 'v1.0',
         date: '2026-03-25',
         title: 'v1.0 — Typography, Atmosphere & Animations',
