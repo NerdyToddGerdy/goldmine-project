@@ -42,6 +42,14 @@ function App() {
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
+    const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
+    const totalTicks = getTravelDurationTicks(vehicleTier);
+    const travelPct = totalTicks > 0 ? Math.min(100, (travelProgress / totalTicks) * 100) : 0;
+    const secsRemaining = Math.ceil((totalTicks - travelProgress) / 60);
+    const emojiLeftPct = travelDestination === 'town' ? travelPct : 100 - travelPct;
+    const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
+    const emojiFlip = travelDestination === 'town' ? 'scaleX(-1)' : '';
+
     return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
         <ToastContainer />
@@ -87,15 +95,37 @@ function App() {
                 </button>
             </div>
 
-            {/* Travel countdown banner */}
+            {/* Travel banner with progress bar + moving emoji */}
             {isTraveling && (
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center justify-between">
-                    <span className="font-semibold text-amber-900 text-sm">
-                        Traveling to {travelDestination === 'town' ? 'Town' : 'Mine'}... ({tierData.name})
-                    </span>
-                    <span className="text-lg font-bold text-amber-700">
-                        {Math.ceil((getTravelDurationTicks(vehicleTier) - travelProgress) / 60)}s
-                    </span>
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-amber-900 text-sm">
+                            Traveling to {travelDestination === 'town' ? 'Town' : 'Mine'}... ({tierData.name})
+                        </span>
+                    </div>
+                    <div className="relative h-8">
+                        {/* Fill bar — flex so ml-auto anchors fill to right for Mine direction */}
+                        <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
+                            <div
+                                className={`h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100${travelDestination === 'mine' ? ' ml-auto' : ''}`}
+                                style={{ width: `${travelPct}%` }}
+                            />
+                        </div>
+                        {/* Seconds label centered over bar */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
+                        </div>
+                        {/* Moving emoji */}
+                        <div
+                            className="absolute top-1/2 text-xl leading-none pointer-events-none transition-all duration-100"
+                            style={{
+                                left: `${emojiLeftPct}%`,
+                                transform: `translateX(-50%) translateY(-50%) ${emojiFlip}`,
+                            }}
+                        >
+                            {vehicleEmoji}
+                        </div>
+                    </div>
                 </div>
             )}
 
