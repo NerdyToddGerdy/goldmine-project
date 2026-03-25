@@ -4,3 +4,4 @@ export { WorkerRow } from './WorkerRow';
 export { MachineCard } from './MachineCard';
 export { InvestmentCard } from './InvestmentCard';
 export { PrestigeModal } from './PrestigeModal';
+export { WhatsNewModal } from './WhatsNewModal';

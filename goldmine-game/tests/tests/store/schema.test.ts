@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { migrateToLatest, defaultSaveV18 } from "../../../src/store/schema";
+import { migrateToLatest, defaultSaveV19 } from "../../../src/store/schema";
 
 describe("migrateToLatest", () => {
     it("migrates v1 dirtyGold -> paydirt", () => {
@@ -11,7 +11,7 @@ describe("migrateToLatest", () => {
             dirtyGold: 9,
         };
         const out = migrateToLatest(v1, 1);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.tickCount).toBe(7);
         expect(out.timeScale).toBe(2);
         expect(out.gold).toBe(3);
@@ -20,7 +20,7 @@ describe("migrateToLatest", () => {
 
     it("handles empty input with defaults", () => {
         const out = migrateToLatest(undefined, undefined);
-        expect(out).toEqual(defaultSaveV18());
+        expect(out).toEqual(defaultSaveV19());
     });
 
     it("passes through v2 shape filling defaults", () => {
@@ -77,7 +77,7 @@ describe("migrateToLatest", () => {
             darkMode: false,
         };
         const out = migrateToLatest(v12, 12);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.legacyDust).toBe(0);
         expect(out.runMoneyEarned).toBe(0);
         expect(out.prestigeCount).toBe(0);
@@ -107,7 +107,7 @@ describe("migrateToLatest", () => {
             dustScoopBoost: 2, dustPanYield: 1, dustGoldValue: 0, dustHeadStart: 1,
         };
         const out = migrateToLatest(v14, 14);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.dustScoopBoost).toBe(2); // preserved
         expect(out.dustPanYield).toBe(1);   // preserved
         expect(out.dustBucketSize).toBe(0); // new field defaults to 0
@@ -159,7 +159,7 @@ describe("migrateToLatest", () => {
             darkMode: true,
         };
         const out = migrateToLatest(v11, 11);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.unlockedBanking).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
         expect('unlockedShop' in out).toBe(false);
@@ -184,7 +184,7 @@ describe("migrateToLatest", () => {
             dustBucketSize: 1, dustPanSpeed: 0, dustPanCapacity: 2,
         };
         const out = migrateToLatest(v15, 15);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.vehicleTier).toBe(0);       // new field defaults to 0
         expect(out.hasDriver).toBe(false);     // new field defaults to false
         expect(out.dustBucketSize).toBe(1);    // preserved
@@ -213,7 +213,7 @@ describe("migrateToLatest", () => {
             vehicleTier: 1, hasDriver: false,
         };
         const out = migrateToLatest(v16, 16);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.bucketUpgrades).toBe(0);    // new field defaults to 0
         expect(out.panCapUpgrades).toBe(0);
         expect(out.panSpeedUpgrades).toBe(0);
@@ -241,12 +241,40 @@ describe("migrateToLatest", () => {
             vehicleTier: 0, hasDriver: false,
         };
         const out = migrateToLatest(v17, 17);
-        expect(out.version).toBe(18);
+        expect(out.version).toBe(19);
         expect(out.goldPrice).toBe(1.0);           // new field defaults to 1.0
         expect(out.lastGoldPriceUpdate).toBe(0);   // new field defaults to 0
         expect(out.bucketUpgrades).toBe(1);        // preserved
         expect(out.panSpeedUpgrades).toBe(2);      // preserved
         expect(out.money).toBe(100);               // preserved
+    });
+
+    it("migrates v18 adding hasAutoEmpty and lastSeenChangelogVersion", () => {
+        const v18 = {
+            version: 18, tickCount: 0, timeScale: 1, location: 'mine',
+            bucketFilled: 0, panFilled: 0, dirt: 0, paydirt: 0, gold: 0, money: 200,
+            investmentSafeBonds: 0, investmentStocks: 0, investmentHighRisk: 0, lastRiskCheck: 0,
+            shovels: 2, pans: 1, carts: 0, sluiceWorkers: 0, separatorWorkers: 0,
+            ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            hasSluiceBox: true, hasMagneticSeparator: false, hasOven: false, hasFurnace: false,
+            scoopPower: 1, sluicePower: 1, panPower: 1,
+            sluiceGear: 1, separatorGear: 1, ovenGear: 1, furnaceGear: 1,
+            unlockedPanning: true, unlockedTown: true, unlockedBanking: false,
+            timePlayed: 500, darkMode: false,
+            legacyDust: 3, runMoneyEarned: 500, prestigeCount: 1,
+            dustScoopBoost: 1, dustPanYield: 0, dustGoldValue: 0, dustHeadStart: 0,
+            dustBucketSize: 0, dustPanSpeed: 0, dustPanCapacity: 0,
+            bucketUpgrades: 0, panCapUpgrades: 0, panSpeedUpgrades: 0,
+            vehicleTier: 1, hasDriver: false,
+            goldPrice: 1.2, lastGoldPriceUpdate: 100,
+        };
+        const out = migrateToLatest(v18, 18);
+        expect(out.version).toBe(19);
+        expect(out.hasAutoEmpty).toBe(false);                        // new field defaults to false
+        expect(out.lastSeenChangelogVersion).toBe('v0.18');          // existing players see new popup
+        expect(out.money).toBe(200);                                 // preserved
+        expect(out.legacyDust).toBe(3);                             // preserved
+        expect(out.goldPrice).toBe(1.2);                            // preserved
     });
 });
 

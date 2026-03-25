@@ -1,7 +1,9 @@
 // Central place to define what we persist and how to migrate between versions.
 
+import { CHANGELOG } from '../data/changelog';
+
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 18 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 19 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -335,13 +337,19 @@ export type SaveV18 = Omit<SaveV17, 'version'> & {
     lastGoldPriceUpdate: number; // tickCount at last price update
 };
 
-// Adding latest type alias
-export type LatestSave = SaveV18;
+// v19: Auto-empty bucket upgrade + What's New tracking
+export type SaveV19 = Omit<SaveV18, 'version'> & {
+    version: 19;
+    hasAutoEmpty: boolean;              // purchased auto-empty bucket upgrade
+    lastSeenChangelogVersion: string;   // last changelog version player acknowledged
+};
+
+export type LatestSave = SaveV19;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV18();
+        return defaultSaveV19();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1067,10 +1075,21 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 18);
     }
 
-    // Already v18, ensure fields exist
-    const s = raw as Partial<SaveV18>;
+    if (fromVersion < 19) {
+        // v18 → v19: add auto-empty upgrade + changelog version tracking
+        const s = raw as SaveV18;
+        return migrateToLatest({
+            ...s,
+            version: 19,
+            hasAutoEmpty: false,
+            lastSeenChangelogVersion: 'v0.18',
+        }, 19);
+    }
+
+    // Already v19, ensure fields exist
+    const s = raw as Partial<SaveV19>;
     return {
-        version: 18,
+        version: 19,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1125,6 +1144,8 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         panSpeedUpgrades: s.panSpeedUpgrades ?? 0,
         goldPrice: s.goldPrice ?? 1.0,
         lastGoldPriceUpdate: s.lastGoldPriceUpdate ?? 0,
+        hasAutoEmpty: s.hasAutoEmpty ?? false,
+        lastSeenChangelogVersion: s.lastSeenChangelogVersion ?? CHANGELOG[0].version,
     };
 }
 
@@ -1480,5 +1501,15 @@ export function defaultSaveV18(): SaveV18 {
         version: 18,
         goldPrice: 1.0,
         lastGoldPriceUpdate: 0,
+    };
+}
+
+export function defaultSaveV19(): SaveV19 {
+    const { version: _v, ...rest } = defaultSaveV18();
+    return {
+        ...rest,
+        version: 19,
+        hasAutoEmpty: false,
+        lastSeenChangelogVersion: CHANGELOG[0].version,
     };
 }

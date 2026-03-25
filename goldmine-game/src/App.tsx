@@ -4,8 +4,10 @@ import {Town} from "./components/Town.tsx";
 import {Settings} from "./components/Settings.tsx";
 import {ResourceBar} from "./components/ResourceBar.tsx";
 import {ToastContainer} from "./components/ToastContainer.tsx";
+import {WhatsNewModal} from "./components/ui";
 import {useGameLoop} from "./hooks/useGameLoop.ts";
 import {gameStore, useGameStore, VEHICLE_TIERS, getTravelDurationTicks} from "./store/gameStore.ts";
+import {CHANGELOG} from "./data/changelog.ts";
 import {useState, useEffect} from "react";
 
 type Tab = 'mine' | 'town' | 'settings';
@@ -18,6 +20,8 @@ function App() {
     const travelProgress = useGameStore((s) => s.travelProgress)
     const travelDestination = useGameStore((s) => s.travelDestination)
     const vehicleTier = useGameStore((s) => s.vehicleTier)
+    const lastSeenChangelogVersion = useGameStore((s) => s.lastSeenChangelogVersion)
+    const showWhatsNew = lastSeenChangelogVersion !== CHANGELOG[0].version
     const [activeTab, setActiveTab] = useState<Tab>('mine')
 
     // Sync active tab when travel completes
@@ -53,6 +57,12 @@ function App() {
     return (
     <div className="w-full h-screen overflow-y-scroll bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
         <ToastContainer />
+        {showWhatsNew && (
+            <WhatsNewModal
+                lastSeenVersion={lastSeenChangelogVersion}
+                onDismiss={() => gameStore.getState().setLastSeenChangelogVersion(CHANGELOG[0].version)}
+            />
+        )}
 
         {/* Sticky header — shares scrollbar context with content, so widths always match */}
         <div className="sticky top-0 z-10 bg-amber-50 dark:bg-gray-900">
