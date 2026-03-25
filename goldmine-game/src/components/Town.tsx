@@ -1,4 +1,5 @@
 import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
 import { PrestigeShop } from "./PrestigeShop";
@@ -339,7 +340,7 @@ export function Town() {
                             <>
                                 <UpgradeButton
                                     name="Sluice Box"
-                                    description="Converts dirt into paydirt for better gold yields. Unlocks Sluice Operators."
+                                    description="Converts bucket dirt into paydirt for better yields. 🔗 Unlocks Sluice Operators in Labor Office."
                                     cost={EQUIPMENT.sluiceBox.cost}
                                     locked={hasSluiceBox}
                                     canAfford={money >= EQUIPMENT.sluiceBox.cost && !hasSluiceBox}
@@ -350,7 +351,7 @@ export function Town() {
 
                                 <UpgradeButton
                                     name="Magnetic Separator"
-                                    description="Unlocks Separator Technicians for better gold extraction"
+                                    description="Improves gold extraction efficiency. 🔗 Unlocks Separator Technicians in Labor Office."
                                     cost={EQUIPMENT.magneticSeparator.cost}
                                     locked={hasMagneticSeparator}
                                     canAfford={money >= EQUIPMENT.magneticSeparator.cost && !hasMagneticSeparator}
@@ -361,7 +362,7 @@ export function Town() {
 
                                 <UpgradeButton
                                     name="Oven"
-                                    description="Unlocks Oven Operators who increase gold selling value"
+                                    description="Increases gold sell value. 🔗 Unlocks Oven Operators in Labor Office."
                                     cost={EQUIPMENT.oven.cost}
                                     locked={hasOven}
                                     canAfford={money >= EQUIPMENT.oven.cost && !hasOven}
@@ -372,7 +373,7 @@ export function Town() {
 
                                 <UpgradeButton
                                     name="Furnace"
-                                    description="Unlocks Furnace Operators for better gold value (removes fee!)"
+                                    description="Removes smelting fee entirely. 🔗 Unlocks Furnace Operators in Labor Office."
                                     cost={EQUIPMENT.furnace.cost}
                                     locked={hasFurnace}
                                     canAfford={money >= EQUIPMENT.furnace.cost && !hasFurnace}
@@ -454,7 +455,7 @@ export function Town() {
                             nextHireWouldExceedIncome={(totalPayroll + panNextWage) > autoSellIncome}
                         />
 
-                        {hasSluiceBox && (
+                        {hasSluiceBox ? (
                             <WorkerRow
                                 name="Sluice Operator"
                                 description={`+${(UPGRADES.sluiceWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
@@ -470,9 +471,11 @@ export function Town() {
                                 nextHireWage={sluiceWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + sluiceWorkerNextWage) > autoSellIncome}
                             />
+                        ) : (
+                            <LockedWorkerRow name="Sluice Operator" icon="🚿" requiresName="Sluice Box" requiresCost={EQUIPMENT.sluiceBox.cost} />
                         )}
 
-                        {hasMagneticSeparator && (
+                        {hasMagneticSeparator ? (
                             <WorkerRow
                                 name="Separator Technician"
                                 description={`+${(UPGRADES.separatorWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
@@ -488,9 +491,11 @@ export function Town() {
                                 nextHireWage={separatorWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + separatorWorkerNextWage) > autoSellIncome}
                             />
+                        ) : (
+                            <LockedWorkerRow name="Separator Technician" icon="🧲" requiresName="Magnetic Separator" requiresCost={EQUIPMENT.magneticSeparator.cost} />
                         )}
 
-                        {hasOven && (
+                        {hasOven ? (
                             <WorkerRow
                                 name="Oven Operator"
                                 description={`+${(UPGRADES.ovenWorker.valueBonus * 100).toFixed(0)}% gold sell value per worker`}
@@ -506,9 +511,11 @@ export function Town() {
                                 nextHireWage={ovenWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + ovenWorkerNextWage) > autoSellIncome}
                             />
+                        ) : (
+                            <LockedWorkerRow name="Oven Operator" icon="🔥" requiresName="Smelting Oven" requiresCost={EQUIPMENT.oven.cost} />
                         )}
 
-                        {hasFurnace && (
+                        {hasFurnace ? (
                             <WorkerRow
                                 name="Furnace Operator"
                                 description={`+${(UPGRADES.furnaceWorker.valueBonus * 100).toFixed(0)}% gold value, reduces smelting fee`}
@@ -524,6 +531,8 @@ export function Town() {
                                 nextHireWage={furnaceWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + furnaceWorkerNextWage) > autoSellIncome}
                             />
+                        ) : (
+                            <LockedWorkerRow name="Furnace Operator" icon="⚗️" requiresName="Furnace" requiresCost={EQUIPMENT.furnace.cost} />
                         )}
 
                         <WorkerRow
@@ -563,3 +572,22 @@ export function Town() {
     );
 }
 
+function LockedWorkerRow({ name, icon, requiresName, requiresCost }: {
+    name: string;
+    icon: string;
+    requiresName: string;
+    requiresCost: number;
+}) {
+    return (
+        <div className="w-full p-4 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl opacity-50">
+            <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <span>{icon}</span>
+                <span>{name}</span>
+                <span className="text-xs text-gray-400 font-semibold">🔒 LOCKED</span>
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Requires: {requiresName} (${formatNumber(requiresCost)}) — buy in Shop → Equipment
+            </div>
+        </div>
+    );
+}

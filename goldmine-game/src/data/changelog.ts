@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v0.22',
+        date: '2026-03-25',
+        title: 'Equipment → Worker Chain Made Visible',
+        changes: [
+            'Labor Office now shows locked rows for Sluice Operator, Separator Technician, Oven Operator, and Furnace Operator before their equipment is purchased',
+            'Locked rows show which equipment to buy and where to find it (Shop → Equipment)',
+            'Equipment descriptions now include a 🔗 Unlocks line pointing to the corresponding worker',
+        ],
+    },
+    {
         version: 'v0.21',
         date: '2026-03-25',
         title: 'Disabled Button Tooltips',
