@@ -11,6 +11,8 @@ export function WorkerRow({
     onFire,
     icon,
     description,
+    nextHireWage,
+    nextHireWouldExceedIncome,
 }: {
     name: string;
     count: number;
@@ -22,6 +24,8 @@ export function WorkerRow({
     onFire: () => void;
     icon?: string;
     description?: string;
+    nextHireWage?: number;
+    nextHireWouldExceedIncome?: boolean;
 }) {
     return (
         <div className="w-full p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl">
@@ -38,6 +42,11 @@ export function WorkerRow({
                     {count > 0 && (
                         <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                             💰 ${formatNumber(wage)}/sec total wages
+                        </div>
+                    )}
+                    {nextHireWage !== undefined && nextHireWage > 0 && (
+                        <div className={`text-xs mt-0.5 ${nextHireWouldExceedIncome ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {nextHireWouldExceedIncome ? '⚠️' : '+'} Next hire: +${formatNumber(nextHireWage)}/sec
                         </div>
                     )}
                 </div>

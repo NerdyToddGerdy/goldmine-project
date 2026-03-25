@@ -1,17 +1,64 @@
 import { formatNumber } from '../../utils/format';
+import { VEHICLE_TIERS } from '../../store/gameStore';
 
 export function PrestigeModal({
     dustReward,
+    legacyDust,
+    money,
+    gold,
+    shovels,
+    pans,
+    sluiceWorkers,
+    separatorWorkers,
+    ovenWorkers,
+    furnaceWorkers,
+    bankerWorkers,
+    hasSluiceBox,
+    hasMagneticSeparator,
+    hasOven,
+    hasFurnace,
+    vehicleTier,
     onConfirm,
     onCancel,
 }: {
     dustReward: number;
+    legacyDust: number;
+    money: number;
+    gold: number;
+    shovels: number;
+    pans: number;
+    sluiceWorkers: number;
+    separatorWorkers: number;
+    ovenWorkers: number;
+    furnaceWorkers: number;
+    bankerWorkers: number;
+    hasSluiceBox: boolean;
+    hasMagneticSeparator: boolean;
+    hasOven: boolean;
+    hasFurnace: boolean;
+    vehicleTier: number;
     onConfirm: () => void;
     onCancel: () => void;
 }) {
+    const lossList: string[] = [];
+    if (money > 0) lossList.push(`💰 $${formatNumber(money)} in savings`);
+    if (gold > 0) lossList.push(`✨ ${formatNumber(gold)} oz gold`);
+    if (shovels > 0) lossList.push(`👷 ${shovels} Miner${shovels !== 1 ? 's' : ''}`);
+    if (pans > 0) lossList.push(`🧑‍🔬 ${pans} Prospector${pans !== 1 ? 's' : ''}`);
+    if (sluiceWorkers > 0) lossList.push(`🚿 ${sluiceWorkers} Sluice Operator${sluiceWorkers !== 1 ? 's' : ''}`);
+    if (separatorWorkers > 0) lossList.push(`🧲 ${separatorWorkers} Separator Technician${separatorWorkers !== 1 ? 's' : ''}`);
+    if (ovenWorkers > 0) lossList.push(`🔥 ${ovenWorkers} Oven Operator${ovenWorkers !== 1 ? 's' : ''}`);
+    if (furnaceWorkers > 0) lossList.push(`⚗️ ${furnaceWorkers} Furnace Operator${furnaceWorkers !== 1 ? 's' : ''}`);
+    if (bankerWorkers > 0) lossList.push(`🏦 ${bankerWorkers} Banker${bankerWorkers !== 1 ? 's' : ''}`);
+    if (hasSluiceBox) lossList.push('🚿 Sluice Box');
+    if (hasMagneticSeparator) lossList.push('🧲 Magnetic Separator');
+    if (hasOven) lossList.push('🔥 Smelting Oven');
+    if (hasFurnace) lossList.push('⚗️ Furnace');
+    if (vehicleTier > 0) lossList.push(`🚗 ${VEHICLE_TIERS[vehicleTier as 1 | 2 | 3].name}`);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 space-y-5 max-h-[90vh] overflow-y-auto">
                 <div className="text-center space-y-2">
                     <div className="text-5xl">⭐</div>
                     <h2 className="text-2xl font-bold text-amber-900 dark:text-amber-100">
@@ -32,8 +79,37 @@ export function PrestigeModal({
                     </div>
                 </div>
 
-                <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                    This will reset: resources, workers, equipment, money, and upgrades.
+                <div className="grid grid-cols-2 gap-3">
+                    {/* What you lose */}
+                    {lossList.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 border border-red-200 dark:border-red-800">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400 mb-2">
+                                ❌ Losing
+                            </div>
+                            <ul className="space-y-1">
+                                {lossList.map((item, i) => (
+                                    <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* What you keep */}
+                    <div className={`bg-green-50 dark:bg-green-900/20 rounded-xl p-3 border border-green-200 dark:border-green-800 ${lossList.length === 0 ? 'col-span-2' : ''}`}>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-green-600 dark:text-green-400 mb-2">
+                            ✅ Keeping
+                        </div>
+                        <ul className="space-y-1">
+                            <li className="text-xs text-gray-700 dark:text-gray-300">
+                                ✨ Dust: {formatNumber(legacyDust)} → {formatNumber(legacyDust + dustReward)}
+                            </li>
+                            <li className="text-xs text-gray-700 dark:text-gray-300">
+                                All Legacy upgrades
+                            </li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div className="flex gap-3">

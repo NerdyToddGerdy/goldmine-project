@@ -21,6 +21,13 @@ export function Mine() {
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
 
+    const hasMagneticSeparator = useGameStore((s) => s.hasMagneticSeparator);
+    const hasOven = useGameStore((s) => s.hasOven);
+    const hasFurnace = useGameStore((s) => s.hasFurnace);
+    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
+    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
+    const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const legacyDust = useGameStore((s) => s.legacyDust);
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
@@ -256,6 +263,21 @@ export function Mine() {
             {showPrestigeModal && (
                 <PrestigeModal
                     dustReward={dustReward}
+                    legacyDust={legacyDust}
+                    money={money}
+                    gold={gold}
+                    shovels={shovels}
+                    pans={pans}
+                    sluiceWorkers={sluiceWorkers}
+                    separatorWorkers={separatorWorkers}
+                    ovenWorkers={ovenWorkers}
+                    furnaceWorkers={furnaceWorkers}
+                    bankerWorkers={bankerWorkers}
+                    hasSluiceBox={hasSluiceBox}
+                    hasMagneticSeparator={hasMagneticSeparator}
+                    hasOven={hasOven}
+                    hasFurnace={hasFurnace}
+                    vehicleTier={vehicleTier}
                     onConfirm={() => { gameStore.getState().prestige(); setShowPrestigeModal(false); }}
                     onCancel={() => setShowPrestigeModal(false)}
                 />

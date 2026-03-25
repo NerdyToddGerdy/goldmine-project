@@ -7,6 +7,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v0.20',
+        date: '2026-03-25',
+        title: 'Prestige Details & Payroll Warning',
+        changes: [
+            'Prestige modal now shows exactly what you\'ll lose (money, gold, workers, equipment, vehicle) and what you\'ll keep (Legacy Dust total after reward, dust upgrades)',
+            'Labor Office now shows the wage cost of your next hire for each worker type',
+            'Warning indicator (⚠️) appears when hiring a worker would push total payroll above your banker auto-sell income',
+        ],
+    },
+    {
+        version: 'v0.19',
+        date: '2026-03-25',
+        title: "QoL: Auto-Empty, What's New & Payroll Fix",
+        changes: [
+            "What's New popup: returning players see a summary of recent changes on load",
+            'New upgrade in Shop → Gear: Auto-Empty Bucket ($75) — bucket empties to pan automatically when full, even without miners',
+            'Payroll bar now stays visible once workers are hired, even when all are idle ($0.00)',
+        ],
+    },
+    {
         version: 'v0.18',
         date: '2026-03-25',
         title: 'Gold Market & Economy Polish',

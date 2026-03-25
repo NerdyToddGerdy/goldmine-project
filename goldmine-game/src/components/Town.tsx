@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
 import { PrestigeShop } from "./PrestigeShop";
@@ -37,6 +37,9 @@ export function Town() {
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
     const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
+    const hasAutoEmpty = useGameStore((s) => s.hasAutoEmpty);
+    const unlockedPanning = useGameStore((s) => s.unlockedPanning);
+    const goldPrice = useGameStore((s) => s.goldPrice);
     const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
     const fireWorker = (workerType: string) => gameStore.getState().fireWorker(workerType);
 
@@ -69,6 +72,22 @@ export function Town() {
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
+
+    // Next-hire wage cost per worker type
+    const shovelNextWage = getWorkerWage('shovel', shovels + 1);
+    const panNextWage = getWorkerWage('pan', pans + 1);
+    const sluiceWorkerNextWage = getWorkerWage('sluiceWorker', sluiceWorkers + 1);
+    const separatorWorkerNextWage = getWorkerWage('separatorWorker', separatorWorkers + 1);
+    const ovenWorkerNextWage = getWorkerWage('ovenWorker', ovenWorkers + 1);
+    const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
+    const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
+
+    // Estimate current auto-sell income to detect payroll overruns
+    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + separatorWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage;
+    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
+    let autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
+    if (!hasFurnace && furnaceWorkers > 0) autoSellFee = Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015);
+    const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee);
 
     return (
         <div className="space-y-6">
@@ -242,6 +261,20 @@ export function Town() {
                                     icon="⚡"
                                 />
 
+                                {unlockedPanning && (
+                                    <UpgradeButton
+                                        name="Auto-Empty Bucket"
+                                        description={hasAutoEmpty
+                                            ? 'Bucket empties to pan automatically when full'
+                                            : 'Automatically empties bucket to pan when full — no more clicking!'}
+                                        cost={EQUIPMENT.autoEmpty.cost}
+                                        locked={hasAutoEmpty}
+                                        canAfford={!hasAutoEmpty && money >= EQUIPMENT.autoEmpty.cost}
+                                        onBuy={() => buyUpgrade('autoEmpty')}
+                                        icon={hasAutoEmpty ? '✅' : '🪣'}
+                                    />
+                                )}
+
                                 {hasSluiceBox && (
                                     <UpgradeButton
                                         name="Better Sluice Box"
@@ -385,6 +418,8 @@ export function Town() {
                             onHire={() => buyUpgrade('shovel')}
                             onFire={() => fireWorker('shovel')}
                             icon="👷"
+                            nextHireWage={shovelNextWage}
+                            nextHireWouldExceedIncome={(totalPayroll + shovelNextWage) > autoSellIncome}
                         />
 
                         <WorkerRow
@@ -398,6 +433,8 @@ export function Town() {
                             onHire={() => buyUpgrade('pan')}
                             onFire={() => fireWorker('pan')}
                             icon="🧑‍🔬"
+                            nextHireWage={panNextWage}
+                            nextHireWouldExceedIncome={(totalPayroll + panNextWage) > autoSellIncome}
                         />
 
                         {hasSluiceBox && (
@@ -412,6 +449,8 @@ export function Town() {
                                 onHire={() => buyUpgrade('sluiceWorker')}
                                 onFire={() => fireWorker('sluiceWorker')}
                                 icon="🚿"
+                                nextHireWage={sluiceWorkerNextWage}
+                                nextHireWouldExceedIncome={(totalPayroll + sluiceWorkerNextWage) > autoSellIncome}
                             />
                         )}
 
@@ -427,6 +466,8 @@ export function Town() {
                                 onHire={() => buyUpgrade('separatorWorker')}
                                 onFire={() => fireWorker('separatorWorker')}
                                 icon="🧲"
+                                nextHireWage={separatorWorkerNextWage}
+                                nextHireWouldExceedIncome={(totalPayroll + separatorWorkerNextWage) > autoSellIncome}
                             />
                         )}
 
@@ -442,6 +483,8 @@ export function Town() {
                                 onHire={() => buyUpgrade('ovenWorker')}
                                 onFire={() => fireWorker('ovenWorker')}
                                 icon="🔥"
+                                nextHireWage={ovenWorkerNextWage}
+                                nextHireWouldExceedIncome={(totalPayroll + ovenWorkerNextWage) > autoSellIncome}
                             />
                         )}
 
@@ -457,6 +500,8 @@ export function Town() {
                                 onHire={() => buyUpgrade('furnaceWorker')}
                                 onFire={() => fireWorker('furnaceWorker')}
                                 icon="⚗️"
+                                nextHireWage={furnaceWorkerNextWage}
+                                nextHireWouldExceedIncome={(totalPayroll + furnaceWorkerNextWage) > autoSellIncome}
                             />
                         )}
 
@@ -471,6 +516,8 @@ export function Town() {
                             onHire={() => buyUpgrade('bankerWorker')}
                             onFire={() => fireWorker('bankerWorker')}
                             icon="🏦"
+                            nextHireWage={bankerWorkerNextWage}
+                            nextHireWouldExceedIncome={(totalPayroll + bankerWorkerNextWage) > autoSellIncome}
                         />
 
                         <UpgradeButton
