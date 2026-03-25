@@ -1,0 +1,83 @@
+export interface ChangelogEntry {
+    version: string;
+    date: string;
+    title: string;
+    changes: string[];
+}
+
+export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: 'v0.18',
+        date: '2026-03-25',
+        title: 'Gold Market & Economy Polish',
+        changes: [
+            'Randomized gold market price ($0.60–$1.80/oz) with 30-second mean-reverting drift',
+            'Banking tab is now the sole place to sell gold — Gold Exchange removed from Town',
+            'Investments removed (simplified Banking to market price + sell button)',
+            'Smelting fee (15%) now correctly waived when you own a Furnace',
+            'Idle workers no longer charge payroll — miners pause when bucket is full, prospectors when pan is empty',
+            'Mine action buttons locked while traveling',
+            'Town Shop and Labor Office locked while traveling (Banking stays accessible)',
+            'Fixed page width shifting between tabs (caused by Vite boilerplate body/root CSS)',
+        ],
+    },
+    {
+        version: 'v0.16',
+        date: '2026-03-25',
+        title: 'Travel Mechanic',
+        changes: [
+            'Timed travel between Mine and Town — no instant teleporting',
+            'Four vehicle tiers: On Foot (15s) → Mule Cart (8s) → Steam Wagon (4s) → Motor Truck (2s)',
+            'Animated travel banner with vehicle emoji sliding across a progress bar',
+            'Driver hire: auto-sells your gold at Town on round trips (requires Steam Wagon)',
+            'Vehicle upgrades purchasable in Town Shop → Transport tab',
+        ],
+    },
+    {
+        version: 'v0.13',
+        date: '2026-03-25',
+        title: 'Prestige — New Creek Run',
+        changes: [
+            'Prestige system: start a new run and earn Legacy Dust (√run earnings)',
+            'Legacy Dust persists across all runs',
+            'Prestige Shop unlocked after first prestige — spend Dust on permanent upgrades',
+            'Run money threshold of $10,000 required to prestige',
+        ],
+    },
+    {
+        version: 'v0.12',
+        date: '2026-03-25',
+        title: 'Banking & Toast Notifications',
+        changes: [
+            'Banking tab added to Town',
+            'Toast notifications for equipment purchases',
+            'Investment risk events with variable loss amounts',
+        ],
+    },
+    {
+        version: 'v0.11',
+        date: '2026-03-24',
+        title: 'Full Phase 1 Game',
+        changes: [
+            'Complete Mine and Town UI',
+            'Sluice Box, Magnetic Separator, Oven, Furnace equipment chain',
+            'Worker hiring: Miners, Prospectors, Sluice Operators, Separator Technicians, Oven/Furnace Operators, Bankers',
+            'Gear upgrades for each equipment type',
+            'Bucket and pan capacity upgrades',
+            'Dark mode toggle',
+            'Export / Import save files',
+            'Soft reset and hard reset options',
+        ],
+    },
+    {
+        version: 'v0.1',
+        date: '2026-03-24',
+        title: 'Foundation',
+        changes: [
+            'Fixed-step 60 FPS game loop with Zustand vanilla store',
+            'LocalStorage persistence with schema versioning and auto-migration',
+            'Scoop dirt → empty bucket → pan for gold core loop',
+            'Hire Miners (auto-dig) and Prospectors (auto-pan)',
+        ],
+    },
+];

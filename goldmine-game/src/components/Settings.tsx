@@ -1,6 +1,49 @@
 import { gameStore, useGameStore } from "../store/gameStore";
 import { SCHEMA_VERSION } from "../store/schema";
+import { CHANGELOG } from "../data/changelog";
 import { useState, useRef } from "react";
+
+function ChangelogSection() {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="space-y-3">
+            <button
+                onClick={() => setOpen((o) => !o)}
+                className="w-full flex items-center justify-between text-lg font-semibold text-gray-800 dark:text-gray-200 text-left"
+            >
+                <span>📋 Changelog</span>
+                <span className="text-sm text-gray-400">{open ? '▲ Hide' : '▼ Show'}</span>
+            </button>
+
+            {open && (
+                <div className="space-y-4">
+                    {CHANGELOG.map((entry) => (
+                        <div
+                            key={entry.version}
+                            className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl"
+                        >
+                            <div className="flex items-baseline justify-between gap-2 mb-2">
+                                <span className="font-bold text-gray-900 dark:text-gray-100">
+                                    {entry.version} — {entry.title}
+                                </span>
+                                <span className="text-xs text-gray-400 flex-shrink-0">{entry.date}</span>
+                            </div>
+                            <ul className="space-y-1">
+                                {entry.changes.map((change, i) => (
+                                    <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
+                                        <span className="text-gray-400 flex-shrink-0">•</span>
+                                        <span>{change}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 function formatTimePlayed(ticks: number): string {
     const totalSeconds = Math.floor(ticks / 60);
@@ -147,6 +190,9 @@ export function Settings() {
                     )}
                 </div>
             </div>
+
+            {/* Changelog */}
+            <ChangelogSection />
 
             {/* Reset Options */}
             <div className="space-y-3">
