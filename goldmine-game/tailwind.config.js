@@ -19,10 +19,15 @@ export default {
                 '0%':   { opacity: '1', transform: 'translateY(0)' },
                 '100%': { opacity: '0', transform: 'translateY(-40px)' },
             },
+            'shimmer': {
+                '0%':   { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(300%)' },
+            },
         },
         animation: {
             'slide-in': 'slide-in 0.2s ease-out',
             'float-up': 'float-up 1.2s ease-out forwards',
+            'shimmer':  'shimmer 1.5s infinite',
         },
     },
   },

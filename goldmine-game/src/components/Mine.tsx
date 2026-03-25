@@ -99,7 +99,7 @@ export function Mine() {
                                 {bucketFilled.toFixed(1)} / {effectiveBucketCap}
                             </span>
                         </div>
-                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" />
+                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" isActive={shovels > 0 && !bucketIsFull} isFull={bucketIsFull} />
                         <div className="h-5 mt-1 flex items-center justify-center">
                             {isTraveling
                                 ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
@@ -159,7 +159,7 @@ export function Mine() {
                                     {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
-                            <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" />
+                            <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" isActive={pans > 0 && !panIsFull} isFull={panIsFull} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {isTraveling
                                     ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>

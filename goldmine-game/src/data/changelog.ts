@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.3',
+        date: '2026-03-25',
+        title: 'Progress Bar Polish — Shimmer, Glow & Urgency Colors',
+        changes: [
+            'Bucket bar shifts amber → orange → red as it fills (60%/90% thresholds) to signal "empty me soon"',
+            'Active shimmer animation on bucket and pan bars while workers are filling them',
+            'Pulsing glow ring when bucket or pan reaches 100% — prompts you to act',
+        ],
+    },
+    {
         version: 'v1.2',
         date: '2026-03-25',
         title: 'Toast Polish — Success Type & Richer Feedback',
