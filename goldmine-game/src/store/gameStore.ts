@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV18, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV19, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -170,10 +170,17 @@ export type GameState = {
     travelProgress: number       // ticks elapsed of current travel
     travelDestination: 'mine' | 'town'
     driverTripTicks: number      // driver's position in round-trip cycle
+    goldInPocket: number         // gold snapshotted at departure to Town; caps what can be sold
 
     // Gold market price (persisted)
     goldPrice: number            // current $/oz market rate
     lastGoldPriceUpdate: number  // tickCount at last price update
+
+    // Auto-empty upgrade (persisted)
+    hasAutoEmpty: boolean        // purchased auto-empty bucket upgrade
+
+    // Changelog tracking (persisted)
+    lastSeenChangelogVersion: string  // last changelog version player acknowledged
 
     // Settings (persisted)
     timePlayed: number // total ticks played
@@ -221,6 +228,7 @@ export type GameState = {
 
     // Settings
     setDarkMode: (dark: boolean) => void
+    setLastSeenChangelogVersion: (version: string) => void
 
     // Prestige
     prestige: () => void
@@ -254,6 +262,7 @@ export const EQUIPMENT = {
     oven: { cost: 500 }, // Unlocks oven workers
     furnace: { cost: 2500 }, // Unlocks furnace workers + removes fee
     bankCounter: { cost: 400 }, // Unlocks banker workers
+    autoEmpty: { cost: 75 }, // Auto-empties bucket to pan when full
 };
 
 // Vehicle tiers for travel mechanic
@@ -424,10 +433,17 @@ export const gameStore = createStore<GameState>()(
             travelProgress: 0,
             travelDestination: 'mine' as const,
             driverTripTicks: 0,
+            goldInPocket: 0,
 
             // Gold market price
             goldPrice: 1.0,
             lastGoldPriceUpdate: 0,
+
+            // Auto-empty upgrade
+            hasAutoEmpty: false,
+
+            // Changelog tracking
+            lastSeenChangelogVersion: defaultSaveV19().lastSeenChangelogVersion,
 
             // Settings
             timePlayed: 0,
@@ -487,10 +503,13 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
+                    goldInPocket: 0,
                     goldPrice: 1.0,
                     lastGoldPriceUpdate: 0,
+                    hasAutoEmpty: false,
                     _accumulator: 0,
                     // dustUpgrades preserved (permanent)
+                    // lastSeenChangelogVersion preserved (not run-specific)
                 }))
             },
             // Hard reset: wipe LocalStorage + restore defaults
@@ -553,10 +572,13 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
+                    goldInPocket: 0,
                     goldPrice: 1.0,
                     lastGoldPriceUpdate: 0,
                     timePlayed: 0,
                     darkMode: false,
+                    hasAutoEmpty: false,
+                    lastSeenChangelogVersion: defaultSaveV19().lastSeenChangelogVersion,
                     _accumulator: 0,
                 });
                 document.documentElement.classList.remove('dark');
@@ -621,6 +643,8 @@ export const gameStore = createStore<GameState>()(
                     darkMode: s.darkMode,
                     goldPrice: s.goldPrice,
                     lastGoldPriceUpdate: s.lastGoldPriceUpdate,
+                    hasAutoEmpty: s.hasAutoEmpty,
+                    lastSeenChangelogVersion: s.lastSeenChangelogVersion,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -694,6 +718,8 @@ export const gameStore = createStore<GameState>()(
                     darkMode: migrated.darkMode,
                     goldPrice: migrated.goldPrice,
                     lastGoldPriceUpdate: migrated.lastGoldPriceUpdate,
+                    hasAutoEmpty: migrated.hasAutoEmpty,
+                    lastSeenChangelogVersion: migrated.lastSeenChangelogVersion,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -801,11 +827,17 @@ export const gameStore = createStore<GameState>()(
             startTravel: (destination: 'mine' | 'town') => {
                 const s = get();
                 if (s.isTraveling || s.location === destination) return;
-                set({ isTraveling: true, travelDestination: destination, travelProgress: 0 });
+                set({
+                    isTraveling: true,
+                    travelDestination: destination,
+                    travelProgress: 0,
+                    // Snapshot gold in pocket when departing for Town
+                    goldInPocket: destination === 'town' ? s.gold : 0,
+                });
             },
 
             cancelTravel: () => {
-                set({ isTraveling: false, travelProgress: 0 });
+                set({ isTraveling: false, travelProgress: 0, goldInPocket: 0 });
             },
 
             buyVehicle: (tier: number) => {
@@ -832,9 +864,10 @@ export const gameStore = createStore<GameState>()(
 
             sellGold: () => {
                 set((s) => {
-                    if (s.gold < 0.01) return s;
+                    const sellable = Math.min(s.gold, s.goldInPocket);
+                    if (sellable < 0.01) return s;
 
-                    const baseValue = s.gold * s.goldPrice;
+                    const baseValue = sellable * s.goldPrice;
                     // Smelting fee applies when you don't have a furnace (no furnace = pay to smelt elsewhere)
                     const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                     const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
@@ -842,7 +875,8 @@ export const gameStore = createStore<GameState>()(
                     return {
                         money: s.money + finalValue,
                         runMoneyEarned: s.runMoneyEarned + finalValue,
-                        gold: 0,
+                        gold: s.gold - sellable,
+                        goldInPocket: 0,
                     };
                 });
             },
@@ -1020,6 +1054,12 @@ export const gameStore = createStore<GameState>()(
                         set({ money: s.money - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
                         return true;
                     }
+                } else if (upgrade === 'autoEmpty') {
+                    if (s.hasAutoEmpty) return false;
+                    const cost = EQUIPMENT.autoEmpty.cost;
+                    if (s.money < cost) return false;
+                    set({ money: s.money - cost, hasAutoEmpty: true });
+                    return true;
                 }
 
                 return false;
@@ -1155,6 +1195,10 @@ export const gameStore = createStore<GameState>()(
                 }
             },
 
+            setLastSeenChangelogVersion: (version: string) => {
+                set({ lastSeenChangelogVersion: version });
+            },
+
             prestige: () => {
                 const s = get();
                 const dust = Math.floor(Math.sqrt(s.runMoneyEarned));
@@ -1218,6 +1262,7 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
+                    goldInPocket: 0,
                     _accumulator: 0,
                     toasts: [],
                 });
@@ -1287,22 +1332,19 @@ export const gameStore = createStore<GameState>()(
                     let newBucketFilled = s.bucketFilled;
                     let newPanFilled = s.panFilled;
 
-                    if (dirtPerTick > 0) {
-                        // Check if bucket is full and pan has space - auto-empty bucket
-                        if (s.bucketFilled >= bucketCap && s.panFilled < panCap) {
-                            // Auto-empty bucket to pan (with sluice multiplier and gear bonus)
-                            const effectiveSluicePower = s.hasSluiceBox
-                                ? s.sluicePower * s.sluiceGear
-                                : 1;
-                            const amountToAdd = s.bucketFilled * effectiveSluicePower;
-                            newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
-                            newBucketFilled = 0; // Empty the bucket
-                        }
+                    // Auto-empty: always if upgrade owned, otherwise only when miners are active
+                    if (s.bucketFilled >= bucketCap && newPanFilled < panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                        const effectiveSluicePower = s.hasSluiceBox
+                            ? s.sluicePower * s.sluiceGear
+                            : 1;
+                        const amountToAdd = s.bucketFilled * effectiveSluicePower;
+                        newPanFilled = Math.min(newPanFilled + amountToAdd, panCap);
+                        newBucketFilled = 0;
+                    }
 
-                        // Add dirt to bucket (stop when full)
-                        if (newBucketFilled < bucketCap) {
-                            newBucketFilled = Math.min(newBucketFilled + dirtPerTick, bucketCap);
-                        }
+                    // Miners fill bucket
+                    if (dirtPerTick > 0 && newBucketFilled < bucketCap) {
+                        newBucketFilled = Math.min(newBucketFilled + dirtPerTick, bucketCap);
                     }
 
                     let dirtChange = 0;
@@ -1554,13 +1596,15 @@ export const gameStore = createStore<GameState>()(
             darkMode: state.darkMode,
             goldPrice: state.goldPrice,
             lastGoldPriceUpdate: state.lastGoldPriceUpdate,
+            hasAutoEmpty: state.hasAutoEmpty,
+            lastSeenChangelogVersion: state.lastSeenChangelogVersion,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV18();
+                return defaultSaveV19();
             }
         },
         onRehydrateStorage: ()=> (state) => {
@@ -1571,6 +1615,8 @@ export const gameStore = createStore<GameState>()(
             state.isTraveling = false;
             state.travelProgress = 0;
             state.driverTripTicks = 0;
+            // Restore gold-in-pocket on reload: if at Town, all current gold was carried there
+            state.goldInPocket = state.location === 'town' ? state.gold : 0;
             // Apply persisted dark mode preference
             if (state.darkMode) {
                 document.documentElement.classList.add('dark');
