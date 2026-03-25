@@ -92,7 +92,7 @@ export function Town() {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-green-900">🏘️ Town</h2>
+            <h2 className="font-arcade text-sm text-green-900">🏘️ Town</h2>
 
             {/* Travel back to Mine */}
             <div className="p-3 bg-white border border-amber-200 rounded-xl">
@@ -196,144 +196,157 @@ export function Town() {
                         {/* Shop Tab Content */}
                         <div className="space-y-2">
                             {shopTab === 'gear' && (
-                            <>
-                                <UpgradeButton
-                                    name="Shovel Upgrade"
-                                    description={shovelTier < MAX_TOOL_TIER
-                                        ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click`
-                                        : 'Maximum shovel tier reached'}
-                                    cost={betterShovelCost}
-                                    currentLevel={shovelTier}
-                                    maxLevel={MAX_TOOL_TIER}
-                                    canAfford={money >= betterShovelCost && shovelTier < MAX_TOOL_TIER}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('betterShovel')}
-                                    icon="⛏️"
-                                />
+                            <div className="space-y-4">
+                                {/* Tools */}
+                                <div className="pt-2">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⛏️ Tools</h4>
+                                    <div className="space-y-2">
+                                        <UpgradeButton
+                                            name="Shovel Upgrade"
+                                            description={shovelTier < MAX_TOOL_TIER
+                                                ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click`
+                                                : 'Maximum shovel tier reached'}
+                                            cost={betterShovelCost}
+                                            currentLevel={shovelTier}
+                                            maxLevel={MAX_TOOL_TIER}
+                                            canAfford={money >= betterShovelCost && shovelTier < MAX_TOOL_TIER}
+                                            playerMoney={money}
+                                            onBuy={() => buyUpgrade('betterShovel')}
+                                            icon="⛏️"
+                                        />
+                                        <UpgradeButton
+                                            name="Pan Upgrade"
+                                            description={panTier < MAX_TOOL_TIER
+                                                ? `Pan power: ${panPower} → ${panPower + 1} gold/pan`
+                                                : 'Maximum pan tier reached'}
+                                            cost={betterPanCost}
+                                            currentLevel={panTier}
+                                            maxLevel={MAX_TOOL_TIER}
+                                            canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
+                                            playerMoney={money}
+                                            onBuy={() => buyUpgrade('betterPan')}
+                                            icon="🥘"
+                                        />
+                                    </div>
+                                </div>
 
-                                <UpgradeButton
-                                    name="Pan Upgrade"
-                                    description={panTier < MAX_TOOL_TIER
-                                        ? `Pan power: ${panPower} → ${panPower + 1} gold/pan`
-                                        : 'Maximum pan tier reached'}
-                                    cost={betterPanCost}
-                                    currentLevel={panTier}
-                                    maxLevel={MAX_TOOL_TIER}
-                                    canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('betterPan')}
-                                    icon="🥘"
-                                />
+                                {/* Capacity & Speed */}
+                                <div className="pt-2">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">📦 Capacity & Speed</h4>
+                                    <div className="space-y-2">
+                                        <UpgradeButton
+                                            name="Larger Bucket"
+                                            description={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                                ? `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}`
+                                                : `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`}
+                                            cost={bucketUpgradeCost}
+                                            currentLevel={bucketUpgrades}
+                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                            canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= bucketUpgradeCost}
+                                            playerMoney={money}
+                                            onBuy={() => buyUpgrade('bucketUpgrade')}
+                                            icon="🪣"
+                                        />
+                                        <UpgradeButton
+                                            name="Larger Pan"
+                                            description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                                ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}`
+                                                : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
+                                            cost={panCapUpgradeCost}
+                                            currentLevel={panCapUpgrades}
+                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                            canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panCapUpgradeCost}
+                                            playerMoney={money}
+                                            onBuy={() => buyUpgrade('panCapUpgrade')}
+                                            icon="🍳"
+                                        />
+                                        <UpgradeButton
+                                            name="Faster Panning"
+                                            description={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                                ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click`
+                                                : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`}
+                                            cost={panSpeedUpgradeCost}
+                                            currentLevel={panSpeedUpgrades}
+                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
+                                            canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panSpeedUpgradeCost}
+                                            playerMoney={money}
+                                            onBuy={() => buyUpgrade('panSpeedUpgrade')}
+                                            icon="⚡"
+                                        />
+                                        {unlockedPanning && (
+                                            <UpgradeButton
+                                                name="Auto-Empty Bucket"
+                                                description={hasAutoEmpty
+                                                    ? 'Bucket empties to pan automatically when full'
+                                                    : 'Automatically empties bucket to pan when full — no more clicking!'}
+                                                cost={EQUIPMENT.autoEmpty.cost}
+                                                locked={hasAutoEmpty}
+                                                canAfford={!hasAutoEmpty && money >= EQUIPMENT.autoEmpty.cost}
+                                                playerMoney={money}
+                                                onBuy={() => buyUpgrade('autoEmpty')}
+                                                icon={hasAutoEmpty ? '✅' : '🪣'}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
 
-                                <UpgradeButton
-                                    name="Larger Bucket"
-                                    description={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                        ? `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}`
-                                        : `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`}
-                                    cost={bucketUpgradeCost}
-                                    currentLevel={bucketUpgrades}
-                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                    canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= bucketUpgradeCost}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('bucketUpgrade')}
-                                    icon="🪣"
-                                />
-
-                                <UpgradeButton
-                                    name="Larger Pan"
-                                    description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                        ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}`
-                                        : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
-                                    cost={panCapUpgradeCost}
-                                    currentLevel={panCapUpgrades}
-                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                    canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panCapUpgradeCost}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('panCapUpgrade')}
-                                    icon="🍳"
-                                />
-
-                                <UpgradeButton
-                                    name="Faster Panning"
-                                    description={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                        ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click`
-                                        : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`}
-                                    cost={panSpeedUpgradeCost}
-                                    currentLevel={panSpeedUpgrades}
-                                    maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                    canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panSpeedUpgradeCost}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('panSpeedUpgrade')}
-                                    icon="⚡"
-                                />
-
-                                {unlockedPanning && (
-                                    <UpgradeButton
-                                        name="Auto-Empty Bucket"
-                                        description={hasAutoEmpty
-                                            ? 'Bucket empties to pan automatically when full'
-                                            : 'Automatically empties bucket to pan when full — no more clicking!'}
-                                        cost={EQUIPMENT.autoEmpty.cost}
-                                        locked={hasAutoEmpty}
-                                        canAfford={!hasAutoEmpty && money >= EQUIPMENT.autoEmpty.cost}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('autoEmpty')}
-                                        icon={hasAutoEmpty ? '✅' : '🪣'}
-                                    />
+                                {/* Machinery Upgrades — only shown when player owns at least one piece of equipment */}
+                                {(hasSluiceBox || hasMagneticSeparator || hasOven || hasFurnace) && (
+                                    <div className="pt-2">
+                                        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⚙️ Machinery Upgrades</h4>
+                                        <div className="space-y-2">
+                                            {hasSluiceBox && (
+                                                <UpgradeButton
+                                                    name="Better Sluice Box"
+                                                    description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
+                                                    cost={betterSluiceCost}
+                                                    currentLevel={sluiceGear - 1}
+                                                    canAfford={money >= betterSluiceCost}
+                                                    playerMoney={money}
+                                                    onBuy={() => buyUpgrade('betterSluice')}
+                                                    icon="🚿"
+                                                />
+                                            )}
+                                            {hasMagneticSeparator && (
+                                                <UpgradeButton
+                                                    name="Better Separator"
+                                                    description={`Separator extraction: ${(UPGRADES.separatorWorker.extractionBonus * separatorGear * 100).toFixed(0)}% → ${(UPGRADES.separatorWorker.extractionBonus * (separatorGear + 1) * 100).toFixed(0)}% per worker`}
+                                                    cost={betterSeparatorCost}
+                                                    currentLevel={separatorGear - 1}
+                                                    canAfford={money >= betterSeparatorCost}
+                                                    playerMoney={money}
+                                                    onBuy={() => buyUpgrade('betterSeparator')}
+                                                    icon="🧲"
+                                                />
+                                            )}
+                                            {hasOven && (
+                                                <UpgradeButton
+                                                    name="Better Oven"
+                                                    description={`Oven value bonus: ${(UPGRADES.ovenWorker.valueBonus * ovenGear * 100).toFixed(0)}% → ${(UPGRADES.ovenWorker.valueBonus * (ovenGear + 1) * 100).toFixed(0)}% per worker`}
+                                                    cost={betterOvenCost}
+                                                    currentLevel={ovenGear - 1}
+                                                    canAfford={money >= betterOvenCost}
+                                                    playerMoney={money}
+                                                    onBuy={() => buyUpgrade('betterOven')}
+                                                    icon="🔥"
+                                                />
+                                            )}
+                                            {hasFurnace && (
+                                                <UpgradeButton
+                                                    name="Better Furnace"
+                                                    description={`Furnace value bonus: ${(UPGRADES.furnaceWorker.valueBonus * furnaceGear * 100).toFixed(0)}% → ${(UPGRADES.furnaceWorker.valueBonus * (furnaceGear + 1) * 100).toFixed(0)}% per worker`}
+                                                    cost={betterFurnaceCost}
+                                                    currentLevel={furnaceGear - 1}
+                                                    canAfford={money >= betterFurnaceCost}
+                                                    playerMoney={money}
+                                                    onBuy={() => buyUpgrade('betterFurnace')}
+                                                    icon="⚗️"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
                                 )}
-
-                                {hasSluiceBox && (
-                                    <UpgradeButton
-                                        name="Better Sluice Box"
-                                        description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
-                                        cost={betterSluiceCost}
-                                        currentLevel={sluiceGear - 1}
-                                        canAfford={money >= betterSluiceCost}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('betterSluice')}
-                                        icon="🚿"
-                                    />
-                                )}
-
-                                {hasMagneticSeparator && (
-                                    <UpgradeButton
-                                        name="Better Separator"
-                                        description={`Separator extraction: ${(UPGRADES.separatorWorker.extractionBonus * separatorGear * 100).toFixed(0)}% → ${(UPGRADES.separatorWorker.extractionBonus * (separatorGear + 1) * 100).toFixed(0)}% per worker`}
-                                        cost={betterSeparatorCost}
-                                        currentLevel={separatorGear - 1}
-                                        canAfford={money >= betterSeparatorCost}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('betterSeparator')}
-                                        icon="🧲"
-                                    />
-                                )}
-
-                                {hasOven && (
-                                    <UpgradeButton
-                                        name="Better Oven"
-                                        description={`Oven value bonus: ${(UPGRADES.ovenWorker.valueBonus * ovenGear * 100).toFixed(0)}% → ${(UPGRADES.ovenWorker.valueBonus * (ovenGear + 1) * 100).toFixed(0)}% per worker`}
-                                        cost={betterOvenCost}
-                                        currentLevel={ovenGear - 1}
-                                        canAfford={money >= betterOvenCost}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('betterOven')}
-                                        icon="🔥"
-                                    />
-                                )}
-
-                                {hasFurnace && (
-                                    <UpgradeButton
-                                        name="Better Furnace"
-                                        description={`Furnace value bonus: ${(UPGRADES.furnaceWorker.valueBonus * furnaceGear * 100).toFixed(0)}% → ${(UPGRADES.furnaceWorker.valueBonus * (furnaceGear + 1) * 100).toFixed(0)}% per worker`}
-                                        cost={betterFurnaceCost}
-                                        currentLevel={furnaceGear - 1}
-                                        canAfford={money >= betterFurnaceCost}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('betterFurnace')}
-                                        icon="⚗️"
-                                    />
-                                )}
-                            </>
+                            </div>
                             )}
 
                             {shopTab === 'equipment' && (

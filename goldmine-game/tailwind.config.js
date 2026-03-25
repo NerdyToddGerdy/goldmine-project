@@ -15,9 +15,14 @@ export default {
                 '0%': { opacity: '0', transform: 'translateX(100%)' },
                 '100%': { opacity: '1', transform: 'translateX(0)' },
             },
+            'float-up': {
+                '0%':   { opacity: '1', transform: 'translateY(0)' },
+                '100%': { opacity: '0', transform: 'translateY(-40px)' },
+            },
         },
         animation: {
             'slide-in': 'slide-in 0.2s ease-out',
+            'float-up': 'float-up 1.2s ease-out forwards',
         },
     },
   },

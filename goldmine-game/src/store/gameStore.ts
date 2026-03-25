@@ -87,6 +87,13 @@ export interface Toast {
 
 let _toastId = 0;
 
+export interface FloatingNumber {
+    id: number;
+    resource: 'gold' | 'money';
+    amount: number;
+}
+let _floatId = 0;
+
 export type GameState = {
     // Core meta
     isPaused: boolean
@@ -189,6 +196,9 @@ export type GameState = {
     // Toasts (transient, not persisted)
     toasts: Toast[]
 
+    // Floating number animations (transient, not persisted)
+    floatingNumbers: FloatingNumber[]
+
     // Internal Helpers
     _accumulator: number // leftover fractional time from RAF
 
@@ -225,6 +235,9 @@ export type GameState = {
     // Toasts
     addToast: (message: string, type?: ToastType) => void
     dismissToast: (id: number) => void
+
+    // Floating numbers
+    addFloatingNumber: (resource: 'gold' | 'money', amount: number) => void
 
     // Settings
     setDarkMode: (dark: boolean) => void
@@ -355,6 +368,7 @@ export const gameStore = createStore<GameState>()(
         devtools((set, get) => ({
             isPaused: false,
             toasts: [],
+            floatingNumbers: [],
             tickCount: 0,
             timeScale: 1,
             location: 'mine',
@@ -462,6 +476,7 @@ export const gameStore = createStore<GameState>()(
                     ...s,
                     isPaused: false,
                     toasts: [],
+                    floatingNumbers: [],
                     tickCount: 0,
                     location: 'mine',
                     bucketFilled: 0,
@@ -518,6 +533,7 @@ export const gameStore = createStore<GameState>()(
                 window.localStorage.removeItem(STORAGE_KEY);
                 set({
                     isPaused: false,
+                    floatingNumbers: [],
                     tickCount: 0,
                     timeScale: 1,
                     location: 'mine',
@@ -801,23 +817,15 @@ export const gameStore = createStore<GameState>()(
             },
 
             panForGold: () => {
-                set((s) => {
-                    if (s.panFilled < 1) return s; // Need material in the pan
-
-                    const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed + s.panSpeedUpgrades));
-
-                    // Manual panning benefits from gear upgrades
-                    let extractionRate = BASE_EXTRACTION;
-                    extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
-                    extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
-
-                    const baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
-
-                    return {
-                        panFilled: s.panFilled - materialUsed,
-                        gold: s.gold + baseGold,
-                    };
-                });
+                const s = get();
+                if (s.panFilled < 1) return;
+                const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed + s.panSpeedUpgrades));
+                let extractionRate = BASE_EXTRACTION;
+                extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
+                extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
+                const baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
+                set({ panFilled: s.panFilled - materialUsed, gold: s.gold + baseGold });
+                get().addFloatingNumber('gold', baseGold);
             },
 
             travelTo: (location: 'mine' | 'town') => {
@@ -863,22 +871,19 @@ export const gameStore = createStore<GameState>()(
             },
 
             sellGold: () => {
-                set((s) => {
-                    const sellable = Math.min(s.gold, s.goldInPocket);
-                    if (sellable < 0.01) return s;
-
-                    const baseValue = sellable * s.goldPrice;
-                    // Smelting fee applies when you don't have a furnace (no furnace = pay to smelt elsewhere)
-                    const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
-                    const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
-
-                    return {
-                        money: s.money + finalValue,
-                        runMoneyEarned: s.runMoneyEarned + finalValue,
-                        gold: s.gold - sellable,
-                        goldInPocket: 0,
-                    };
+                const s = get();
+                const sellable = Math.min(s.gold, s.goldInPocket);
+                if (sellable < 0.01) return;
+                const baseValue = sellable * s.goldPrice;
+                const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
+                const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                set({
+                    money: s.money + finalValue,
+                    runMoneyEarned: s.runMoneyEarned + finalValue,
+                    gold: s.gold - sellable,
+                    goldInPocket: 0,
                 });
+                get().addFloatingNumber('money', finalValue);
             },
 
             buyUpgrade: (upgrade: string) => {
@@ -1186,6 +1191,14 @@ export const gameStore = createStore<GameState>()(
                 set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
             },
 
+            addFloatingNumber: (resource, amount) => {
+                const id = ++_floatId;
+                set((s) => ({ floatingNumbers: [...s.floatingNumbers, { id, resource, amount }] }));
+                setTimeout(() => {
+                    set((s) => ({ floatingNumbers: s.floatingNumbers.filter((f) => f.id !== id) }));
+                }, 1200);
+            },
+
             setDarkMode: (dark: boolean) => {
                 set({ darkMode: dark });
                 if (dark) {
@@ -1265,6 +1278,7 @@ export const gameStore = createStore<GameState>()(
                     goldInPocket: 0,
                     _accumulator: 0,
                     toasts: [],
+                    floatingNumbers: [],
                 });
                 get().addToast(`✨ New Creek! You earned ${dust} Legacy Dust.`, 'info');
             },
@@ -1299,6 +1313,7 @@ export const gameStore = createStore<GameState>()(
             _fixedTick: () => {
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
                 let townJustUnlocked = false;
+                let capturedDriverMoney = 0;
 
                 set((s) => {
                     // Increment time played each tick
@@ -1485,6 +1500,7 @@ export const gameStore = createStore<GameState>()(
                                 const baseValue = driverGoldSold * s.goldPrice;
                                 const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                                 driverMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                                capturedDriverMoney = driverMoneyGained;
                             }
                             // Driver completes round-trip — reset counter
                             if (newDriverTripTicks >= tripDuration * 2) {
@@ -1529,6 +1545,9 @@ export const gameStore = createStore<GameState>()(
 
                 for (const { message, type } of riskToasts) {
                     get().addToast(message, type);
+                }
+                if (capturedDriverMoney > 0) {
+                    get().addFloatingNumber('money', capturedDriverMoney);
                 }
                 if (townJustUnlocked) {
                     get().addToast('🏘️ You arrived at Town for the first time!', 'info');
@@ -1615,6 +1634,7 @@ export const gameStore = createStore<GameState>()(
             state.isTraveling = false;
             state.travelProgress = 0;
             state.driverTripTicks = 0;
+            state.floatingNumbers = [];
             // Restore gold-in-pocket on reload: if at Town, all current gold was carried there
             state.goldInPocket = state.location === 'town' ? state.gold : 0;
             // Apply persisted dark mode preference

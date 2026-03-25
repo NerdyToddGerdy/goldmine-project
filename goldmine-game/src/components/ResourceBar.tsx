@@ -1,4 +1,4 @@
-import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS } from "../store/gameStore";
+import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS, type FloatingNumber } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
@@ -87,18 +87,36 @@ export function ResourceBar() {
         ? Math.min(1, (tickCount - lastGoldPriceUpdate) / GOLD_PRICE_UPDATE_TICKS)
         : undefined;
 
+    const floatingNumbers = useGameStore((s) => s.floatingNumbers);
+    const goldFloats = floatingNumbers.filter((f) => f.resource === 'gold');
+    const moneyFloats = floatingNumbers.filter((f) => f.resource === 'money');
+
     return (
         <div className="space-y-1.5">
             <div className={`grid gap-2 ${prestigeCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <ResourceCard
-                    label="Gold"
-                    value={gold}
-                    rate={goldRate}
-                    icon="✨"
-                    color="yellow"
-                    priceInfo={goldPriceProgress !== undefined ? { price: goldPrice, progress: goldPriceProgress } : undefined}
-                />
-                <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
+                <div className="relative">
+                    <ResourceCard
+                        label="Gold"
+                        value={gold}
+                        rate={goldRate}
+                        icon="✨"
+                        color="yellow"
+                        priceInfo={goldPriceProgress !== undefined ? { price: goldPrice, progress: goldPriceProgress } : undefined}
+                    />
+                    {goldFloats.map((f: FloatingNumber) => (
+                        <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-yellow-500 animate-float-up pointer-events-none">
+                            +{formatNumber(f.amount)}
+                        </span>
+                    ))}
+                </div>
+                <div className="relative">
+                    <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
+                    {moneyFloats.map((f: FloatingNumber) => (
+                        <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-green-500 animate-float-up pointer-events-none">
+                            +${formatNumber(f.amount)}
+                        </span>
+                    ))}
+                </div>
                 {prestigeCount > 0 && (
                     <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
                 )}
@@ -166,7 +184,7 @@ function ResourceCard({
     return (
         <div className={`rounded-xl border ${colors.border} shadow-sm overflow-hidden ${colors.bg}`}>
             <div className="p-2">
-                <div className={`text-xs uppercase tracking-wide ${colors.textLabel} font-semibold`}>
+                <div className={`font-arcade text-[9px] ${colors.textLabel}`}>
                     {label}
                 </div>
                 <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>

@@ -54,8 +54,20 @@ function App() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
     const emojiFlip = travelDestination === 'town' ? 'scaleX(-1)' : '';
 
+    const bgGradient = {
+        mine: 'bg-gradient-to-b from-amber-50 to-stone-100 dark:from-gray-900 dark:to-stone-900',
+        town: 'bg-gradient-to-b from-green-50 to-emerald-100 dark:from-gray-900 dark:to-emerald-950',
+        settings: 'bg-gradient-to-b from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800',
+    }[activeTab];
+
+    const headerBg = {
+        mine: 'bg-amber-50 dark:bg-gray-900',
+        town: 'bg-green-50 dark:bg-gray-900',
+        settings: 'bg-gray-50 dark:bg-gray-900',
+    }[activeTab];
+
     return (
-    <div className="w-full h-screen overflow-y-scroll bg-gradient-to-b from-amber-50 to-amber-100 dark:from-gray-900 dark:to-gray-800 transition-colors">
+    <div className={`w-full h-screen overflow-y-scroll transition-colors duration-500 ${bgGradient}`}>
         <ToastContainer />
         {showWhatsNew && (
             <WhatsNewModal
@@ -65,9 +77,9 @@ function App() {
         )}
 
         {/* Sticky header — shares scrollbar context with content, so widths always match */}
-        <div className="sticky top-0 z-10 bg-amber-50 dark:bg-gray-900">
+        <div className={`sticky top-0 z-10 transition-colors duration-500 ${headerBg}`}>
             <div className="w-full max-w-4xl mx-auto px-4 pt-4 pb-0">
-                <h1 className="text-2xl font-bold text-amber-900 dark:text-amber-100 mb-2">💎 Gold Mine Tycoon</h1>
+                <h1 className="font-arcade text-base text-amber-900 dark:text-amber-100 mb-2">💎 Gold Mine Tycoon</h1>
 
                 {/* Global Resources */}
                 <ResourceBar />

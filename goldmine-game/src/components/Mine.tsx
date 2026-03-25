@@ -68,7 +68,7 @@ export function Mine() {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-amber-900">⛏️ The Mine</h2>
+            <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
 
             {/* Travel to Town — at top, mirrors Town page layout */}
             {unlockedTown && (

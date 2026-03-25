@@ -7,6 +7,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.0',
+        date: '2026-03-25',
+        title: 'v1.0 — Typography, Atmosphere & Animations',
+        changes: [
+            'Gear tab reorganized into ⛏️ Tools / 📦 Capacity & Speed / ⚙️ Machinery Upgrades sections',
+            'Banking sell now shows an itemized breakdown card with oz × price, smelting fee, and net received',
+            'Price trend arrow (▲/▼) on Banking market price; Furnace upsell hint when fee applies',
+            'Press Start 2P pixel font applied to game title, section headers, and resource card labels',
+            'Mine/Town/Settings each have a distinct background gradient (amber/green/gray) with smooth crossfade on tab switch',
+            'Floating +X number animations appear on manual panning and gold sales',
+        ],
+    },
+    {
         version: 'v0.22',
         date: '2026-03-25',
         title: 'Equipment → Worker Chain Made Visible',
