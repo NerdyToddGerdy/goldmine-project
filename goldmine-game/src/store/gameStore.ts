@@ -77,7 +77,7 @@ export const GOLD_PRICE_MIN = 0.60;
 export const GOLD_PRICE_MAX = 1.80;
 export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
 
-export type ToastType = 'info' | 'warning' | 'error';
+export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
 export interface Toast {
     id: number;
@@ -856,7 +856,7 @@ export const gameStore = createStore<GameState>()(
                 const tierData = VEHICLE_TIERS[tier as 1|2|3];
                 if (s.money < tierData.cost) return false;
                 set({ money: s.money - tierData.cost, vehicleTier: tier });
-                get().addToast(`🚗 ${tierData.name} purchased! Travel: ${tierData.travelSecs}s`, 'info');
+                get().addToast(`🚗 ${tierData.name} purchased! Travel: ${tierData.travelSecs}s`, 'success');
                 return true;
             },
 
@@ -866,7 +866,7 @@ export const gameStore = createStore<GameState>()(
                 if (s.vehicleTier < 2) return false; // requires Steam Wagon
                 if (s.money < DRIVER_COST) return false;
                 set({ money: s.money - DRIVER_COST, hasDriver: true });
-                get().addToast('🤠 Driver hired! He will auto-sell your gold.', 'info');
+                get().addToast('🤠 Driver hired! He will auto-sell your gold.', 'success');
                 return true;
             },
 
@@ -1005,28 +1005,28 @@ export const gameStore = createStore<GameState>()(
                     const cost = EQUIPMENT.sluiceBox.cost;
                     if (s.money >= cost && !s.hasSluiceBox) {
                         set({ money: s.money - cost, hasSluiceBox: true });
-                        get().addToast('🚿 Sluice Box purchased! Sluice Operators now available.', 'info');
+                        get().addToast('🚿 Sluice Box purchased! Sluice Operators now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'magneticSeparator') {
                     const cost = EQUIPMENT.magneticSeparator.cost;
                     if (s.money >= cost && !s.hasMagneticSeparator) {
                         set({ money: s.money - cost, hasMagneticSeparator: true });
-                        get().addToast('🧲 Magnetic Separator purchased! Separator Technicians now available.', 'info');
+                        get().addToast('🧲 Magnetic Separator purchased! Separator Technicians now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'oven') {
                     const cost = EQUIPMENT.oven.cost;
                     if (s.money >= cost && !s.hasOven) {
                         set({ money: s.money - cost, hasOven: true });
-                        get().addToast('🔥 Oven purchased! Oven Operators now available.', 'info');
+                        get().addToast('🔥 Oven purchased! Oven Operators now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'furnace') {
                     const cost = EQUIPMENT.furnace.cost;
                     if (s.money >= cost && !s.hasFurnace) {
                         set({ money: s.money - cost, hasFurnace: true });
-                        get().addToast('⚗️ Furnace purchased! Furnace Operators now available. Sell fee removed.', 'info');
+                        get().addToast('⚗️ Furnace purchased! Furnace Operators now available. Sell fee removed.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'bankerWorker') {
@@ -1179,7 +1179,7 @@ export const gameStore = createStore<GameState>()(
             addToast: (message, type = 'info') => {
                 const id = ++_toastId;
                 set((s) => {
-                    const trimmed = s.toasts.length >= 3 ? s.toasts.slice(1) : s.toasts;
+                    const trimmed = s.toasts.length >= 4 ? s.toasts.slice(1) : s.toasts;
                     return { toasts: [...trimmed, { id, message, type }] };
                 });
                 setTimeout(() => {
@@ -1280,7 +1280,7 @@ export const gameStore = createStore<GameState>()(
                     toasts: [],
                     floatingNumbers: [],
                 });
-                get().addToast(`✨ New Creek! You earned ${dust} Legacy Dust.`, 'info');
+                get().addToast(`✨ New Creek! You earned ${dust} Legacy Dust.`, 'success');
             },
 
             buyDustUpgrade: (type) => {
@@ -1362,8 +1362,8 @@ export const gameStore = createStore<GameState>()(
                         newBucketFilled = Math.min(newBucketFilled + dirtPerTick, bucketCap);
                     }
 
-                    let dirtChange = 0;
-                    let paydirtChange = 0;
+                    const dirtChange = 0;
+                    const paydirtChange = 0;
                     let goldGained = 0;
 
                     // Prospectors consume from the pan progress bar and produce gold

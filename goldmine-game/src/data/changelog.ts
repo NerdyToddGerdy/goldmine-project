@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.2',
+        date: '2026-03-25',
+        title: 'Toast Polish — Success Type & Richer Feedback',
+        changes: [
+            'New ✅ success toast type (green) for positive events',
+            'Equipment purchases, vehicle upgrades, driver hire, and prestige now fire success toasts',
+            'Toast queue expanded to 4 visible notifications',
+        ],
+    },
+    {
         version: 'v1.1',
         date: '2026-03-25',
         title: 'CI: Node.js 24',
