@@ -10,6 +10,7 @@ export function UpgradeButton({
     canAfford,
     onBuy,
     icon,
+    playerMoney,
 }: {
     name: string;
     description: string;
@@ -20,9 +21,13 @@ export function UpgradeButton({
     canAfford: boolean;
     onBuy: () => void;
     icon?: string;
+    playerMoney?: number;
 }) {
     const maxed = maxLevel !== undefined && currentLevel !== undefined && currentLevel >= maxLevel;
     const disabled = locked || maxed || !canAfford;
+    const shortage = !canAfford && !locked && !maxed && playerMoney !== undefined
+        ? cost - playerMoney
+        : 0;
 
     return (
         <button
@@ -44,6 +49,11 @@ export function UpgradeButton({
                         {locked && <span className="text-xs text-gray-400 font-semibold">🔒 LOCKED</span>}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{description}</div>
+                    {shortage > 0 && (
+                        <div className="text-xs text-red-500 dark:text-red-400 mt-1">
+                            Need ${formatNumber(shortage)} more
+                        </div>
+                    )}
                 </div>
                 {!maxed && !locked && (
                     <div className={`text-base font-bold flex-shrink-0 ${canAfford ? 'text-green-600' : 'text-red-500'}`}>

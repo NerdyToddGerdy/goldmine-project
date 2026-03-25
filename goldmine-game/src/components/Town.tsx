@@ -205,6 +205,7 @@ export function Town() {
                                     currentLevel={shovelTier}
                                     maxLevel={MAX_TOOL_TIER}
                                     canAfford={money >= betterShovelCost && shovelTier < MAX_TOOL_TIER}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('betterShovel')}
                                     icon="⛏️"
                                 />
@@ -218,6 +219,7 @@ export function Town() {
                                     currentLevel={panTier}
                                     maxLevel={MAX_TOOL_TIER}
                                     canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('betterPan')}
                                     icon="🥘"
                                 />
@@ -231,6 +233,7 @@ export function Town() {
                                     currentLevel={bucketUpgrades}
                                     maxLevel={MAX_GEAR_UPGRADE_LEVEL}
                                     canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= bucketUpgradeCost}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('bucketUpgrade')}
                                     icon="🪣"
                                 />
@@ -244,6 +247,7 @@ export function Town() {
                                     currentLevel={panCapUpgrades}
                                     maxLevel={MAX_GEAR_UPGRADE_LEVEL}
                                     canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panCapUpgradeCost}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('panCapUpgrade')}
                                     icon="🍳"
                                 />
@@ -257,6 +261,7 @@ export function Town() {
                                     currentLevel={panSpeedUpgrades}
                                     maxLevel={MAX_GEAR_UPGRADE_LEVEL}
                                     canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panSpeedUpgradeCost}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('panSpeedUpgrade')}
                                     icon="⚡"
                                 />
@@ -270,6 +275,7 @@ export function Town() {
                                         cost={EQUIPMENT.autoEmpty.cost}
                                         locked={hasAutoEmpty}
                                         canAfford={!hasAutoEmpty && money >= EQUIPMENT.autoEmpty.cost}
+                                        playerMoney={money}
                                         onBuy={() => buyUpgrade('autoEmpty')}
                                         icon={hasAutoEmpty ? '✅' : '🪣'}
                                     />
@@ -282,6 +288,7 @@ export function Town() {
                                         cost={betterSluiceCost}
                                         currentLevel={sluiceGear - 1}
                                         canAfford={money >= betterSluiceCost}
+                                        playerMoney={money}
                                         onBuy={() => buyUpgrade('betterSluice')}
                                         icon="🚿"
                                     />
@@ -294,6 +301,7 @@ export function Town() {
                                         cost={betterSeparatorCost}
                                         currentLevel={separatorGear - 1}
                                         canAfford={money >= betterSeparatorCost}
+                                        playerMoney={money}
                                         onBuy={() => buyUpgrade('betterSeparator')}
                                         icon="🧲"
                                     />
@@ -306,6 +314,7 @@ export function Town() {
                                         cost={betterOvenCost}
                                         currentLevel={ovenGear - 1}
                                         canAfford={money >= betterOvenCost}
+                                        playerMoney={money}
                                         onBuy={() => buyUpgrade('betterOven')}
                                         icon="🔥"
                                     />
@@ -318,6 +327,7 @@ export function Town() {
                                         cost={betterFurnaceCost}
                                         currentLevel={furnaceGear - 1}
                                         canAfford={money >= betterFurnaceCost}
+                                        playerMoney={money}
                                         onBuy={() => buyUpgrade('betterFurnace')}
                                         icon="⚗️"
                                     />
@@ -333,6 +343,7 @@ export function Town() {
                                     cost={EQUIPMENT.sluiceBox.cost}
                                     locked={hasSluiceBox}
                                     canAfford={money >= EQUIPMENT.sluiceBox.cost && !hasSluiceBox}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('sluiceBox')}
                                     icon={hasSluiceBox ? '✅' : '🚿'}
                                 />
@@ -343,6 +354,7 @@ export function Town() {
                                     cost={EQUIPMENT.magneticSeparator.cost}
                                     locked={hasMagneticSeparator}
                                     canAfford={money >= EQUIPMENT.magneticSeparator.cost && !hasMagneticSeparator}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('magneticSeparator')}
                                     icon={hasMagneticSeparator ? '✅' : '🧲'}
                                 />
@@ -353,6 +365,7 @@ export function Town() {
                                     cost={EQUIPMENT.oven.cost}
                                     locked={hasOven}
                                     canAfford={money >= EQUIPMENT.oven.cost && !hasOven}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('oven')}
                                     icon={hasOven ? '✅' : '🔥'}
                                 />
@@ -363,6 +376,7 @@ export function Town() {
                                     cost={EQUIPMENT.furnace.cost}
                                     locked={hasFurnace}
                                     canAfford={money >= EQUIPMENT.furnace.cost && !hasFurnace}
+                                    playerMoney={money}
                                     onBuy={() => buyUpgrade('furnace')}
                                     icon={hasFurnace ? '✅' : '⚗️'}
                                 />
@@ -386,6 +400,7 @@ export function Town() {
                                             cost={tier.cost}
                                             locked={owned}
                                             canAfford={isNext && money >= tier.cost}
+                                            playerMoney={money}
                                             onBuy={() => gameStore.getState().buyVehicle(tierIndex)}
                                             icon={owned ? '✅' : tierIndex === 1 ? '🐴' : tierIndex === 2 ? '🚂' : '🚛'}
                                         />
@@ -418,6 +433,7 @@ export function Town() {
                             onHire={() => buyUpgrade('shovel')}
                             onFire={() => fireWorker('shovel')}
                             icon="👷"
+                            playerMoney={money}
                             nextHireWage={shovelNextWage}
                             nextHireWouldExceedIncome={(totalPayroll + shovelNextWage) > autoSellIncome}
                         />
@@ -433,6 +449,7 @@ export function Town() {
                             onHire={() => buyUpgrade('pan')}
                             onFire={() => fireWorker('pan')}
                             icon="🧑‍🔬"
+                            playerMoney={money}
                             nextHireWage={panNextWage}
                             nextHireWouldExceedIncome={(totalPayroll + panNextWage) > autoSellIncome}
                         />
@@ -449,6 +466,7 @@ export function Town() {
                                 onHire={() => buyUpgrade('sluiceWorker')}
                                 onFire={() => fireWorker('sluiceWorker')}
                                 icon="🚿"
+                                playerMoney={money}
                                 nextHireWage={sluiceWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + sluiceWorkerNextWage) > autoSellIncome}
                             />
@@ -466,6 +484,7 @@ export function Town() {
                                 onHire={() => buyUpgrade('separatorWorker')}
                                 onFire={() => fireWorker('separatorWorker')}
                                 icon="🧲"
+                                playerMoney={money}
                                 nextHireWage={separatorWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + separatorWorkerNextWage) > autoSellIncome}
                             />
@@ -483,6 +502,7 @@ export function Town() {
                                 onHire={() => buyUpgrade('ovenWorker')}
                                 onFire={() => fireWorker('ovenWorker')}
                                 icon="🔥"
+                                playerMoney={money}
                                 nextHireWage={ovenWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + ovenWorkerNextWage) > autoSellIncome}
                             />
@@ -500,6 +520,7 @@ export function Town() {
                                 onHire={() => buyUpgrade('furnaceWorker')}
                                 onFire={() => fireWorker('furnaceWorker')}
                                 icon="⚗️"
+                                playerMoney={money}
                                 nextHireWage={furnaceWorkerNextWage}
                                 nextHireWouldExceedIncome={(totalPayroll + furnaceWorkerNextWage) > autoSellIncome}
                             />
@@ -516,6 +537,7 @@ export function Town() {
                             onHire={() => buyUpgrade('bankerWorker')}
                             onFire={() => fireWorker('bankerWorker')}
                             icon="🏦"
+                            playerMoney={money}
                             nextHireWage={bankerWorkerNextWage}
                             nextHireWouldExceedIncome={(totalPayroll + bankerWorkerNextWage) > autoSellIncome}
                         />
@@ -530,6 +552,7 @@ export function Town() {
                             cost={DRIVER_COST}
                             locked={hasDriver}
                             canAfford={!hasDriver && vehicleTier >= 2 && money >= DRIVER_COST}
+                            playerMoney={money}
                             onBuy={() => gameStore.getState().buyDriver()}
                             icon={hasDriver ? '✅' : '🤠'}
                         />

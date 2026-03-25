@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v0.21',
+        date: '2026-03-25',
+        title: 'Disabled Button Tooltips',
+        changes: [
+            'Shop upgrades and equipment now show "Need $X more" when you can\'t afford them',
+            'Labor Office hire buttons show the shortfall when funds are insufficient',
+            'Mine action buttons show "🚗 Locked while traveling" when a trip is in progress',
+        ],
+    },
+    {
         version: 'v0.20',
         date: '2026-03-25',
         title: 'Prestige Details & Payroll Warning',

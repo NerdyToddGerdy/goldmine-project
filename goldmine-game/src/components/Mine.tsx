@@ -101,11 +101,10 @@ export function Mine() {
                         </div>
                         <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" />
                         <div className="h-5 mt-1 flex items-center justify-center">
-                            {bucketIsFull && (
-                                <span className="text-xs text-amber-700 font-semibold">
-                                    Bucket is full! Empty it to continue scooping.
-                                </span>
-                            )}
+                            {isTraveling
+                                ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
+                                : bucketIsFull && <span className="text-xs text-amber-700 font-semibold">Bucket is full! Empty it to continue scooping.</span>
+                            }
                         </div>
                     </div>
 
@@ -162,11 +161,10 @@ export function Mine() {
                             </div>
                             <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" />
                             <div className="h-5 mt-1 flex items-center justify-center">
-                                {panIsFull && (
-                                    <span className="text-xs text-yellow-700 font-semibold">
-                                        Pan is full! Start panning to make room.
-                                    </span>
-                                )}
+                                {isTraveling
+                                    ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
+                                    : panIsFull && <span className="text-xs text-yellow-700 font-semibold">Pan is full! Start panning to make room.</span>
+                                }
                             </div>
                         </div>
 
