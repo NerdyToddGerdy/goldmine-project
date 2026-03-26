@@ -823,10 +823,11 @@ export const gameStore = createStore<GameState>()(
                         return { sluiceBoxFilled: s.sluiceBoxFilled + s.bucketFilled, bucketFilled: 0 };
                     }
 
-                    // Direct pan path (no sluice box)
+                    // Direct pan path (no sluice box): entire bucket must fit
                     const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
+                    if (s.panFilled + s.bucketFilled > panCap) return s;
                     return {
-                        panFilled: Math.min(s.panFilled + s.bucketFilled, panCap),
+                        panFilled: s.panFilled + s.bucketFilled,
                         bucketFilled: 0,
                     };
                 });
@@ -1395,9 +1396,9 @@ export const gameStore = createStore<GameState>()(
                             newBucketFilled = 0;
                         }
                     } else {
-                        // Direct pan path
-                        if (s.bucketFilled >= bucketCap && newPanFilled < panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
-                            newPanFilled = Math.min(newPanFilled + s.bucketFilled, panCap);
+                        // Direct pan path: entire bucket must fit
+                        if (s.bucketFilled >= bucketCap && newPanFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                            newPanFilled += s.bucketFilled;
                             newBucketFilled = 0;
                         }
                     }

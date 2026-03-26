@@ -171,11 +171,19 @@ describe('auto-empty bucket', () => {
         expect(gameStore.getState().bucketFilled).toBeCloseTo(10, 5); // unchanged
     });
 
-    it('auto-empty is blocked when pan is already at capacity (no sluice)', () => {
-        // panFilled=20 (at panCap with no upgrades) → condition newPanFilled < panCap fails
+    it('auto-empty is blocked when bucket would overflow pan (pan full, no sluice)', () => {
+        // panFilled=20 (at panCap with no upgrades), bucket=10 → 20+10=30 > 20 → blocked
         gameStore.setState({ bucketFilled: 10, panFilled: 20, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(20, 8);
+        expect(gameStore.getState().bucketFilled).toBe(10);
+    });
+
+    it('auto-empty is blocked when bucket partially overflows pan (no sluice)', () => {
+        // panFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked even though pan has space
+        gameStore.setState({ bucketFilled: 10, panFilled: 15, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false });
+        runTicks(1);
+        expect(gameStore.getState().panFilled).toBeCloseTo(15, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);
     });
 });

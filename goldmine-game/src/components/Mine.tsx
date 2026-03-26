@@ -78,6 +78,7 @@ export function Mine() {
 
     const bucketIsFull = bucketFilled >= effectiveBucketCap;
     const panIsFull = panFilled >= effectivePanCap;
+    const panHasRoomForBucket = panFilled + bucketFilled <= effectivePanCap;
     const sluiceIsDraining = sluiceBoxFilled > 0;
     const sluiceHasSpace = sluiceBoxFilled + bucketFilled <= effectivePanCap;
     const mossCapacity = effectivePanCap; // same formula as pan
@@ -170,7 +171,7 @@ export function Mine() {
                     {unlockedPanning && (
                         <button
                             onClick={emptyBucket}
-                            disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? !sluiceHasSpace : panIsFull)}
+                            disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? !sluiceHasSpace : !panHasRoomForBucket)}
                             className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasSluiceBox
@@ -257,7 +258,11 @@ export function Mine() {
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {isTraveling
                                     ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
-                                    : panIsFull && <span className="text-xs text-yellow-700 font-semibold">Pan is full! Start panning to make room.</span>
+                                    : panIsFull
+                                        ? <span className="text-xs text-yellow-700 font-semibold">Pan is full! Start panning to make room.</span>
+                                        : !hasSluiceBox && !panHasRoomForBucket && bucketFilled > 0
+                                            ? <span className="text-xs text-yellow-700 font-semibold">Pan needs {(panFilled + bucketFilled - effectivePanCap).toFixed(1)} more space — pan some dirt first.</span>
+                                            : null
                                 }
                             </div>
                         </div>

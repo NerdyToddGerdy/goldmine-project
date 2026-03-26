@@ -485,3 +485,43 @@ describe('exportSave and importSave', () => {
         expect(s.gold).toBe(2);
     });
 });
+
+// ─── emptyBucket (direct pan path) ────────────────────────────────────────────
+
+describe('emptyBucket — direct pan path (no sluice)', () => {
+    it('empties bucket into pan when entire bucket fits exactly', () => {
+        // panFilled=10, bucketFilled=10, panCap=20 → 10+10=20 ≤ 20 → allowed
+        gameStore.setState({ bucketFilled: 10, panFilled: 10, hasSluiceBox: false, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(20);
+        expect(gameStore.getState().bucketFilled).toBe(0);
+    });
+
+    it('empties bucket into pan when pan has more than enough room', () => {
+        gameStore.setState({ bucketFilled: 5, panFilled: 0, hasSluiceBox: false, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(5);
+        expect(gameStore.getState().bucketFilled).toBe(0);
+    });
+
+    it('blocks empty bucket when bucket would overflow pan', () => {
+        // panFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked
+        gameStore.setState({ bucketFilled: 10, panFilled: 15, hasSluiceBox: false, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(15); // unchanged
+        expect(gameStore.getState().bucketFilled).toBe(10); // unchanged
+    });
+
+    it('blocks empty bucket when pan is full', () => {
+        gameStore.setState({ bucketFilled: 5, panFilled: 20, hasSluiceBox: false, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(20);
+        expect(gameStore.getState().bucketFilled).toBe(5);
+    });
+
+    it('does nothing when bucket is empty', () => {
+        gameStore.setState({ bucketFilled: 0, panFilled: 5, hasSluiceBox: false });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(5);
+    });
+});

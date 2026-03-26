@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.7.1',
+        date: '2026-03-26',
+        title: 'Patch — Bucket → Pan Capacity Rule',
+        changes: [
+            'Empty Bucket into Pan is now blocked unless the pan has room for the entire bucket — no more silent partial dumps',
+            'Hint text below the pan bar explains exactly how much space is needed',
+            'Auto-empty upgrade respects the same all-or-nothing rule in the tick loop',
+        ],
+    },
+    {
         version: 'v1.7',
         date: '2026-03-26',
         title: 'Prospect New Claim — Prestige Moves to Banking',
