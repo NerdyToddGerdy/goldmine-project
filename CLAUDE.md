@@ -173,6 +173,35 @@ Currently standalone; future API Gateway or EventBridge triggers planned.
 
 ---
 
+## Versioning & Changelog Policy
+
+**Every git commit that touches game code must include a version bump and changelog entry.** No exceptions — even single-line fixes ship as a patch.
+
+### Semver rules for this project
+
+| Change type | Version bump | Examples |
+|---|---|---|
+| **Major** (`X.0.0`) | Breaking save format change requiring a hard reset, or complete gameplay overhaul | Removing a core mechanic players depend on |
+| **Minor** (`x.Y.0`) | New feature, new mechanic, new equipment/worker type, new UI section | Metal detector, prestige relocation, new tab |
+| **Patch** (`x.y.Z`) | Bug fix, copy tweak, disabled-state correction, style polish, test-only change | Sluice cap fix, navigation bug, gold price freeze |
+
+### Required files to update before every push
+
+1. **`goldmine-game/package.json`** — bump `"version"` field
+2. **`goldmine-game/src/data/changelog.ts`** — prepend a new entry at the top of `CHANGELOG` with:
+   - `version`: matching `vX.Y.Z` (minor versions use `vX.Y`, no trailing `.0`)
+   - `date`: today's date (`YYYY-MM-DD`)
+   - `title`: short phrase describing the change
+   - `changes`: bullet list of user-visible changes (skip internal refactors unless they affect behavior)
+
+### Version format conventions
+
+- Minor releases: `v1.7`, `v1.8` (no `.0` suffix in changelog title or version string)
+- Patch releases: `v1.7.1`, `v1.7.2`
+- Major releases: `v2.0`
+
+---
+
 ## Development Notes
 
 - TypeScript is in **strict mode** with comprehensive linting rules
