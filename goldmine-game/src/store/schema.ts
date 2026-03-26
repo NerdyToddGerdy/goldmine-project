@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 19 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 20 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -344,12 +344,19 @@ export type SaveV19 = Omit<SaveV18, 'version'> & {
     lastSeenChangelogVersion: string;   // last changelog version player acknowledged
 };
 
-export type LatestSave = SaveV19;
+export type SaveV20 = Omit<SaveV19, 'version'> & {
+    version: 20;
+    totalGoldExtracted: number;  // cumulative gold panned across all runs
+    totalMoneyEarned: number;    // cumulative money received from all sales
+    peakRunMoney: number;        // highest runMoneyEarned in a single run
+};
+
+export type LatestSave = SaveV20;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV19();
+        return defaultSaveV20();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1086,10 +1093,22 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 19);
     }
 
-    // Already v19, ensure fields exist
-    const s = raw as Partial<SaveV19>;
+    if (fromVersion < 20) {
+        // v19 → v20: add lifetime stats counters
+        const s = raw as SaveV19;
+        return migrateToLatest({
+            ...s,
+            version: 20,
+            totalGoldExtracted: 0,
+            totalMoneyEarned: 0,
+            peakRunMoney: s.runMoneyEarned ?? 0,
+        }, 20);
+    }
+
+    // Already v20, ensure fields exist
+    const s = raw as Partial<SaveV20>;
     return {
-        version: 19,
+        version: 20,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1146,6 +1165,9 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         lastGoldPriceUpdate: s.lastGoldPriceUpdate ?? 0,
         hasAutoEmpty: s.hasAutoEmpty ?? false,
         lastSeenChangelogVersion: s.lastSeenChangelogVersion ?? CHANGELOG[0].version,
+        totalGoldExtracted: s.totalGoldExtracted ?? 0,
+        totalMoneyEarned: s.totalMoneyEarned ?? 0,
+        peakRunMoney: s.peakRunMoney ?? 0,
     };
 }
 
@@ -1511,5 +1533,16 @@ export function defaultSaveV19(): SaveV19 {
         version: 19,
         hasAutoEmpty: false,
         lastSeenChangelogVersion: CHANGELOG[0].version,
+    };
+}
+
+export function defaultSaveV20(): SaveV20 {
+    const { version: _v, ...rest } = defaultSaveV19();
+    return {
+        ...rest,
+        version: 20,
+        totalGoldExtracted: 0,
+        totalMoneyEarned: 0,
+        peakRunMoney: 0,
     };
 }

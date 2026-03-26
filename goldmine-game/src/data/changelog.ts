@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.4',
+        date: '2026-03-25',
+        title: 'Lifetime Stats Panel',
+        changes: [
+            'New Lifetime Stats section in Settings tracking total gold extracted, total money earned, and prestige run count',
+            'Peak Run Earnings tracks your best single run across all resets and prestiges',
+            'Stats persist through soft resets and prestiges — only wiped on hard reset',
+        ],
+    },
+    {
         version: 'v1.3',
         date: '2026-03-25',
         title: 'Progress Bar Polish — Shimmer, Glow & Urgency Colors',

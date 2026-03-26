@@ -1,6 +1,7 @@
 import { gameStore, useGameStore } from "../store/gameStore";
 import { SCHEMA_VERSION } from "../store/schema";
 import { CHANGELOG } from "../data/changelog";
+import { formatNumber } from "../utils/format";
 import { useState, useRef } from "react";
 
 function ChangelogSection() {
@@ -56,6 +57,10 @@ function formatTimePlayed(ticks: number): string {
 export function Settings() {
     const darkMode = useGameStore((s) => s.darkMode);
     const timePlayed = useGameStore((s) => s.timePlayed);
+    const prestigeCount = useGameStore((s) => s.prestigeCount);
+    const totalGoldExtracted = useGameStore((s) => s.totalGoldExtracted);
+    const totalMoneyEarned = useGameStore((s) => s.totalMoneyEarned);
+    const peakRunMoney = useGameStore((s) => s.peakRunMoney);
 
     const [hardResetInput, setHardResetInput] = useState('');
     const [importError, setImportError] = useState<string | null>(null);
@@ -129,6 +134,27 @@ export function Settings() {
                 <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Save Version</span>
                     <span className="font-mono text-gray-500 dark:text-gray-400">v{SCHEMA_VERSION}</span>
+                </div>
+            </div>
+
+            {/* Lifetime Stats */}
+            <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Lifetime Stats</h3>
+                <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Total Gold Extracted</span>
+                    <span className="font-semibold tabular-nums text-yellow-700 dark:text-yellow-400">✨ {formatNumber(totalGoldExtracted)} oz</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Total Money Earned</span>
+                    <span className="font-semibold tabular-nums text-green-700 dark:text-green-400">💰 ${formatNumber(totalMoneyEarned)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Prestige Runs</span>
+                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">⭐ {prestigeCount}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Peak Run Earnings</span>
+                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">${formatNumber(peakRunMoney)}</span>
                 </div>
             </div>
 

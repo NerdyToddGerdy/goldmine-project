@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV19, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV20, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -188,6 +188,11 @@ export type GameState = {
 
     // Changelog tracking (persisted)
     lastSeenChangelogVersion: string  // last changelog version player acknowledged
+
+    // Lifetime stats (persisted, never reset)
+    totalGoldExtracted: number  // cumulative gold panned across all runs
+    totalMoneyEarned: number    // cumulative money received from all sales
+    peakRunMoney: number        // highest runMoneyEarned in a single run
 
     // Settings (persisted)
     timePlayed: number // total ticks played
@@ -457,7 +462,12 @@ export const gameStore = createStore<GameState>()(
             hasAutoEmpty: false,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV19().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV20().lastSeenChangelogVersion,
+
+            // Lifetime stats
+            totalGoldExtracted: 0,
+            totalMoneyEarned: 0,
+            peakRunMoney: 0,
 
             // Settings
             timePlayed: 0,
@@ -594,7 +604,7 @@ export const gameStore = createStore<GameState>()(
                     timePlayed: 0,
                     darkMode: false,
                     hasAutoEmpty: false,
-                    lastSeenChangelogVersion: defaultSaveV19().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV20().lastSeenChangelogVersion,
                     _accumulator: 0,
                 });
                 document.documentElement.classList.remove('dark');
@@ -661,6 +671,9 @@ export const gameStore = createStore<GameState>()(
                     lastGoldPriceUpdate: s.lastGoldPriceUpdate,
                     hasAutoEmpty: s.hasAutoEmpty,
                     lastSeenChangelogVersion: s.lastSeenChangelogVersion,
+                    totalGoldExtracted: s.totalGoldExtracted,
+                    totalMoneyEarned: s.totalMoneyEarned,
+                    peakRunMoney: s.peakRunMoney,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -736,6 +749,9 @@ export const gameStore = createStore<GameState>()(
                     lastGoldPriceUpdate: migrated.lastGoldPriceUpdate,
                     hasAutoEmpty: migrated.hasAutoEmpty,
                     lastSeenChangelogVersion: migrated.lastSeenChangelogVersion,
+                    totalGoldExtracted: migrated.totalGoldExtracted,
+                    totalMoneyEarned: migrated.totalMoneyEarned,
+                    peakRunMoney: migrated.peakRunMoney,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -824,7 +840,7 @@ export const gameStore = createStore<GameState>()(
                 extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                 extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
                 const baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
-                set({ panFilled: s.panFilled - materialUsed, gold: s.gold + baseGold });
+                set({ panFilled: s.panFilled - materialUsed, gold: s.gold + baseGold, totalGoldExtracted: s.totalGoldExtracted + baseGold });
                 get().addFloatingNumber('gold', baseGold);
             },
 
@@ -877,11 +893,14 @@ export const gameStore = createStore<GameState>()(
                 const baseValue = sellable * s.goldPrice;
                 const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                 const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                const newRunMoney = s.runMoneyEarned + finalValue;
                 set({
                     money: s.money + finalValue,
-                    runMoneyEarned: s.runMoneyEarned + finalValue,
+                    runMoneyEarned: newRunMoney,
                     gold: s.gold - sellable,
                     goldInPocket: 0,
+                    totalMoneyEarned: s.totalMoneyEarned + finalValue,
+                    peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
                 });
                 get().addFloatingNumber('money', finalValue);
             },
@@ -1230,6 +1249,9 @@ export const gameStore = createStore<GameState>()(
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                     timeScale: s.timeScale,
+                    totalGoldExtracted: s.totalGoldExtracted,
+                    totalMoneyEarned: s.totalMoneyEarned,
+                    peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned),
                     // Reset run fields
                     isPaused: false,
                     tickCount: 0,
@@ -1529,6 +1551,9 @@ export const gameStore = createStore<GameState>()(
                         gold: s.gold + goldGained - goldSold - driverGoldSold,
                         money: moneyAfterPayroll + driverMoneyGained,
                         runMoneyEarned: s.runMoneyEarned + moneyGained + driverMoneyGained,
+                        totalGoldExtracted: s.totalGoldExtracted + goldGained,
+                        totalMoneyEarned: s.totalMoneyEarned + moneyGained + driverMoneyGained,
+                        peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned + moneyGained + driverMoneyGained),
                         investmentSafeBonds: newInvestmentSafeBonds,
                         investmentStocks: newInvestmentStocks,
                         investmentHighRisk: newInvestmentHighRisk,
@@ -1617,13 +1642,16 @@ export const gameStore = createStore<GameState>()(
             lastGoldPriceUpdate: state.lastGoldPriceUpdate,
             hasAutoEmpty: state.hasAutoEmpty,
             lastSeenChangelogVersion: state.lastSeenChangelogVersion,
+            totalGoldExtracted: state.totalGoldExtracted,
+            totalMoneyEarned: state.totalMoneyEarned,
+            peakRunMoney: state.peakRunMoney,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV19();
+                return defaultSaveV20();
             }
         },
         onRehydrateStorage: ()=> (state) => {
