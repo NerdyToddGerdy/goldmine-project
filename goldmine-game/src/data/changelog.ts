@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.6',
+        date: '2026-03-26',
+        title: 'Sluice Box Rework — Drain, Miner\'s Moss & Clean Phase',
+        changes: [
+            'Sluice box is now a distinct processing stage between the bucket and the pan',
+            'Dirt drains through the sluice over time, collecting concentrated paydirt in the miner\'s moss',
+            'Bucket can only be emptied into the sluice when it is completely empty — no mid-drain top-ups',
+            'New Clean Moss → Pan button transfers paydirt into the pan without overflowing it',
+            'Sluice workers now auto-clean the moss into the pan as it fills',
+        ],
+    },
+    {
         version: 'v1.5',
         date: '2026-03-25',
         title: 'Polish Sprint — Travel, Banker & UX',
