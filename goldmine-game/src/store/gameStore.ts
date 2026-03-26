@@ -1355,6 +1355,9 @@ export const gameStore = createStore<GameState>()(
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
                     goldInPocket: 0,
+                    sluiceBoxFilled: 0,
+                    minersMossFilled: 0,
+                    lastGoldPriceUpdate: 0,
                     _accumulator: 0,
                     toasts: [],
                     floatingNumbers: [],
@@ -1438,7 +1441,7 @@ export const gameStore = createStore<GameState>()(
                             // Don't drain more than moss can absorb (via conversion ratio)
                             const maxDrain = Math.min(newSluiceBoxFilled, (sluiceCap - newMinersMossFilled) / SLUICE_CONVERSION_RATIO);
                             const actualDrain = Math.min(drainPerTick, maxDrain);
-                            newSluiceBoxFilled -= actualDrain;
+                            newSluiceBoxFilled = Math.max(0, newSluiceBoxFilled - actualDrain);
                             newMinersMossFilled = Math.min(newMinersMossFilled + actualDrain * SLUICE_CONVERSION_RATIO, sluiceCap);
                         }
                     }
@@ -1799,6 +1802,11 @@ export const gameStore = createStore<GameState>()(
             state.driverTripTicks = 0;
             state.floatingNumbers = [];
             state.goldPriceHistory = [state.goldPrice];
+            // If lastGoldPriceUpdate is ahead of tickCount (e.g. stale value after prestige reset tickCount to 0),
+            // reset it so the price update timer doesn't get stuck indefinitely.
+            if (state.lastGoldPriceUpdate > state.tickCount) {
+                state.lastGoldPriceUpdate = 0;
+            }
             state.devMode = false;
             state.devLogs = [];
             // Restore gold-in-pocket on reload: if at Town, all current gold was carried there

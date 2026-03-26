@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.6.1',
+        date: '2026-03-26',
+        title: 'Hotfix — Gold Price Freeze After Prestige',
+        changes: [
+            'Fixed gold market price freezing indefinitely after a prestige (tickCount reset to 0 but lastGoldPriceUpdate was not)',
+            'Existing saves with a stuck price are auto-repaired on next load — no manual reset needed',
+            'Sluice box and miner\'s moss state now correctly cleared on prestige',
+        ],
+    },
+    {
         version: 'v1.6',
         date: '2026-03-26',
         title: 'Sluice Box Rework — Drain, Miner\'s Moss & Clean Phase',
