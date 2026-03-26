@@ -605,6 +605,9 @@ export const gameStore = createStore<GameState>()(
                     darkMode: false,
                     hasAutoEmpty: false,
                     lastSeenChangelogVersion: defaultSaveV20().lastSeenChangelogVersion,
+                    totalGoldExtracted: 0,
+                    totalMoneyEarned: 0,
+                    peakRunMoney: 0,
                     _accumulator: 0,
                 });
                 document.documentElement.classList.remove('dark');
