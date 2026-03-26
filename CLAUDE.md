@@ -155,6 +155,24 @@ The Python Lambda handler (`handler.py`) will power server-side game events:
 
 Currently standalone; future API Gateway or EventBridge triggers planned.
 
+## Game Design Guidelines
+
+### Shop Upgrade Philosophy
+
+**Gear upgrades** (bigger pan, better shovel, etc.)
+- Multiply or add to existing progress bars' speed and yield
+- Affect both normal and rich dirt, but rich dirt benefits proportionally more (bigger numbers)
+
+**Equipment upgrades** (sluice, metal detector, furnace, etc.)
+- Unlock or enhance entire stages in the processing chain
+- Often introduce new resources (`concentrate`, `goldBars`, `highYieldSpots`)
+
+**Transport upgrades** (mule, truck, etc.)
+- Affect the Walk to Town / Walk to Mine travel bars (duration)
+- Also raise carry capacity — each trip's value matters as much as its speed
+
+---
+
 ## Development Notes
 
 - TypeScript is in **strict mode** with comprehensive linting rules

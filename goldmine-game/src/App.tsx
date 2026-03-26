@@ -55,8 +55,10 @@ function App() {
     const handleTabClick = (tab: Tab) => {
         if (tab === 'settings' || tab === 'dev') {
             setActiveTab(tab);
+        } else if (location === tab) {
+            setActiveTab(tab); // already here — just switch display tab (no travel needed)
         } else {
-            handleTravelClick(tab);
+            handleTravelClick(tab); // tab will sync via useEffect when travel completes
         }
     }
 

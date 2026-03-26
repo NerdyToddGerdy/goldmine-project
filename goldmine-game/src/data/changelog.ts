@@ -7,6 +7,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.6.2',
+        date: '2026-03-26',
+        title: 'Hotfix — Settings tab blocks Mine/Town navigation',
+        changes: [
+            'Clicking Mine or Town tab while on Settings now correctly switches back (clicking while already at that location was a no-op)',
+        ],
+    },
+    {
         version: 'v1.6.1',
         date: '2026-03-26',
         title: 'Hotfix — Gold Price Freeze After Prestige',
