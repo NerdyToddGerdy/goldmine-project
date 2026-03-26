@@ -2,10 +2,9 @@ import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalW
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
-import { PrestigeShop } from "./PrestigeShop";
 import { UpgradeButton, WorkerRow } from "./ui";
 
-type TownTab = 'banking' | 'shop' | 'laborOffice' | 'legacy';
+type TownTab = 'banking' | 'shop' | 'laborOffice';
 type ShopTab = 'gear' | 'equipment' | 'transport';
 
 export function Town() {
@@ -24,7 +23,6 @@ export function Town() {
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
-    const prestigeCount = useGameStore((s) => s.prestigeCount);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
     const isTraveling = useGameStore((s) => s.isTraveling);
@@ -171,18 +169,6 @@ export function Town() {
                 >
                     👷 Labor Office
                 </button>
-                {prestigeCount > 0 && (
-                    <button
-                        onClick={() => setActiveTab('legacy')}
-                        className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
-                            activeTab === 'legacy'
-                                ? 'bg-amber-100 text-amber-900 border-amber-200 border-b-0'
-                                : 'bg-white/50 text-amber-700 hover:bg-white/80 border-transparent'
-                        }`}
-                    >
-                        ✨ Legacy
-                    </button>
-                )}
             </div>
 
             {/* Tab Content */}
@@ -432,12 +418,6 @@ export function Town() {
                             </div>
                             )}
                         </div>
-                    </div>
-                )}
-
-                {activeTab === 'legacy' && prestigeCount > 0 && (
-                    <div className={isTraveling ? 'pointer-events-none opacity-50' : ''}>
-                        <PrestigeShop />
                     </div>
                 )}
 

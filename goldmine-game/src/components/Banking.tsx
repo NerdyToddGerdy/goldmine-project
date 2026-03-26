@@ -2,6 +2,7 @@ import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_PRICE_MIN, GOLD_PRI
 import { formatNumber } from "../utils/format";
 import { useRef, useEffect, useState } from "react";
 import { PrestigeModal } from "./ui";
+import { PrestigeShop } from "./PrestigeShop";
 
 export function Banking() {
     const gold = useGameStore((s) => s.gold);
@@ -22,7 +23,9 @@ export function Banking() {
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const legacyDust = useGameStore((s) => s.legacyDust);
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
+    const prestigeCount = useGameStore((s) => s.prestigeCount);
 
+    const [activeTab, setActiveTab] = useState<'sell' | 'legacy'>('sell');
     const [showPrestigeModal, setShowPrestigeModal] = useState(false);
     const [celebrationDust, setCelebrationDust] = useState<number | null>(null);
 
@@ -44,8 +47,38 @@ export function Banking() {
     useEffect(() => { prevPriceRef.current = goldPrice; }, [goldPrice]);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {celebrationDust !== null && <PrestigeCelebration dust={celebrationDust} />}
+
+            {/* Sub-tabs */}
+            {prestigeCount > 0 && (
+                <div className="flex gap-2 border-b-2 border-green-200">
+                    <button
+                        onClick={() => setActiveTab('sell')}
+                        className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
+                            activeTab === 'sell'
+                                ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
+                                : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
+                        }`}
+                    >
+                        🏦 Sell Gold
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('legacy')}
+                        className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
+                            activeTab === 'legacy'
+                                ? 'bg-amber-100 text-amber-900 border-amber-200 border-b-0'
+                                : 'bg-white/50 text-amber-700 hover:bg-white/80 border-transparent'
+                        }`}
+                    >
+                        ✨ Legacy
+                    </button>
+                </div>
+            )}
+
+            {activeTab === 'legacy' && <PrestigeShop />}
+
+            {activeTab === 'sell' && <div className="space-y-6">
             {/* Sell Gold */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-green-800">🏦 Sell Gold</h3>
@@ -153,6 +186,7 @@ export function Banking() {
                     onCancel={() => setShowPrestigeModal(false)}
                 />
             )}
+            </div>}
         </div>
     );
 }
