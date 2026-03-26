@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
@@ -30,6 +30,7 @@ export function Town() {
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
     const isTraveling = useGameStore((s) => s.isTraveling);
+    const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const separatorGear = useGameStore((s) => s.separatorGear);
@@ -74,6 +75,13 @@ export function Town() {
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
+    // Travel progress bar calculations
+    const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
+    const totalTravelTicks = getTravelDurationTicks(vehicleTier);
+    const travelPct = totalTravelTicks > 0 ? Math.min(100, (travelProgress / totalTravelTicks) * 100) : 0;
+    const secsRemaining = Math.ceil((totalTravelTicks - travelProgress) / 60);
+    const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
+
     // Next-hire wage cost per worker type
     const shovelNextWage = getWorkerWage('shovel', shovels + 1);
     const panNextWage = getWorkerWage('pan', pans + 1);
@@ -94,17 +102,48 @@ export function Town() {
         <div className="space-y-6">
             <h2 className="font-arcade text-sm text-green-900">🏘️ Town</h2>
 
-            {/* Travel back to Mine */}
+            {/* Travel back to Mine — transforms into progress bar while traveling */}
             <div className="p-3 bg-white border border-amber-200 rounded-xl">
-                <button
-                    onClick={() => gameStore.getState().startTravel('mine')}
-                    disabled={isTraveling}
-                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isTraveling && travelDestination === 'mine'
-                        ? '🚗 Traveling to Mine...'
-                        : `⛏️ Travel to Mine (${tierData.travelSecs}s)`}
-                </button>
+                {isTraveling && travelDestination === 'mine' ? (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="font-semibold text-amber-900 text-sm">
+                                {vehicleEmoji} To Mine… ({tierData.name})
+                            </span>
+                            <button
+                                onClick={() => gameStore.getState().cancelTravel()}
+                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        <div className="relative h-7">
+                            <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
+                                <div
+                                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100 ml-auto"
+                                    style={{ width: `${travelPct}%` }}
+                                />
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
+                            </div>
+                            <div
+                                className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
+                                style={{ left: `${100 - travelPct}%`, transform: 'translateX(-50%) translateY(-50%)' }}
+                            >
+                                {vehicleEmoji}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => gameStore.getState().startTravel('mine')}
+                        disabled={isTraveling}
+                        className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        ⛏️ Travel to Mine ({tierData.travelSecs}s)
+                    </button>
+                )}
             </div>
 
             {/* Main Tabs */}

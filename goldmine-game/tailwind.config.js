@@ -23,11 +23,16 @@ export default {
                 '0%':   { transform: 'translateX(-100%)' },
                 '100%': { transform: 'translateX(300%)' },
             },
+            'tab-enter': {
+                '0%':   { opacity: '0', transform: 'translateY(6px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
         },
         animation: {
             'slide-in': 'slide-in 0.2s ease-out',
             'float-up': 'float-up 1.2s ease-out forwards',
             'shimmer':  'shimmer 1.5s infinite',
+            'tab-enter': 'tab-enter 180ms ease-out forwards',
         },
     },
   },

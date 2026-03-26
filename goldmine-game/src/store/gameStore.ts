@@ -1356,6 +1356,7 @@ export const gameStore = createStore<GameState>()(
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
                 let townJustUnlocked = false;
                 let capturedDriverMoney = 0;
+                let capturedBankerArrivalMoney = 0;
                 const devEvents: string[] = [];
 
                 set((s) => {
@@ -1555,6 +1556,30 @@ export const gameStore = createStore<GameState>()(
                         }
                     }
 
+                    // Banker auto-sell: on arrival at Town with goldInPocket
+                    let bankerArrivalGoldSold = 0;
+                    let bankerArrivalMoneyGained = 0;
+                    const goldAvailableAfterOtherSells = s.gold + goldGained - goldSold - driverGoldSold;
+
+                    if (newLocation === 'town' && s.bankerWorkers > 0 && s.goldInPocket > 0 && goldAvailableAfterOtherSells > 0) {
+                        bankerArrivalGoldSold = Math.min(s.goldInPocket, goldAvailableAfterOtherSells);
+
+                        let valueMultiplier = 1.0;
+                        valueMultiplier += s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
+                        valueMultiplier += s.furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * s.furnaceGear;
+
+                        let effectiveFeePercent = !s.hasFurnace ? SMELTING_FEE_PERCENT : 0;
+                        if (!s.hasFurnace && s.furnaceWorkers > 0) {
+                            effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (s.furnaceWorkers * 0.015));
+                        }
+
+                        const baseValue = bankerArrivalGoldSold * valueMultiplier * s.goldPrice;
+                        const fee = baseValue * effectiveFeePercent;
+                        bankerArrivalMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                        capturedBankerArrivalMoney = bankerArrivalMoneyGained;
+                        if (s.devMode) devEvents.push(`[${s.tickCount}] Banker auto-sold ${bankerArrivalGoldSold.toFixed(3)}oz → $${bankerArrivalMoneyGained.toFixed(2)}`);
+                    }
+
                     // Gold market price update
                     let newGoldPrice = s.goldPrice;
                     let newLastGoldPriceUpdate = s.lastGoldPriceUpdate;
@@ -1573,12 +1598,13 @@ export const gameStore = createStore<GameState>()(
                         panFilled: newPanFilled,
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
-                        gold: s.gold + goldGained - goldSold - driverGoldSold,
-                        money: moneyAfterPayroll + driverMoneyGained,
-                        runMoneyEarned: s.runMoneyEarned + moneyGained + driverMoneyGained,
+                        gold: s.gold + goldGained - goldSold - driverGoldSold - bankerArrivalGoldSold,
+                        money: moneyAfterPayroll + driverMoneyGained + bankerArrivalMoneyGained,
+                        runMoneyEarned: s.runMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained,
                         totalGoldExtracted: s.totalGoldExtracted + goldGained,
-                        totalMoneyEarned: s.totalMoneyEarned + moneyGained + driverMoneyGained,
-                        peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned + moneyGained + driverMoneyGained),
+                        totalMoneyEarned: s.totalMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained,
+                        peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained),
+                        goldInPocket: bankerArrivalGoldSold > 0 ? 0 : s.goldInPocket,
                         investmentSafeBonds: newInvestmentSafeBonds,
                         investmentStocks: newInvestmentStocks,
                         investmentHighRisk: newInvestmentHighRisk,
@@ -1601,6 +1627,13 @@ export const gameStore = createStore<GameState>()(
                 }
                 if (capturedDriverMoney > 0) {
                     get().addFloatingNumber('money', capturedDriverMoney);
+                }
+                if (capturedBankerArrivalMoney > 0) {
+                    const bankerAmtStr = capturedBankerArrivalMoney >= 1000
+                        ? `${(capturedBankerArrivalMoney / 1000).toFixed(1)}K`
+                        : capturedBankerArrivalMoney.toFixed(2);
+                    get().addToast(`🏦 Banker sold your gold for $${bankerAmtStr}`, 'success');
+                    get().addFloatingNumber('money', capturedBankerArrivalMoney);
                 }
                 if (townJustUnlocked) {
                     get().addToast('🏘️ You arrived at Town for the first time!', 'info');

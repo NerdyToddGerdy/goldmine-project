@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -35,7 +35,10 @@ export function Mine() {
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const isTraveling = useGameStore((s) => s.isTraveling);
+    const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
+    const ovenGear = useGameStore((s) => s.ovenGear);
+    const furnaceGear = useGameStore((s) => s.furnaceGear);
     const devMode = useGameStore((s) => s.devMode);
     const tickCount = useGameStore((s) => s.tickCount);
     const driverTripTicks = useGameStore((s) => s.driverTripTicks);
@@ -50,6 +53,21 @@ export function Mine() {
 
     const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
     const canPrestige = runMoneyEarned >= PRESTIGE_MONEY_THRESHOLD;
+
+    // Travel progress bar calculations
+    const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
+    const totalTravelTicks = getTravelDurationTicks(vehicleTier);
+    const travelPct = totalTravelTicks > 0 ? Math.min(100, (travelProgress / totalTravelTicks) * 100) : 0;
+    const secsRemaining = Math.ceil((totalTravelTicks - travelProgress) / 60);
+    const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
+
+    // Payroll widget calculations (per minute)
+    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, separatorWorkers, ovenWorkers, furnaceWorkers, bankerWorkers }) * 60;
+    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
+    const autoSellFee = !hasFurnace
+        ? (furnaceWorkers > 0 ? Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015) : SMELTING_FEE_PERCENT)
+        : 0;
+    const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee) * 60;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
@@ -77,18 +95,49 @@ export function Mine() {
         <div className="space-y-6">
             <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
 
-            {/* Travel to Town — at top, mirrors Town page layout */}
+            {/* Travel to Town — transforms into progress bar while traveling */}
             {unlockedTown && (
                 <div className="p-3 bg-white border border-green-200 rounded-xl">
-                    <button
-                        onClick={travelToTown}
-                        disabled={isTraveling}
-                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isTraveling && travelDestination === 'town'
-                            ? '🚗 Traveling to Town...'
-                            : `🏘️ Travel to Town (${VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)`}
-                    </button>
+                    {isTraveling && travelDestination === 'town' ? (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-semibold text-green-900 text-sm">
+                                    {vehicleEmoji} To Town… ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].name})
+                                </span>
+                                <button
+                                    onClick={() => gameStore.getState().cancelTravel()}
+                                    className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                            <div className="relative h-7">
+                                <div className="absolute inset-0 bg-green-100 rounded-full border border-green-300 overflow-hidden">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-100"
+                                        style={{ width: `${travelPct}%` }}
+                                    />
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span className="text-xs font-bold text-green-900 drop-shadow-sm">{secsRemaining}s</span>
+                                </div>
+                                <div
+                                    className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
+                                    style={{ left: `${travelPct}%`, transform: 'translateX(-50%) translateY(-50%) scaleX(-1)' }}
+                                >
+                                    {vehicleEmoji}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={travelToTown}
+                            disabled={isTraveling}
+                            className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            🏘️ Travel to Town ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -239,6 +288,14 @@ export function Mine() {
                 </div>
             )}
 
+            {/* Payroll widget — shows when any workers are hired */}
+            {payrollPerMin > 0 && (
+                <PayrollWidget
+                    payrollPerMin={payrollPerMin}
+                    bankerIncomePerMin={bankerIncomePerMin}
+                />
+            )}
+
             {/* Hint: earn gold to travel */}
             {!unlockedTown && gold < 0.5 && unlockedPanning && (
                 <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
@@ -320,6 +377,47 @@ export function Mine() {
                         <span>Gold $/oz</span><span className="text-zinc-900 dark:text-zinc-100">{goldPrice.toFixed(3)}</span>
                         <span>Price age</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount - lastGoldPriceUpdate} ticks</span>
                         <span>Paused</span><span className="text-zinc-900 dark:text-zinc-100">{isPaused ? 'yes' : 'no'}</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function PayrollWidget({ payrollPerMin, bankerIncomePerMin }: { payrollPerMin: number; bankerIncomePerMin: number }) {
+    const [open, setOpen] = useState(false);
+    const netPerMin = bankerIncomePerMin - payrollPerMin;
+    const netColor = netPerMin >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+    return (
+        <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm">
+            <button
+                onClick={() => setOpen((o) => !o)}
+                className="w-full flex items-center justify-between"
+            >
+                <span className="font-semibold text-gray-700 dark:text-gray-300">📊 Workers</span>
+                <span className="flex items-center gap-2">
+                    <span className={`font-semibold tabular-nums ${netColor}`}>
+                        {netPerMin >= 0 ? '+' : ''}{formatNumber(netPerMin)}/min
+                    </span>
+                    <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+                </span>
+            </button>
+            {open && (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                    {bankerIncomePerMin > 0 && (
+                        <div className="flex justify-between text-green-700 dark:text-green-400">
+                            <span>🏦 Banker sales</span>
+                            <span className="tabular-nums font-semibold">+${formatNumber(bankerIncomePerMin)}/min</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between text-red-600 dark:text-red-400">
+                        <span>👷 Payroll</span>
+                        <span className="tabular-nums font-semibold">−${formatNumber(payrollPerMin)}/min</span>
+                    </div>
+                    <div className={`flex justify-between font-bold border-t border-gray-100 dark:border-gray-700 pt-1 ${netColor}`}>
+                        <span>Net</span>
+                        <span className="tabular-nums">{netPerMin >= 0 ? '+' : ''}{formatNumber(netPerMin)}/min</span>
                     </div>
                 </div>
             )}

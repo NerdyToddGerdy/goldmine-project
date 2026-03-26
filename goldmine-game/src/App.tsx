@@ -7,7 +7,7 @@ import {ResourceBar} from "./components/ResourceBar.tsx";
 import {ToastContainer} from "./components/ToastContainer.tsx";
 import {WhatsNewModal} from "./components/ui";
 import {useGameLoop} from "./hooks/useGameLoop.ts";
-import {gameStore, useGameStore, VEHICLE_TIERS, getTravelDurationTicks} from "./store/gameStore.ts";
+import {gameStore, useGameStore} from "./store/gameStore.ts";
 import {CHANGELOG} from "./data/changelog.ts";
 import {useState, useEffect} from "react";
 
@@ -18,9 +18,6 @@ function App() {
     const unlockedTown = useGameStore((s) => s.unlockedTown)
     const location = useGameStore((s) => s.location)
     const isTraveling = useGameStore((s) => s.isTraveling)
-    const travelProgress = useGameStore((s) => s.travelProgress)
-    const travelDestination = useGameStore((s) => s.travelDestination)
-    const vehicleTier = useGameStore((s) => s.vehicleTier)
     const lastSeenChangelogVersion = useGameStore((s) => s.lastSeenChangelogVersion)
     const devMode = useGameStore((s) => s.devMode)
     const showWhatsNew = lastSeenChangelogVersion !== CHANGELOG[0].version
@@ -62,16 +59,6 @@ function App() {
             handleTravelClick(tab);
         }
     }
-
-    const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
-
-    const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
-    const totalTicks = getTravelDurationTicks(vehicleTier);
-    const travelPct = totalTicks > 0 ? Math.min(100, (travelProgress / totalTicks) * 100) : 0;
-    const secsRemaining = Math.ceil((totalTicks - travelProgress) / 60);
-    const emojiLeftPct = travelDestination === 'town' ? travelPct : 100 - travelPct;
-    const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
-    const emojiFlip = travelDestination === 'town' ? 'scaleX(-1)' : '';
 
     const bgGradient = ({
         mine: 'bg-gradient-to-b from-amber-50 to-stone-100 dark:from-gray-900 dark:to-stone-900',
@@ -157,48 +144,8 @@ function App() {
 
         {/* Content — same scrolling context as header, so no width mismatch */}
         <div className="w-full max-w-4xl mx-auto px-4 py-4 space-y-4">
-            {/* Travel banner with progress bar + moving emoji */}
-            {isTraveling && (
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between">
-                        <span className="font-semibold text-amber-900 text-sm">
-                            Traveling to {travelDestination === 'town' ? 'Town' : 'Mine'}... ({tierData.name})
-                        </span>
-                        <button
-                            onClick={() => gameStore.getState().cancelTravel()}
-                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                    <div className="relative h-8">
-                        {/* Fill bar — flex so ml-auto anchors fill to right for Mine direction */}
-                        <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
-                            <div
-                                className={`h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100${travelDestination === 'mine' ? ' ml-auto' : ''}`}
-                                style={{ width: `${travelPct}%` }}
-                            />
-                        </div>
-                        {/* Seconds label centered over bar */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
-                        </div>
-                        {/* Moving emoji */}
-                        <div
-                            className="absolute top-1/2 text-xl leading-none pointer-events-none transition-all duration-100"
-                            style={{
-                                left: `${emojiLeftPct}%`,
-                                transform: `translateX(-50%) translateY(-50%) ${emojiFlip}`,
-                            }}
-                        >
-                            {vehicleEmoji}
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Tab content */}
-            <div>
+            <div key={activeTab} className="motion-safe:animate-tab-enter">
                 {activeTab === 'mine' && <Mine />}
                 {activeTab === 'town' && <Town />}
                 {activeTab === 'settings' && <Settings />}
