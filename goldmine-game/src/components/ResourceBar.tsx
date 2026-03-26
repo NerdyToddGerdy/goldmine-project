@@ -9,12 +9,10 @@ export function ResourceBar() {
     const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const separatorWorkers = useGameStore((s) => s.separatorWorkers);
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
@@ -47,13 +45,11 @@ export function ResourceBar() {
     // Calculate effective workers (0 if can't afford payroll or blocked)
     const effectivePans = (canAffordWorkers && !prospectsIdle) ? pans : 0;
     const effectiveSluiceWorkers = canAffordWorkers ? sluiceWorkers : 0;
-    const effectiveSeparatorWorkers = canAffordWorkers ? separatorWorkers : 0;
     const effectiveBankerWorkers = canAffordWorkers ? bankerWorkers : 0;
 
     // Calculate extraction rate from workers
     let extractionRate = BASE_EXTRACTION;
     extractionRate += effectiveSluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * sluiceGear;
-    extractionRate += effectiveSeparatorWorkers * UPGRADES.separatorWorker.extractionBonus * separatorGear;
 
     // Gold rate: prospectors produce gold - bankers sell gold
     const goldSellRate = effectiveBankerWorkers > 0

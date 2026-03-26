@@ -360,11 +360,6 @@ describe('buyUpgrade workers', () => {
         expect(gameStore.getState().sluiceWorkers).toBe(1);
     });
 
-    it('separatorWorker requires hasMagneticSeparator', () => {
-        gameStore.setState({ money: 9999, hasMagneticSeparator: false });
-        expect(gameStore.getState().buyUpgrade('separatorWorker')).toBe(false);
-    });
-
     it('ovenWorker requires hasOven', () => {
         gameStore.setState({ money: 9999, hasOven: false });
         expect(gameStore.getState().buyUpgrade('ovenWorker')).toBe(false);
@@ -425,8 +420,8 @@ describe('fireWorker', () => {
     });
 
     it('works for all worker types', () => {
-        gameStore.setState({ pans: 2, sluiceWorkers: 1, separatorWorkers: 1, ovenWorkers: 1, furnaceWorkers: 1, bankerWorkers: 1 });
-        for (const type of ['pan', 'sluiceWorker', 'separatorWorker', 'ovenWorker', 'furnaceWorker', 'bankerWorker']) {
+        gameStore.setState({ pans: 2, sluiceWorkers: 1, ovenWorkers: 1, furnaceWorkers: 1, bankerWorkers: 1 });
+        for (const type of ['pan', 'sluiceWorker', 'ovenWorker', 'furnaceWorker', 'bankerWorker']) {
             expect(gameStore.getState().fireWorker(type)).toBe(true);
         }
     });
@@ -468,7 +463,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(21);
+        expect(parsed.version).toBe(22);
     });
 
     it('exportSave round-trips through importSave', () => {

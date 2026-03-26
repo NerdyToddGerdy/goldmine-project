@@ -18,11 +18,8 @@ export function Mine() {
     const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const separatorWorkers = useGameStore((s) => s.separatorWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const separatorGear = useGameStore((s) => s.separatorGear);
 
-    const hasMagneticSeparator = useGameStore((s) => s.hasMagneticSeparator);
     const hasOven = useGameStore((s) => s.hasOven);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
@@ -64,7 +61,7 @@ export function Mine() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
     // Payroll widget calculations (per minute)
-    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, separatorWorkers, ovenWorkers, furnaceWorkers, bankerWorkers }) * 60;
+    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, ovenWorkers, furnaceWorkers, bankerWorkers }) * 60;
     const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
     const autoSellFee = !hasFurnace
         ? (furnaceWorkers > 0 ? Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015) : SMELTING_FEE_PERCENT)
@@ -85,7 +82,6 @@ export function Mine() {
     // Manual actions now benefit from gear upgrades
     let extractionRate = BASE_EXTRACTION;
     extractionRate += sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * sluiceGear;
-    extractionRate += separatorWorkers * UPGRADES.separatorWorker.extractionBonus * separatorGear;
 
     const goldPerPan = panPower * extractionRate;
 
@@ -382,12 +378,10 @@ export function Mine() {
                     shovels={shovels}
                     pans={pans}
                     sluiceWorkers={sluiceWorkers}
-                    separatorWorkers={separatorWorkers}
                     ovenWorkers={ovenWorkers}
                     furnaceWorkers={furnaceWorkers}
                     bankerWorkers={bankerWorkers}
                     hasSluiceBox={hasSluiceBox}
-                    hasMagneticSeparator={hasMagneticSeparator}
                     hasOven={hasOven}
                     hasFurnace={hasFurnace}
                     vehicleTier={vehicleTier}

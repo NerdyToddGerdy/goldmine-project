@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 21 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 22 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -357,12 +357,14 @@ export type SaveV21 = Omit<SaveV20, 'version'> & {
     minersMossFilled: number;  // concentrated paydirt caught by the miner's moss
 };
 
-export type LatestSave = SaveV21;
+export type SaveV22 = Omit<SaveV21, 'version' | 'separatorWorkers' | 'hasMagneticSeparator' | 'separatorGear'> & { version: 22; };
+
+export type LatestSave = SaveV22;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV21();
+        return defaultSaveV22();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1122,10 +1124,16 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 21);
     }
 
-    // Already v21, ensure fields exist
-    const s = raw as Partial<SaveV21>;
+    if (fromVersion < 22) {
+        const s = raw as SaveV21;
+        const { separatorWorkers: _sw, hasMagneticSeparator: _hms, separatorGear: _sg, ...rest } = s;
+        return migrateToLatest({ ...rest, version: 22 }, 22);
+    }
+
+    // Already v22, ensure fields exist
+    const s = raw as Partial<SaveV22>;
     return {
-        version: 21,
+        version: 22,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1143,19 +1151,16 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         pans: s.pans ?? 0,
         carts: s.carts ?? 0,
         sluiceWorkers: s.sluiceWorkers ?? 0,
-        separatorWorkers: s.separatorWorkers ?? 0,
         ovenWorkers: s.ovenWorkers ?? 0,
         furnaceWorkers: s.furnaceWorkers ?? 0,
         bankerWorkers: s.bankerWorkers ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
-        hasMagneticSeparator: s.hasMagneticSeparator ?? false,
         hasOven: s.hasOven ?? false,
         hasFurnace: s.hasFurnace ?? false,
         scoopPower: s.scoopPower ?? 1,
         sluicePower: s.sluicePower ?? 1,
         panPower: s.panPower ?? 1,
         sluiceGear: s.sluiceGear ?? 1,
-        separatorGear: s.separatorGear ?? 1,
         ovenGear: s.ovenGear ?? 1,
         furnaceGear: s.furnaceGear ?? 1,
         unlockedPanning: s.unlockedPanning ?? false,
@@ -1574,4 +1579,9 @@ export function defaultSaveV21(): SaveV21 {
         sluiceBoxFilled: 0,
         minersMossFilled: 0,
     };
+}
+
+export function defaultSaveV22(): SaveV22 {
+    const { version: _v, separatorWorkers: _sw, hasMagneticSeparator: _hms, separatorGear: _sg, ...rest } = defaultSaveV21();
+    return { ...rest, version: 22 };
 }

@@ -224,7 +224,7 @@ describe('driver auto-sell', () => {
             hasFurnace: true, goldPrice: 1.0, dustGoldValue: 0,
             money: 0, driverTripTicks: 0,
             // No workers — payroll = 0
-            shovels: 0, pans: 0, sluiceWorkers: 0, separatorWorkers: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0,
             ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);
@@ -238,7 +238,7 @@ describe('driver auto-sell', () => {
             hasDriver: true, vehicleTier: 1, gold: 5,
             hasFurnace: true, goldPrice: 1.0,
             money: 0, driverTripTicks: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, separatorWorkers: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0,
             ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration - 1); // one short
@@ -251,7 +251,7 @@ describe('driver auto-sell', () => {
             hasDriver: true, vehicleTier: 1, gold: 10,
             hasFurnace: false, goldPrice: 1.0, dustGoldValue: 0,
             money: 0, driverTripTicks: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, separatorWorkers: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0,
             ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);

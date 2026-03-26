@@ -18,11 +18,9 @@ export function Town() {
     const scoopPower = useGameStore((s) => s.scoopPower);
     const panPower = useGameStore((s) => s.panPower);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const hasMagneticSeparator = useGameStore((s) => s.hasMagneticSeparator);
     const hasOven = useGameStore((s) => s.hasOven);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const separatorWorkers = useGameStore((s) => s.separatorWorkers);
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
@@ -33,7 +31,6 @@ export function Town() {
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const separatorGear = useGameStore((s) => s.separatorGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
@@ -55,11 +52,9 @@ export function Town() {
     const panCapUpgradeCost = panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0;
     const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
-    const betterSeparatorCost = getUpgradeCost('betterSeparator', separatorGear - 1);
     const betterOvenCost = getUpgradeCost('betterOven', ovenGear - 1);
     const betterFurnaceCost = getUpgradeCost('betterFurnace', furnaceGear - 1);
     const sluiceWorkerCost = getUpgradeCost('sluiceWorker', sluiceWorkers);
-    const separatorWorkerCost = getUpgradeCost('separatorWorker', separatorWorkers);
     const ovenWorkerCost = getUpgradeCost('ovenWorker', ovenWorkers);
     const furnaceWorkerCost = getUpgradeCost('furnaceWorker', furnaceWorkers);
     const bankerWorkerCost = getUpgradeCost('bankerWorker', bankerWorkers);
@@ -68,7 +63,6 @@ export function Town() {
     const shovelTotalWage = getTotalWageForType('shovel', shovels);
     const panTotalWage = getTotalWageForType('pan', pans);
     const sluiceWorkerTotalWage = getTotalWageForType('sluiceWorker', sluiceWorkers);
-    const separatorWorkerTotalWage = getTotalWageForType('separatorWorker', separatorWorkers);
     const ovenWorkerTotalWage = getTotalWageForType('ovenWorker', ovenWorkers);
     const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
@@ -86,13 +80,12 @@ export function Town() {
     const shovelNextWage = getWorkerWage('shovel', shovels + 1);
     const panNextWage = getWorkerWage('pan', pans + 1);
     const sluiceWorkerNextWage = getWorkerWage('sluiceWorker', sluiceWorkers + 1);
-    const separatorWorkerNextWage = getWorkerWage('separatorWorker', separatorWorkers + 1);
     const ovenWorkerNextWage = getWorkerWage('ovenWorker', ovenWorkers + 1);
     const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
     const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
 
     // Estimate current auto-sell income to detect payroll overruns
-    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + separatorWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage;
+    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage;
     const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
     let autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     if (!hasFurnace && furnaceWorkers > 0) autoSellFee = Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015);
@@ -330,7 +323,7 @@ export function Town() {
                                 </div>
 
                                 {/* Machinery Upgrades — only shown when player owns at least one piece of equipment */}
-                                {(hasSluiceBox || hasMagneticSeparator || hasOven || hasFurnace) && (
+                                {(hasSluiceBox || hasOven || hasFurnace) && (
                                     <div className="pt-2">
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⚙️ Machinery Upgrades</h4>
                                         <div className="space-y-2">
@@ -344,18 +337,6 @@ export function Town() {
                                                     playerMoney={money}
                                                     onBuy={() => buyUpgrade('betterSluice')}
                                                     icon="🚿"
-                                                />
-                                            )}
-                                            {hasMagneticSeparator && (
-                                                <UpgradeButton
-                                                    name="Better Separator"
-                                                    description={`Separator extraction: ${(UPGRADES.separatorWorker.extractionBonus * separatorGear * 100).toFixed(0)}% → ${(UPGRADES.separatorWorker.extractionBonus * (separatorGear + 1) * 100).toFixed(0)}% per worker`}
-                                                    cost={betterSeparatorCost}
-                                                    currentLevel={separatorGear - 1}
-                                                    canAfford={money >= betterSeparatorCost}
-                                                    playerMoney={money}
-                                                    onBuy={() => buyUpgrade('betterSeparator')}
-                                                    icon="🧲"
                                                 />
                                             )}
                                             {hasOven && (
@@ -399,17 +380,6 @@ export function Town() {
                                     playerMoney={money}
                                     onBuy={() => buyUpgrade('sluiceBox')}
                                     icon={hasSluiceBox ? '✅' : '🚿'}
-                                />
-
-                                <UpgradeButton
-                                    name="Magnetic Separator"
-                                    description="Improves gold extraction efficiency. 🔗 Unlocks Separator Technicians in Labor Office."
-                                    cost={EQUIPMENT.magneticSeparator.cost}
-                                    locked={hasMagneticSeparator}
-                                    canAfford={money >= EQUIPMENT.magneticSeparator.cost && !hasMagneticSeparator}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('magneticSeparator')}
-                                    icon={hasMagneticSeparator ? '✅' : '🧲'}
                                 />
 
                                 <UpgradeButton
@@ -525,26 +495,6 @@ export function Town() {
                             />
                         ) : (
                             <LockedWorkerRow name="Sluice Operator" icon="🚿" requiresName="Sluice Box" requiresCost={EQUIPMENT.sluiceBox.cost} />
-                        )}
-
-                        {hasMagneticSeparator ? (
-                            <WorkerRow
-                                name="Separator Technician"
-                                description={`+${(UPGRADES.separatorWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
-                                count={separatorWorkers}
-                                hireCost={separatorWorkerCost}
-                                wage={separatorWorkerTotalWage}
-                                canHire={money >= separatorWorkerCost}
-                                canFire={separatorWorkers > 0}
-                                onHire={() => buyUpgrade('separatorWorker')}
-                                onFire={() => fireWorker('separatorWorker')}
-                                icon="🧲"
-                                playerMoney={money}
-                                nextHireWage={separatorWorkerNextWage}
-                                nextHireWouldExceedIncome={(totalPayroll + separatorWorkerNextWage) > autoSellIncome}
-                            />
-                        ) : (
-                            <LockedWorkerRow name="Separator Technician" icon="🧲" requiresName="Magnetic Separator" requiresCost={EQUIPMENT.magneticSeparator.cost} />
                         )}
 
                         {hasOven ? (

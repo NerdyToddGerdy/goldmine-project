@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh api:*)",
+      "Bash(npm run:*)",
+      "Bash(sort -t'#' -k2 -n)",
+      "Bash(gh run:*)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(npx tsc:*)",
+      "Bash(gh label:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

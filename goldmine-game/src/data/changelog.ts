@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.6.3',
+        date: '2026-03-26',
+        title: 'Patch — Sluice Cap Fix & Magnetic Separator Removed',
+        changes: [
+            'Fixed sluice box accepting bucket contents when still draining (capacity now capped correctly in both manual and auto-empty paths)',
+            'Persisted sub-zero sluice/moss values are repaired on load',
+            'Removed Magnetic Separator and Separator Technicians — the mechanic did not fit placer gold mining and the bonus was absorbed into future equipment design',
+        ],
+    },
+    {
         version: 'v1.6.2',
         date: '2026-03-26',
         title: 'Hotfix — Settings tab blocks Mine/Town navigation',
