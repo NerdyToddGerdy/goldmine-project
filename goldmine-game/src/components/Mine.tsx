@@ -88,6 +88,7 @@ export function Mine() {
     const bucketIsFull = bucketFilled >= effectiveBucketCap;
     const panIsFull = panFilled >= effectivePanCap;
     const sluiceIsDraining = sluiceBoxFilled > 0;
+    const sluiceHasSpace = sluiceBoxFilled + bucketFilled <= effectivePanCap;
     const mossCapacity = effectivePanCap; // same formula as pan
     const mossIsFull = minersMossFilled >= mossCapacity;
     const mossCleanAmount = Math.min(minersMossFilled, effectivePanCap - panFilled);
@@ -179,7 +180,7 @@ export function Mine() {
                     {unlockedPanning && (
                         <button
                             onClick={emptyBucket}
-                            disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? sluiceIsDraining : panIsFull)}
+                            disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? !sluiceHasSpace : panIsFull)}
                             className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasSluiceBox

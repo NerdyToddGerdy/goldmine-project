@@ -230,7 +230,7 @@ export type GameState = {
 
     // Actions - Game
     scoopDirt: () => void // manual action - fills bucket
-    emptyBucket: () => void // empties bucket into pan (no sluice) or sluice box (when hasSluiceBox, only if sluice empty)
+    emptyBucket: () => void // empties bucket into pan (no sluice) or adds to sluice box if bucket fits in remaining space
     cleanMoss: () => void // transfers miner's moss paydirt into the pan (capped at pan capacity)
     sluiceDirt: () => void // manual action (costs dirt, produces paydirt) - DEPRECATED, use emptyBucket
     panForGold: () => void // manual action (costs paydirt)
@@ -817,11 +817,10 @@ export const gameStore = createStore<GameState>()(
                     if (s.bucketFilled === 0) return s;
 
                     if (s.hasSluiceBox) {
-                        // Sluice path: dirt goes into the sluice box to drain over time
-                        // Can only add when sluice is completely empty
-                        if (s.sluiceBoxFilled > 0) return s;
+                        // Sluice path: bucket adds to sluice as long as it fits
                         const sluiceCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
-                        return { sluiceBoxFilled: Math.min(s.bucketFilled, sluiceCap), bucketFilled: 0 };
+                        if (s.sluiceBoxFilled + s.bucketFilled > sluiceCap) return s;
+                        return { sluiceBoxFilled: s.sluiceBoxFilled + s.bucketFilled, bucketFilled: 0 };
                     }
 
                     // Direct pan path (no sluice box)
@@ -1390,9 +1389,9 @@ export const gameStore = createStore<GameState>()(
 
                     // Auto-empty: always if upgrade owned, otherwise only when miners are active
                     if (s.hasSluiceBox) {
-                        // Sluice path: bucket → sluice (only when sluice is completely empty)
-                        if (s.bucketFilled >= bucketCap && newSluiceBoxFilled === 0 && (s.hasAutoEmpty || dirtPerTick > 0)) {
-                            newSluiceBoxFilled = Math.min(s.bucketFilled, panCap);
+                        // Sluice path: bucket → sluice when full bucket fits in remaining space
+                        if (s.bucketFilled >= bucketCap && newSluiceBoxFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                            newSluiceBoxFilled += s.bucketFilled;
                             newBucketFilled = 0;
                         }
                     } else {

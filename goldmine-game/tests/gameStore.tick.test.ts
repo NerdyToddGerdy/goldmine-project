@@ -155,11 +155,20 @@ describe('auto-empty bucket', () => {
         expect(gameStore.getState().panFilled).toBeCloseTo(0, 1);
     });
 
-    it('sluiceBox auto-empty is blocked when sluice is not empty', () => {
-        // sluiceBoxFilled > 0 means sluice is busy — bucket cannot empty until sluice drains
+    it('sluiceBox auto-empty adds to sluice when bucket fits in remaining space', () => {
+        // sluiceBoxFilled=5, bucketFilled=10, panCap=20 → 5+10=15 ≤ 20 → empties
         gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
         runTicks(1);
-        expect(gameStore.getState().bucketFilled).toBe(10); // unchanged
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 5);
+        // drain fires first (−0.05), then bucket adds: (5 − 0.05) + 10 = 14.95
+        expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(14.95, 1);
+    });
+
+    it('sluiceBox auto-empty is blocked when bucket would overflow the sluice', () => {
+        // sluiceBoxFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 15, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
+        runTicks(1);
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(10, 5); // unchanged
     });
 
     it('auto-empty is blocked when pan is already at capacity (no sluice)', () => {
