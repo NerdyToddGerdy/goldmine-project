@@ -56,6 +56,7 @@ function formatTimePlayed(ticks: number): string {
 
 export function Settings() {
     const darkMode = useGameStore((s) => s.darkMode);
+    const devMode = useGameStore((s) => s.devMode);
     const timePlayed = useGameStore((s) => s.timePlayed);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
     const totalGoldExtracted = useGameStore((s) => s.totalGoldExtracted);
@@ -260,6 +261,16 @@ export function Settings() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Dev mode toggle */}
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 text-center">
+                <button
+                    onClick={() => gameStore.getState().toggleDevMode()}
+                    className="text-xs text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                >
+                    {devMode ? '🛠️ Dev mode ON — Ctrl+Shift+D to toggle' : '🛠️ Enable dev mode'}
+                </button>
             </div>
         </div>
     );

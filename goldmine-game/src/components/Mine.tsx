@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -36,6 +36,13 @@ export function Mine() {
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelDestination = useGameStore((s) => s.travelDestination);
+    const devMode = useGameStore((s) => s.devMode);
+    const tickCount = useGameStore((s) => s.tickCount);
+    const driverTripTicks = useGameStore((s) => s.driverTripTicks);
+    const hasDriver = useGameStore((s) => s.hasDriver);
+    const goldPrice = useGameStore((s) => s.goldPrice);
+    const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
+    const isPaused = useGameStore((s) => s.isPaused);
 
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
@@ -279,6 +286,42 @@ export function Mine() {
                     onConfirm={() => { gameStore.getState().prestige(); setShowPrestigeModal(false); }}
                     onCancel={() => setShowPrestigeModal(false)}
                 />
+            )}
+
+            {/* Dev debug overlay (#30) */}
+            {devMode && (
+                <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-dashed border-zinc-400 dark:border-zinc-600 rounded-xl space-y-3 text-xs font-mono">
+                    <h3 className="font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide text-xs">🛠️ Debug</h3>
+                    <div>
+                        <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                            <span>Bucket</span>
+                            <span>{bucketFilled.toFixed(2)} / {effectiveBucketCap}</span>
+                        </div>
+                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} />
+                    </div>
+                    <div>
+                        <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                            <span>Pan</span>
+                            <span>{panFilled.toFixed(2)} / {effectivePanCap}</span>
+                        </div>
+                        <ProgressBar value={panFilled} max={effectivePanCap} />
+                    </div>
+                    {hasDriver && (
+                        <div>
+                            <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                                <span>Driver Trip</span>
+                                <span>{driverTripTicks} / {getTravelDurationTicks(vehicleTier)}</span>
+                            </div>
+                            <ProgressBar value={driverTripTicks} max={getTravelDurationTicks(vehicleTier)} />
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-zinc-600 dark:text-zinc-400">
+                        <span>Tick</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount}</span>
+                        <span>Gold $/oz</span><span className="text-zinc-900 dark:text-zinc-100">{goldPrice.toFixed(3)}</span>
+                        <span>Price age</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount - lastGoldPriceUpdate} ticks</span>
+                        <span>Paused</span><span className="text-zinc-900 dark:text-zinc-100">{isPaused ? 'yes' : 'no'}</span>
+                    </div>
+                </div>
             )}
         </div>
     );

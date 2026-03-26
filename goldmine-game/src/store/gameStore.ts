@@ -204,6 +204,10 @@ export type GameState = {
     // Floating number animations (transient, not persisted)
     floatingNumbers: FloatingNumber[]
 
+    // Dev tools (transient, not persisted)
+    devMode: boolean
+    devLogs: string[]
+
     // Internal Helpers
     _accumulator: number // leftover fractional time from RAF
 
@@ -247,6 +251,9 @@ export type GameState = {
     // Settings
     setDarkMode: (dark: boolean) => void
     setLastSeenChangelogVersion: (version: string) => void
+
+    // Dev tools
+    toggleDevMode: () => void
 
     // Prestige
     prestige: () => void
@@ -475,6 +482,10 @@ export const gameStore = createStore<GameState>()(
 
             _accumulator: 0,
 
+            // Dev tools
+            devMode: false,
+            devLogs: [],
+
             pause: () => set({ isPaused: true}),
             resume: () => set({ isPaused: false}),
             togglePause: () => set((s) => ({ isPaused: !s.isPaused})),
@@ -533,6 +544,8 @@ export const gameStore = createStore<GameState>()(
                     lastGoldPriceUpdate: 0,
                     hasAutoEmpty: false,
                     _accumulator: 0,
+                    devMode: false,
+                    devLogs: [],
                     // dustUpgrades preserved (permanent)
                     // lastSeenChangelogVersion preserved (not run-specific)
                 }))
@@ -609,6 +622,8 @@ export const gameStore = createStore<GameState>()(
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
                     _accumulator: 0,
+                    devMode: false,
+                    devLogs: [],
                 });
                 document.documentElement.classList.remove('dark');
             },
@@ -1234,6 +1249,8 @@ export const gameStore = createStore<GameState>()(
                 set({ lastSeenChangelogVersion: version });
             },
 
+            toggleDevMode: () => set((s) => ({ devMode: !s.devMode, devLogs: [] })),
+
             prestige: () => {
                 const s = get();
                 const dust = Math.floor(Math.sqrt(s.runMoneyEarned));
@@ -1339,6 +1356,7 @@ export const gameStore = createStore<GameState>()(
                 const riskToasts: Array<{ message: string; type: ToastType }> = [];
                 let townJustUnlocked = false;
                 let capturedDriverMoney = 0;
+                const devEvents: string[] = [];
 
                 set((s) => {
                     // Increment time played each tick
@@ -1473,6 +1491,7 @@ export const gameStore = createStore<GameState>()(
                                 message: `📉 Stock market dip! Lost $${loss.toFixed(2)} from Stocks.`,
                                 type: 'warning',
                             });
+                            if (s.devMode) devEvents.push(`[${s.tickCount}] Risk event: stocks lost ${(lossRate * 100).toFixed(0)}% ($${loss.toFixed(2)})`);
                         }
 
                         // High Risk: 15% chance per check, 15–40% random loss
@@ -1485,6 +1504,7 @@ export const gameStore = createStore<GameState>()(
                                 message: `💥 High-risk crash! Lost $${loss.toFixed(2)} from High Risk.`,
                                 type: 'error',
                             });
+                            if (s.devMode) devEvents.push(`[${s.tickCount}] Risk event: highRisk lost ${(lossRate * 100).toFixed(0)}% ($${loss.toFixed(2)})`);
                         }
 
                         // Update last risk check timestamp
@@ -1526,6 +1546,7 @@ export const gameStore = createStore<GameState>()(
                                 const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
                                 driverMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                                 capturedDriverMoney = driverMoneyGained;
+                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver sold ${driverGoldSold.toFixed(3)}oz → $${driverMoneyGained.toFixed(2)}`);
                             }
                             // Driver completes round-trip — reset counter
                             if (newDriverTripTicks >= tripDuration * 2) {
@@ -1542,6 +1563,7 @@ export const gameStore = createStore<GameState>()(
                         const reversion = (1.0 - s.goldPrice) * 0.1;
                         newGoldPrice = Math.max(GOLD_PRICE_MIN, Math.min(GOLD_PRICE_MAX, s.goldPrice + swing + reversion));
                         newLastGoldPriceUpdate = s.tickCount;
+                        if (s.devMode) devEvents.push(`[${s.tickCount}] Gold price → $${newGoldPrice.toFixed(3)}/oz`);
                     }
 
                     return {
@@ -1568,6 +1590,9 @@ export const gameStore = createStore<GameState>()(
                         driverTripTicks: newDriverTripTicks,
                         goldPrice: newGoldPrice,
                         lastGoldPriceUpdate: newLastGoldPriceUpdate,
+                        devLogs: s.devMode && devEvents.length > 0
+                            ? [...devEvents, ...s.devLogs].slice(0, 100)
+                            : s.devLogs,
                     };
                 });
 
@@ -1666,6 +1691,8 @@ export const gameStore = createStore<GameState>()(
             state.travelProgress = 0;
             state.driverTripTicks = 0;
             state.floatingNumbers = [];
+            state.devMode = false;
+            state.devLogs = [];
             // Restore gold-in-pocket on reload: if at Town, all current gold was carried there
             state.goldInPocket = state.location === 'town' ? state.gold : 0;
             // Apply persisted dark mode preference

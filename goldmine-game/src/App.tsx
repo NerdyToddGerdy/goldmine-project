@@ -2,6 +2,7 @@ import './App.css'
 import {Mine} from "./components/Mine.tsx";
 import {Town} from "./components/Town.tsx";
 import {Settings} from "./components/Settings.tsx";
+import {DevPanel} from "./components/DevPanel.tsx";
 import {ResourceBar} from "./components/ResourceBar.tsx";
 import {ToastContainer} from "./components/ToastContainer.tsx";
 import {WhatsNewModal} from "./components/ui";
@@ -10,7 +11,7 @@ import {gameStore, useGameStore, VEHICLE_TIERS, getTravelDurationTicks} from "./
 import {CHANGELOG} from "./data/changelog.ts";
 import {useState, useEffect} from "react";
 
-type Tab = 'mine' | 'town' | 'settings';
+type Tab = 'mine' | 'town' | 'settings' | 'dev';
 
 function App() {
     useGameLoop()
@@ -21,6 +22,7 @@ function App() {
     const travelDestination = useGameStore((s) => s.travelDestination)
     const vehicleTier = useGameStore((s) => s.vehicleTier)
     const lastSeenChangelogVersion = useGameStore((s) => s.lastSeenChangelogVersion)
+    const devMode = useGameStore((s) => s.devMode)
     const showWhatsNew = lastSeenChangelogVersion !== CHANGELOG[0].version
     const [activeTab, setActiveTab] = useState<Tab>('mine')
 
@@ -31,14 +33,31 @@ function App() {
         }
     }, [isTraveling, location]);
 
+    // Reset to mine tab when dev mode is turned off
+    useEffect(() => {
+        if (!devMode && activeTab === 'dev') setActiveTab('mine');
+    }, [devMode]);
+
+    // Keyboard shortcut: Ctrl+Shift+D toggles dev mode
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                gameStore.getState().toggleDevMode();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     const handleTravelClick = (dest: 'mine' | 'town') => {
         if (location === dest || isTraveling) return;
         gameStore.getState().startTravel(dest);
     };
 
     const handleTabClick = (tab: Tab) => {
-        if (tab === 'settings') {
-            setActiveTab('settings');
+        if (tab === 'settings' || tab === 'dev') {
+            setActiveTab(tab);
         } else {
             handleTravelClick(tab);
         }
@@ -54,17 +73,19 @@ function App() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
     const emojiFlip = travelDestination === 'town' ? 'scaleX(-1)' : '';
 
-    const bgGradient = {
+    const bgGradient = ({
         mine: 'bg-gradient-to-b from-amber-50 to-stone-100 dark:from-gray-900 dark:to-stone-900',
         town: 'bg-gradient-to-b from-green-50 to-emerald-100 dark:from-gray-900 dark:to-emerald-950',
         settings: 'bg-gradient-to-b from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800',
-    }[activeTab];
+        dev: 'bg-gradient-to-b from-slate-50 to-zinc-100 dark:from-gray-900 dark:to-zinc-900',
+    } as Record<Tab, string>)[activeTab];
 
-    const headerBg = {
+    const headerBg = ({
         mine: 'bg-amber-50 dark:bg-gray-900',
         town: 'bg-green-50 dark:bg-gray-900',
         settings: 'bg-gray-50 dark:bg-gray-900',
-    }[activeTab];
+        dev: 'bg-slate-50 dark:bg-gray-900',
+    } as Record<Tab, string>)[activeTab];
 
     return (
     <div className={`w-full h-screen overflow-y-scroll transition-colors duration-500 ${bgGradient}`}>
@@ -118,6 +139,18 @@ function App() {
                     >
                         ⚙️ Settings
                     </button>
+                    {devMode && (
+                        <button
+                            onClick={() => setActiveTab('dev')}
+                            className={`px-4 py-3 font-semibold rounded-t-xl transition-all ml-1 border-2 text-xs ${
+                                activeTab === 'dev'
+                                    ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600 border-b-0'
+                                    : 'bg-white/50 dark:bg-gray-800/50 text-zinc-600 dark:text-zinc-400 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
+                            }`}
+                        >
+                            🛠️ Dev
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -169,6 +202,7 @@ function App() {
                 {activeTab === 'mine' && <Mine />}
                 {activeTab === 'town' && <Town />}
                 {activeTab === 'settings' && <Settings />}
+                {activeTab === 'dev' && <DevPanel />}
             </div>
         </div>
     </div>
