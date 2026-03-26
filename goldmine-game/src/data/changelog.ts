@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.7',
+        date: '2026-03-26',
+        title: 'Prospect New Claim — Prestige Moves to Banking',
+        changes: [
+            'Prestige is now "Prospect New Claim" and lives in the Banking tab — makes thematic sense as a financial decision',
+            'Prestige card removed from the Mine tab',
+            'Celebration overlay triggers from Banking the same as before',
+        ],
+    },
+    {
         version: 'v1.6.3',
         date: '2026-03-26',
         title: 'Patch — Sluice Cap Fix & Magnetic Separator Removed',

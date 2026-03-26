@@ -1,6 +1,7 @@
-import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_PRICE_MIN, GOLD_PRICE_MAX } from "../store/gameStore";
+import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_PRICE_MIN, GOLD_PRICE_MAX, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { PrestigeModal } from "./ui";
 
 export function Banking() {
     const gold = useGameStore((s) => s.gold);
@@ -10,6 +11,23 @@ export function Banking() {
     const dustGoldValue = useGameStore((s) => s.dustGoldValue);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const goldPriceHistory = useGameStore((s) => s.goldPriceHistory);
+    const money = useGameStore((s) => s.money);
+    const shovels = useGameStore((s) => s.shovels);
+    const pans = useGameStore((s) => s.pans);
+    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
+    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
+    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
+    const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
+    const hasOven = useGameStore((s) => s.hasOven);
+    const vehicleTier = useGameStore((s) => s.vehicleTier);
+    const legacyDust = useGameStore((s) => s.legacyDust);
+    const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
+
+    const [showPrestigeModal, setShowPrestigeModal] = useState(false);
+    const [celebrationDust, setCelebrationDust] = useState<number | null>(null);
+
+    const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
+    const canPrestige = runMoneyEarned >= PRESTIGE_MONEY_THRESHOLD;
 
     const sellGold = () => gameStore.getState().sellGold();
 
@@ -27,6 +45,7 @@ export function Banking() {
 
     return (
         <div className="space-y-6">
+            {celebrationDust !== null && <PrestigeCelebration dust={celebrationDust} />}
             {/* Sell Gold */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-green-800">🏦 Sell Gold</h3>
@@ -89,6 +108,91 @@ export function Banking() {
                         ✨ {formatNumber(extraGold)} oz panned en route — stays at the Mine
                     </div>
                 )}
+            </div>
+            {/* Prospect New Claim */}
+            {canPrestige && (
+                <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-xl space-y-3">
+                    <h3 className="text-lg font-semibold text-amber-900">⭐ Prospect New Claim</h3>
+                    <p className="text-sm text-amber-700">
+                        This claim has yielded <span className="font-semibold">${formatNumber(runMoneyEarned)}</span>
+                    </p>
+                    <p className="text-sm font-semibold text-amber-800">
+                        New claim reward: ✨ {dustReward} Legacy Dust
+                    </p>
+                    <button
+                        onClick={() => setShowPrestigeModal(true)}
+                        className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                    >
+                        Prospect New Claim
+                    </button>
+                </div>
+            )}
+
+            {showPrestigeModal && (
+                <PrestigeModal
+                    dustReward={dustReward}
+                    legacyDust={legacyDust}
+                    money={money}
+                    gold={gold}
+                    shovels={shovels}
+                    pans={pans}
+                    sluiceWorkers={sluiceWorkers}
+                    ovenWorkers={ovenWorkers}
+                    furnaceWorkers={furnaceWorkers}
+                    bankerWorkers={bankerWorkers}
+                    hasSluiceBox={hasSluiceBox}
+                    hasOven={hasOven}
+                    hasFurnace={hasFurnace}
+                    vehicleTier={vehicleTier}
+                    onConfirm={() => {
+                        setCelebrationDust(dustReward);
+                        gameStore.getState().prestige();
+                        setShowPrestigeModal(false);
+                        setTimeout(() => setCelebrationDust(null), 2500);
+                    }}
+                    onCancel={() => setShowPrestigeModal(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+const CELEBRATION_PARTICLES = [
+    { left: '8%',  emoji: '✨', delay: '0ms',   dur: '1.4s' },
+    { left: '18%', emoji: '⭐', delay: '120ms',  dur: '1.6s' },
+    { left: '30%', emoji: '💰', delay: '60ms',   dur: '1.3s' },
+    { left: '42%', emoji: '✨', delay: '200ms',  dur: '1.5s' },
+    { left: '55%', emoji: '⭐', delay: '40ms',   dur: '1.7s' },
+    { left: '67%', emoji: '💎', delay: '160ms',  dur: '1.4s' },
+    { left: '78%', emoji: '💰', delay: '80ms',   dur: '1.6s' },
+    { left: '90%', emoji: '✨', delay: '220ms',  dur: '1.3s' },
+    { left: '24%', emoji: '⭐', delay: '300ms',  dur: '1.5s' },
+    { left: '72%', emoji: '✨', delay: '260ms',  dur: '1.4s' },
+];
+
+function PrestigeCelebration({ dust }: { dust: number }) {
+    return (
+        <div className="fixed inset-0 z-[100] overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 bg-black/65 animate-celebration-fade" />
+            {CELEBRATION_PARTICLES.map((p, i) => (
+                <div
+                    key={i}
+                    className="absolute bottom-0 text-2xl animate-float-up"
+                    style={{ left: p.left, animationDelay: p.delay, animationDuration: p.dur }}
+                >
+                    {p.emoji}
+                </div>
+            ))}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center animate-celebration-pop">
+                    <div className="text-7xl mb-3 drop-shadow-lg">⭐</div>
+                    <div className="font-arcade text-amber-400 text-lg tracking-wide drop-shadow-lg mb-2">
+                        NEW CREEK!
+                    </div>
+                    <div className="text-white text-2xl font-bold drop-shadow-lg">
+                        +{formatNumber(dust)} Legacy Dust
+                    </div>
+                </div>
             </div>
         </div>
     );

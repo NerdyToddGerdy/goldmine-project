@@ -1,5 +1,5 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
-import { ProgressBar, PrestigeModal } from "./ui";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { ProgressBar } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 
@@ -20,17 +20,14 @@ export function Mine() {
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
 
-    const hasOven = useGameStore((s) => s.hasOven);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
-    const legacyDust = useGameStore((s) => s.legacyDust);
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
-    const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelProgress = useGameStore((s) => s.travelProgress);
@@ -47,12 +44,6 @@ export function Mine() {
 
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
-    const [showPrestigeModal, setShowPrestigeModal] = useState(false);
-    const [celebrationDust, setCelebrationDust] = useState<number | null>(null);
-
-    const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
-    const canPrestige = runMoneyEarned >= PRESTIGE_MONEY_THRESHOLD;
-
     // Travel progress bar calculations
     const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
     const totalTravelTicks = getTravelDurationTicks(vehicleTier);
@@ -95,7 +86,6 @@ export function Mine() {
 
     return (
         <div className="space-y-6">
-            {celebrationDust !== null && <PrestigeCelebration dust={celebrationDust} />}
             <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
 
             {/* Travel to Town — transforms into progress bar while traveling */}
@@ -351,51 +341,6 @@ export function Mine() {
                 </div>
             )}
 
-            {/* Prestige card */}
-            {canPrestige && (
-                <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-xl space-y-3">
-                    <h3 className="text-lg font-semibold text-amber-900">⭐ New Creek Run</h3>
-                    <p className="text-sm text-amber-700">
-                        Earned <span className="font-semibold">${formatNumber(runMoneyEarned)}</span> this run
-                    </p>
-                    <p className="text-sm font-semibold text-amber-800">
-                        Reward: ✨ {dustReward} Legacy Dust
-                    </p>
-                    <button
-                        onClick={() => setShowPrestigeModal(true)}
-                        className="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
-                    >
-                        Prestige!
-                    </button>
-                </div>
-            )}
-
-            {showPrestigeModal && (
-                <PrestigeModal
-                    dustReward={dustReward}
-                    legacyDust={legacyDust}
-                    money={money}
-                    gold={gold}
-                    shovels={shovels}
-                    pans={pans}
-                    sluiceWorkers={sluiceWorkers}
-                    ovenWorkers={ovenWorkers}
-                    furnaceWorkers={furnaceWorkers}
-                    bankerWorkers={bankerWorkers}
-                    hasSluiceBox={hasSluiceBox}
-                    hasOven={hasOven}
-                    hasFurnace={hasFurnace}
-                    vehicleTier={vehicleTier}
-                    onConfirm={() => {
-                        setCelebrationDust(dustReward);
-                        gameStore.getState().prestige();
-                        setShowPrestigeModal(false);
-                        setTimeout(() => setCelebrationDust(null), 2500);
-                    }}
-                    onCancel={() => setShowPrestigeModal(false)}
-                />
-            )}
-
             {/* Dev debug overlay (#30) */}
             {devMode && (
                 <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-dashed border-zinc-400 dark:border-zinc-600 rounded-xl space-y-3 text-xs font-mono">
@@ -476,48 +421,3 @@ function PayrollWidget({ payrollPerMin, bankerIncomePerMin }: { payrollPerMin: n
     );
 }
 
-const CELEBRATION_PARTICLES = [
-    { left: '8%',  emoji: '✨', delay: '0ms',   dur: '1.4s' },
-    { left: '18%', emoji: '⭐', delay: '120ms',  dur: '1.6s' },
-    { left: '30%', emoji: '💰', delay: '60ms',   dur: '1.3s' },
-    { left: '42%', emoji: '✨', delay: '200ms',  dur: '1.5s' },
-    { left: '55%', emoji: '⭐', delay: '40ms',   dur: '1.7s' },
-    { left: '67%', emoji: '💎', delay: '160ms',  dur: '1.4s' },
-    { left: '78%', emoji: '💰', delay: '80ms',   dur: '1.6s' },
-    { left: '90%', emoji: '✨', delay: '220ms',  dur: '1.3s' },
-    { left: '24%', emoji: '⭐', delay: '300ms',  dur: '1.5s' },
-    { left: '72%', emoji: '✨', delay: '260ms',  dur: '1.4s' },
-];
-
-function PrestigeCelebration({ dust }: { dust: number }) {
-    return (
-        <div className="fixed inset-0 z-[100] overflow-hidden pointer-events-none">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/65 animate-celebration-fade" />
-
-            {/* Floating particles from bottom */}
-            {CELEBRATION_PARTICLES.map((p, i) => (
-                <div
-                    key={i}
-                    className="absolute bottom-0 text-2xl animate-float-up"
-                    style={{ left: p.left, animationDelay: p.delay, animationDuration: p.dur }}
-                >
-                    {p.emoji}
-                </div>
-            ))}
-
-            {/* Central celebration card */}
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center animate-celebration-pop">
-                    <div className="text-7xl mb-3 drop-shadow-lg">⭐</div>
-                    <div className="font-arcade text-amber-400 text-lg tracking-wide drop-shadow-lg mb-2">
-                        NEW CREEK!
-                    </div>
-                    <div className="text-white text-2xl font-bold drop-shadow-lg">
-                        +{formatNumber(dust)} Legacy Dust
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
