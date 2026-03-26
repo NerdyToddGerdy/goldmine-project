@@ -182,6 +182,7 @@ export type GameState = {
     // Gold market price (persisted)
     goldPrice: number            // current $/oz market rate
     lastGoldPriceUpdate: number  // tickCount at last price update
+    goldPriceHistory: number[]   // last 20 price samples for sparkline (session-only, not persisted)
 
     // Auto-empty upgrade (persisted)
     hasAutoEmpty: boolean        // purchased auto-empty bucket upgrade
@@ -464,6 +465,7 @@ export const gameStore = createStore<GameState>()(
             // Gold market price
             goldPrice: 1.0,
             lastGoldPriceUpdate: 0,
+            goldPriceHistory: [1.0],
 
             // Auto-empty upgrade
             hasAutoEmpty: false,
@@ -542,6 +544,7 @@ export const gameStore = createStore<GameState>()(
                     goldInPocket: 0,
                     goldPrice: 1.0,
                     lastGoldPriceUpdate: 0,
+                    goldPriceHistory: [1.0],
                     hasAutoEmpty: false,
                     _accumulator: 0,
                     devMode: false,
@@ -614,6 +617,7 @@ export const gameStore = createStore<GameState>()(
                     goldInPocket: 0,
                     goldPrice: 1.0,
                     lastGoldPriceUpdate: 0,
+                    goldPriceHistory: [1.0],
                     timePlayed: 0,
                     darkMode: false,
                     hasAutoEmpty: false,
@@ -1583,11 +1587,13 @@ export const gameStore = createStore<GameState>()(
                     // Gold market price update
                     let newGoldPrice = s.goldPrice;
                     let newLastGoldPriceUpdate = s.lastGoldPriceUpdate;
+                    let newGoldPriceHistory = s.goldPriceHistory;
                     if (s.tickCount - s.lastGoldPriceUpdate >= GOLD_PRICE_UPDATE_TICKS) {
                         const swing = (Math.random() - 0.5) * 0.2;
                         const reversion = (1.0 - s.goldPrice) * 0.1;
                         newGoldPrice = Math.max(GOLD_PRICE_MIN, Math.min(GOLD_PRICE_MAX, s.goldPrice + swing + reversion));
                         newLastGoldPriceUpdate = s.tickCount;
+                        newGoldPriceHistory = [...s.goldPriceHistory.slice(-19), newGoldPrice];
                         if (s.devMode) devEvents.push(`[${s.tickCount}] Gold price → $${newGoldPrice.toFixed(3)}/oz`);
                     }
 
@@ -1616,6 +1622,7 @@ export const gameStore = createStore<GameState>()(
                         driverTripTicks: newDriverTripTicks,
                         goldPrice: newGoldPrice,
                         lastGoldPriceUpdate: newLastGoldPriceUpdate,
+                        goldPriceHistory: newGoldPriceHistory,
                         devLogs: s.devMode && devEvents.length > 0
                             ? [...devEvents, ...s.devLogs].slice(0, 100)
                             : s.devLogs,
@@ -1724,6 +1731,7 @@ export const gameStore = createStore<GameState>()(
             state.travelProgress = 0;
             state.driverTripTicks = 0;
             state.floatingNumbers = [];
+            state.goldPriceHistory = [state.goldPrice];
             state.devMode = false;
             state.devLogs = [];
             // Restore gold-in-pocket on reload: if at Town, all current gold was carried there

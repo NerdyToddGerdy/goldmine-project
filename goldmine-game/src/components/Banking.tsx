@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_PRICE_MIN, GOLD_PRICE_MAX } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useRef, useEffect } from "react";
 
@@ -9,6 +9,7 @@ export function Banking() {
     const goldPrice = useGameStore((s) => s.goldPrice);
     const dustGoldValue = useGameStore((s) => s.dustGoldValue);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const goldPriceHistory = useGameStore((s) => s.goldPriceHistory);
 
     const sellGold = () => gameStore.getState().sellGold();
 
@@ -30,11 +31,14 @@ export function Banking() {
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-green-800">🏦 Sell Gold</h3>
 
-                {/* Market price with trend arrow */}
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
-                    <span>📈 Market price: ${goldPrice.toFixed(2)}/oz</span>
-                    {priceTrend === 'up' && <span className="text-green-500">▲</span>}
-                    {priceTrend === 'down' && <span className="text-red-500">▼</span>}
+                {/* Market price with trend arrow + sparkline */}
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
+                        <span>📈 Market price: ${goldPrice.toFixed(2)}/oz</span>
+                        {priceTrend === 'up' && <span className="text-green-500">▲</span>}
+                        {priceTrend === 'down' && <span className="text-red-500">▼</span>}
+                    </div>
+                    <GoldSparkline history={goldPriceHistory} />
                 </div>
 
                 {/* Breakdown card */}
@@ -85,6 +89,74 @@ export function Banking() {
                         ✨ {formatNumber(extraGold)} oz panned en route — stays at the Mine
                     </div>
                 )}
+            </div>
+        </div>
+    );
+}
+
+function GoldSparkline({ history }: { history: number[] }) {
+    if (history.length < 2) return null;
+
+    const W = 200;
+    const H = 36;
+    const pad = 3;
+    const innerW = W - pad * 2;
+    const innerH = H - pad * 2;
+    const range = GOLD_PRICE_MAX - GOLD_PRICE_MIN;
+
+    const pts = history.map((price, i) => {
+        const x = pad + (i / (history.length - 1)) * innerW;
+        const y = H - pad - ((price - GOLD_PRICE_MIN) / range) * innerH;
+        return [x, y] as [number, number];
+    });
+
+    const polyline = pts.map(([x, y]) => `${x},${y}`).join(' ');
+    const last = pts[pts.length - 1];
+    const first = pts[0];
+    const isUp = history[history.length - 1] >= history[0];
+    const lineColor = isUp ? '#16a34a' : '#dc2626';
+    const gradId = `sg-${isUp ? 'u' : 'd'}`;
+
+    // Closed area path: along the line, then down to baseline and back
+    const area = [
+        `M${first[0]},${H - pad}`,
+        ...pts.map(([x, y]) => `L${x},${y}`),
+        `L${last[0]},${H - pad}`,
+        'Z',
+    ].join(' ');
+
+    // Midline for $1.00 reference
+    const midY = H - pad - ((1.0 - GOLD_PRICE_MIN) / range) * innerH;
+
+    return (
+        <div className="relative">
+            <svg
+                viewBox={`0 0 ${W} ${H}`}
+                preserveAspectRatio="none"
+                className="w-full"
+                style={{ height: 36 }}
+            >
+                <defs>
+                    <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
+                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                    </linearGradient>
+                </defs>
+                {/* $1.00 reference line */}
+                <line x1={pad} y1={midY} x2={W - pad} y2={midY}
+                    stroke="#d1d5db" strokeWidth="0.5" strokeDasharray="2,2" />
+                {/* Area fill */}
+                <path d={area} fill={`url(#${gradId})`} />
+                {/* Price line */}
+                <polyline points={polyline} fill="none" stroke={lineColor}
+                    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Current price dot */}
+                <circle cx={last[0]} cy={last[1]} r="2.5" fill={lineColor} />
+            </svg>
+            {/* Y-axis labels */}
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none px-1 py-0.5">
+                <span className="text-[9px] text-gray-400 leading-none self-end">${GOLD_PRICE_MAX.toFixed(2)}</span>
+                <span className="text-[9px] text-gray-400 leading-none self-end">${GOLD_PRICE_MIN.toFixed(2)}</span>
             </div>
         </div>
     );

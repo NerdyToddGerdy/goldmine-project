@@ -50,6 +50,7 @@ export function Mine() {
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
     const [showPrestigeModal, setShowPrestigeModal] = useState(false);
+    const [celebrationDust, setCelebrationDust] = useState<number | null>(null);
 
     const dustReward = Math.floor(Math.sqrt(runMoneyEarned));
     const canPrestige = runMoneyEarned >= PRESTIGE_MONEY_THRESHOLD;
@@ -93,6 +94,7 @@ export function Mine() {
 
     return (
         <div className="space-y-6">
+            {celebrationDust !== null && <PrestigeCelebration dust={celebrationDust} />}
             <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
 
             {/* Travel to Town — transforms into progress bar while traveling */}
@@ -340,7 +342,12 @@ export function Mine() {
                     hasOven={hasOven}
                     hasFurnace={hasFurnace}
                     vehicleTier={vehicleTier}
-                    onConfirm={() => { gameStore.getState().prestige(); setShowPrestigeModal(false); }}
+                    onConfirm={() => {
+                        setCelebrationDust(dustReward);
+                        gameStore.getState().prestige();
+                        setShowPrestigeModal(false);
+                        setTimeout(() => setCelebrationDust(null), 2500);
+                    }}
                     onCancel={() => setShowPrestigeModal(false)}
                 />
             )}
@@ -421,6 +428,52 @@ function PayrollWidget({ payrollPerMin, bankerIncomePerMin }: { payrollPerMin: n
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+const CELEBRATION_PARTICLES = [
+    { left: '8%',  emoji: '✨', delay: '0ms',   dur: '1.4s' },
+    { left: '18%', emoji: '⭐', delay: '120ms',  dur: '1.6s' },
+    { left: '30%', emoji: '💰', delay: '60ms',   dur: '1.3s' },
+    { left: '42%', emoji: '✨', delay: '200ms',  dur: '1.5s' },
+    { left: '55%', emoji: '⭐', delay: '40ms',   dur: '1.7s' },
+    { left: '67%', emoji: '💎', delay: '160ms',  dur: '1.4s' },
+    { left: '78%', emoji: '💰', delay: '80ms',   dur: '1.6s' },
+    { left: '90%', emoji: '✨', delay: '220ms',  dur: '1.3s' },
+    { left: '24%', emoji: '⭐', delay: '300ms',  dur: '1.5s' },
+    { left: '72%', emoji: '✨', delay: '260ms',  dur: '1.4s' },
+];
+
+function PrestigeCelebration({ dust }: { dust: number }) {
+    return (
+        <div className="fixed inset-0 z-[100] overflow-hidden pointer-events-none">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/65 animate-celebration-fade" />
+
+            {/* Floating particles from bottom */}
+            {CELEBRATION_PARTICLES.map((p, i) => (
+                <div
+                    key={i}
+                    className="absolute bottom-0 text-2xl animate-float-up"
+                    style={{ left: p.left, animationDelay: p.delay, animationDuration: p.dur }}
+                >
+                    {p.emoji}
+                </div>
+            ))}
+
+            {/* Central celebration card */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center animate-celebration-pop">
+                    <div className="text-7xl mb-3 drop-shadow-lg">⭐</div>
+                    <div className="font-arcade text-amber-400 text-lg tracking-wide drop-shadow-lg mb-2">
+                        NEW CREEK!
+                    </div>
+                    <div className="text-white text-2xl font-bold drop-shadow-lg">
+                        +{formatNumber(dust)} Legacy Dust
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
