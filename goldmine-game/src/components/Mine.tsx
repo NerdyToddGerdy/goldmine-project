@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, SLUICE_CONVERSION_RATIO } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -9,7 +9,6 @@ export function Mine() {
     const gold = useGameStore((s) => s.gold);
     const money = useGameStore((s) => s.money);
     const scoopPower = useGameStore((s) => s.scoopPower);
-    const sluicePower = useGameStore((s) => s.sluicePower);
     const panPower = useGameStore((s) => s.panPower);
     const unlockedPanning = useGameStore((s) => s.unlockedPanning);
     const unlockedTown = useGameStore((s) => s.unlockedTown);
@@ -86,8 +85,7 @@ export function Mine() {
     extractionRate += separatorWorkers * UPGRADES.separatorWorker.extractionBonus * separatorGear;
 
     const goldPerPan = panPower * extractionRate;
-    const effectiveSluicePower = hasSluiceBox ? sluicePower * sluiceGear : 1;
-    const bucketToPanel = bucketFilled * effectiveSluicePower;
+    const bucketToPanel = bucketFilled * (hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1);
 
     const bucketIsFull = bucketFilled >= effectiveBucketCap;
     const panIsFull = panFilled >= effectivePanCap;
@@ -183,7 +181,7 @@ export function Mine() {
                             className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasSluiceBox
-                                ? `🚿 Empty Bucket → Pan (+${bucketToPanel.toFixed(1)})`
+                                ? `🚿 Sluice Dirt → Paydirt (+${bucketToPanel.toFixed(1)})`
                                 : `🪣 Empty Bucket → Pan (+${bucketFilled.toFixed(1)})`
                             }
                         </button>

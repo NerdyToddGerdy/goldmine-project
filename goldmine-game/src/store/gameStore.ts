@@ -77,6 +77,10 @@ export const GOLD_PRICE_MIN = 0.60;
 export const GOLD_PRICE_MAX = 1.80;
 export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
 
+// Sluice box mechanic: dirt → paydirt conversion
+export const SLUICE_CONVERSION_RATIO = 0.65;  // 10 dirt → 6.5 paydirt (35% mass loss)
+export const PAYDIRT_YIELD_MULTIPLIER = 2.5;  // each paydirt unit yields 2.5× more gold; net: 0.65 × 2.5 = 1.625×
+
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
 export interface Toast {
@@ -822,12 +826,9 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.bucketFilled === 0) return s;
 
-                    // Bucket empties into the pan (up to PAN_CAPACITY)
-                    // If sluice box is unlocked, it applies sluice power multiplier with gear bonus
-                    const effectiveSluicePower = s.hasSluiceBox
-                        ? s.sluicePower * s.sluiceGear
-                        : 1;
-                    const amountToAdd = s.bucketFilled * effectiveSluicePower;
+                    // Sluice box converts dirt → paydirt: 35% mass loss but 2.5× gold yield per unit
+                    const conversionRatio = s.hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1;
+                    const amountToAdd = s.bucketFilled * conversionRatio;
 
                     const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
                     const newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
@@ -861,7 +862,9 @@ export const gameStore = createStore<GameState>()(
                 let extractionRate = BASE_EXTRACTION;
                 extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
                 extractionRate += s.separatorWorkers * UPGRADES.separatorWorker.extractionBonus * s.separatorGear;
-                const baseGold = materialUsed * s.panPower * extractionRate * (1 + 0.1 * s.dustPanYield);
+                // Paydirt from sluice box yields significantly more gold per unit
+                const paydirtMultiplier = s.hasSluiceBox ? PAYDIRT_YIELD_MULTIPLIER : 1;
+                const baseGold = materialUsed * s.panPower * extractionRate * paydirtMultiplier * (1 + 0.1 * s.dustPanYield);
                 set({ panFilled: s.panFilled - materialUsed, gold: s.gold + baseGold, totalGoldExtracted: s.totalGoldExtracted + baseGold });
                 get().addFloatingNumber('gold', baseGold);
             },
@@ -1397,10 +1400,8 @@ export const gameStore = createStore<GameState>()(
 
                     // Auto-empty: always if upgrade owned, otherwise only when miners are active
                     if (s.bucketFilled >= bucketCap && newPanFilled < panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
-                        const effectiveSluicePower = s.hasSluiceBox
-                            ? s.sluicePower * s.sluiceGear
-                            : 1;
-                        const amountToAdd = s.bucketFilled * effectiveSluicePower;
+                        const conversionRatio = s.hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1;
+                        const amountToAdd = s.bucketFilled * conversionRatio;
                         newPanFilled = Math.min(newPanFilled + amountToAdd, panCap);
                         newBucketFilled = 0;
                     }
@@ -1423,9 +1424,11 @@ export const gameStore = createStore<GameState>()(
 
                         const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate * (1 + 0.2 * (s.dustPanSpeed + s.panSpeedUpgrades))) / (60 * BASE_EXTRACTION);
                         const panConsumed = Math.min(newPanFilled, panRate);
+                        // Paydirt (from sluice) yields more gold per unit than raw dirt
+                        const paydirtMultiplier = s.hasSluiceBox ? PAYDIRT_YIELD_MULTIPLIER : 1;
 
                         newPanFilled -= panConsumed;
-                        goldGained = panConsumed * extractionRate * (1 + 0.1 * s.dustPanYield);
+                        goldGained = panConsumed * extractionRate * paydirtMultiplier * (1 + 0.1 * s.dustPanYield);
                     }
 
                     // Automation: bankers sell gold

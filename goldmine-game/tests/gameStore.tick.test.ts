@@ -8,6 +8,8 @@ import {
     INVESTMENTS,
     getTravelDurationTicks,
     SMELTING_FEE_PERCENT,
+    SLUICE_CONVERSION_RATIO,
+    PAYDIRT_YIELD_MULTIPLIER,
 } from '../src/store/gameStore';
 
 beforeEach(() => {
@@ -104,13 +106,14 @@ describe('prospector production per tick', () => {
         expect(gameStore.getState().panFilled).toBeCloseTo(10 - 0.025, 6);
     });
 
-    it('sluiceWorkers increase extraction rate and gold output', () => {
+    it('sluiceWorkers increase extraction rate and gold output, paydirt multiplier applies', () => {
         // extractionRate = 0.2 + 1 * 0.1 * 1 = 0.3
         // panRate = (1 * 1.5 * 0.3 * 1) / (60 * 0.2) = 0.45/12 = 0.0375
-        // goldGained = 0.0375 * 0.3 * 1 = 0.01125
+        // goldGained = 0.0375 * 0.3 * PAYDIRT_YIELD_MULTIPLIER * 1 = 0.0375 * 0.3 * 2.5 = 0.028125
         gameStore.setState({ pans: 1, sluiceWorkers: 1, hasSluiceBox: true, sluiceGear: 1, panFilled: 10, money: 9999 });
         runTicks(1);
-        expect(gameStore.getState().gold).toBeCloseTo(0.01125, 8);
+        const expected = 0.0375 * 0.3 * PAYDIRT_YIELD_MULTIPLIER;
+        expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
     });
 
     it('prospectors go idle when panFilled < 1', () => {
@@ -141,14 +144,14 @@ describe('auto-empty bucket', () => {
         expect(gameStore.getState().bucketFilled).toBe(0);
     });
 
-    it('sluiceBox multiplies bucket-to-pan transfer', () => {
+    it('sluiceBox applies conversion ratio (dirt → paydirt) to bucket-to-pan transfer', () => {
         // Auto-empty requires bucketFilled >= bucketCap (10).
-        // effectiveSluicePower = sluicePower(2) * sluiceGear(1) = 2
-        // amountToAdd = 10 * 2 = 20 → panFilled = min(0+20, 20) = 20 (fills to panCap)
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, sluicePower: 2, sluiceGear: 1, shovels: 0 });
+        // conversionRatio = SLUICE_CONVERSION_RATIO = 0.65
+        // amountToAdd = 10 * 0.65 = 6.5 → panFilled = min(0+6.5, 20) = 6.5
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, sluiceGear: 1, shovels: 0 });
         runTicks(1);
-        // Pan fills to capacity and bucket empties, proving the 2× multiplier applied
-        expect(gameStore.getState().panFilled).toBeCloseTo(20, 8);
+        // Pan receives less material (paydirt quality trade-off), bucket empties
+        expect(gameStore.getState().panFilled).toBeCloseTo(10 * SLUICE_CONVERSION_RATIO, 8);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 8);
     });
 
