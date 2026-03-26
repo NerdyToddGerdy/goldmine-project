@@ -10,6 +10,7 @@ import {
     SMELTING_FEE_PERCENT,
     SLUICE_CONVERSION_RATIO,
     PAYDIRT_YIELD_MULTIPLIER,
+    SLUICE_DRAIN_RATE,
 } from '../src/store/gameStore';
 
 beforeEach(() => {
@@ -144,23 +145,72 @@ describe('auto-empty bucket', () => {
         expect(gameStore.getState().bucketFilled).toBe(0);
     });
 
-    it('sluiceBox applies conversion ratio (dirt → paydirt) to bucket-to-pan transfer', () => {
-        // Auto-empty requires bucketFilled >= bucketCap (10).
-        // conversionRatio = SLUICE_CONVERSION_RATIO = 0.65
-        // amountToAdd = 10 * 0.65 = 6.5 → panFilled = min(0+6.5, 20) = 6.5
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, sluiceGear: 1, shovels: 0 });
+    it('sluiceBox routes bucket into sluiceBoxFilled (not panFilled) on auto-empty', () => {
+        // With sluice box, auto-empty fills sluiceBoxFilled, not panFilled
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, sluiceBoxFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
         runTicks(1);
-        // Pan receives less material (paydirt quality trade-off), bucket empties
-        expect(gameStore.getState().panFilled).toBeCloseTo(10 * SLUICE_CONVERSION_RATIO, 8);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 8);
+        expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(10, 8);
+        // Pan should NOT have received anything directly from the bucket
+        expect(gameStore.getState().panFilled).toBeCloseTo(0, 1);
     });
 
-    it('auto-empty is blocked when pan is already at capacity', () => {
+    it('sluiceBox auto-empty is blocked when sluice is not empty', () => {
+        // sluiceBoxFilled > 0 means sluice is busy — bucket cannot empty until sluice drains
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
+        runTicks(1);
+        expect(gameStore.getState().bucketFilled).toBe(10); // unchanged
+    });
+
+    it('auto-empty is blocked when pan is already at capacity (no sluice)', () => {
         // panFilled=20 (at panCap with no upgrades) → condition newPanFilled < panCap fails
-        gameStore.setState({ bucketFilled: 10, panFilled: 20, hasAutoEmpty: true, shovels: 0 });
+        gameStore.setState({ bucketFilled: 10, panFilled: 20, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(20, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);
+    });
+});
+
+// ─── sluice drain + miner's moss ──────────────────────────────────────────────
+
+describe('sluice drain and miner\'s moss', () => {
+    it('sluice box drains at SLUICE_DRAIN_RATE per second, filling moss via conversion ratio', () => {
+        // Per tick: drain = SLUICE_DRAIN_RATE / 60; moss gain = drain * SLUICE_CONVERSION_RATIO
+        gameStore.setState({ sluiceBoxFilled: 10, minersMossFilled: 0, panFilled: 0, hasSluiceBox: true });
+        runTicks(1);
+        const drainPerTick = SLUICE_DRAIN_RATE / 60;
+        expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(10 - drainPerTick, 6);
+        expect(gameStore.getState().minersMossFilled).toBeCloseTo(drainPerTick * SLUICE_CONVERSION_RATIO, 6);
+    });
+
+    it('sluice drain stops when moss is at capacity', () => {
+        // Moss already full → no more draining
+        gameStore.setState({ sluiceBoxFilled: 10, minersMossFilled: 20, panFilled: 0, hasSluiceBox: true });
+        runTicks(1);
+        expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(10, 6); // unchanged
+        expect(gameStore.getState().minersMossFilled).toBeCloseTo(20, 6); // unchanged
+    });
+
+    it('sluice workers auto-clean moss into pan each tick', () => {
+        // With sluiceWorkers, all available moss should transfer to pan in one tick
+        gameStore.setState({ minersMossFilled: 5, panFilled: 0, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 1, money: 9999 });
+        runTicks(1);
+        expect(gameStore.getState().minersMossFilled).toBeCloseTo(0, 6);
+        expect(gameStore.getState().panFilled).toBeCloseTo(5, 6);
+    });
+
+    it('auto-clean is capped by available pan space', () => {
+        // panFilled=18, panCap=20 → only 2 units can fit
+        gameStore.setState({ minersMossFilled: 5, panFilled: 18, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 1, money: 9999 });
+        runTicks(1);
+        expect(gameStore.getState().panFilled).toBeCloseTo(20, 6); // capped at panCap
+        expect(gameStore.getState().minersMossFilled).toBeCloseTo(3, 6); // 5 - 2 = 3 remains
+    });
+
+    it('no auto-clean without sluice workers', () => {
+        gameStore.setState({ minersMossFilled: 5, panFilled: 0, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 0 });
+        runTicks(1);
+        expect(gameStore.getState().minersMossFilled).toBeCloseTo(5, 6); // unchanged
     });
 });
 

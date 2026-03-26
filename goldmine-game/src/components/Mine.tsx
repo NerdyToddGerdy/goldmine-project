@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, SLUICE_CONVERSION_RATIO } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, PRESTIGE_MONEY_THRESHOLD, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
 import { ProgressBar, PrestigeModal } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -6,6 +6,8 @@ import { useState } from "react";
 export function Mine() {
     const bucketFilled = useGameStore((s) => s.bucketFilled);
     const panFilled = useGameStore((s) => s.panFilled);
+    const sluiceBoxFilled = useGameStore((s) => s.sluiceBoxFilled);
+    const minersMossFilled = useGameStore((s) => s.minersMossFilled);
     const gold = useGameStore((s) => s.gold);
     const money = useGameStore((s) => s.money);
     const scoopPower = useGameStore((s) => s.scoopPower);
@@ -71,6 +73,7 @@ export function Mine() {
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
+    const cleanMoss = () => gameStore.getState().cleanMoss();
     const panForGold = () => gameStore.getState().panForGold();
     const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
     const hireProspector = () => gameStore.getState().buyUpgrade('pan');
@@ -85,10 +88,13 @@ export function Mine() {
     extractionRate += separatorWorkers * UPGRADES.separatorWorker.extractionBonus * separatorGear;
 
     const goldPerPan = panPower * extractionRate;
-    const bucketToPanel = bucketFilled * (hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1);
 
     const bucketIsFull = bucketFilled >= effectiveBucketCap;
     const panIsFull = panFilled >= effectivePanCap;
+    const sluiceIsDraining = sluiceBoxFilled > 0;
+    const mossCapacity = effectivePanCap; // same formula as pan
+    const mossIsFull = minersMossFilled >= mossCapacity;
+    const mossCleanAmount = Math.min(minersMossFilled, effectivePanCap - panFilled);
 
     return (
         <div className="space-y-6">
@@ -177,11 +183,11 @@ export function Mine() {
                     {unlockedPanning && (
                         <button
                             onClick={emptyBucket}
-                            disabled={bucketFilled === 0 || panIsFull || isTraveling}
+                            disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? sluiceIsDraining : panIsFull)}
                             className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {hasSluiceBox
-                                ? `🚿 Sluice Dirt → Paydirt (+${bucketToPanel.toFixed(1)})`
+                                ? `🪣 Empty Bucket → Sluice (+${bucketFilled.toFixed(1)})`
                                 : `🪣 Empty Bucket → Pan (+${bucketFilled.toFixed(1)})`
                             }
                         </button>
@@ -202,14 +208,59 @@ export function Mine() {
                     </div>
                 </div>
 
-                {/* Pan/Sluice Section */}
+                {/* Sluice Box Section */}
+                {unlockedPanning && hasSluiceBox && (
+                    <div className="p-4 bg-white border-2 border-cyan-300 rounded-xl space-y-3">
+                        {/* Sluice Drain Bar */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-cyan-900">🚿 Sluice Box</span>
+                                <span className="text-sm font-semibold text-cyan-700">
+                                    {sluiceBoxFilled.toFixed(1)} / {effectivePanCap}
+                                </span>
+                            </div>
+                            <ProgressBar value={sluiceBoxFilled} max={effectivePanCap} color="cyan" isActive={sluiceIsDraining} />
+                            <div className="h-5 mt-1 flex items-center justify-center">
+                                {sluiceIsDraining
+                                    ? <span className="text-xs text-cyan-700 font-semibold">Draining… collecting paydirt in moss</span>
+                                    : <span className="text-xs text-gray-400">Empty bucket into sluice to start</span>
+                                }
+                            </div>
+                        </div>
+
+                        {/* Miner's Moss Bar */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-amber-900">🌿 Miner's Moss</span>
+                                <span className="text-sm font-semibold text-amber-700">
+                                    {minersMossFilled.toFixed(1)} / {mossCapacity}
+                                </span>
+                            </div>
+                            <ProgressBar value={minersMossFilled} max={mossCapacity} color="amber" isActive={sluiceIsDraining} isFull={mossIsFull} />
+                        </div>
+
+                        {/* Clean Moss Button */}
+                        <button
+                            onClick={cleanMoss}
+                            disabled={minersMossFilled === 0 || panIsFull || isTraveling}
+                            className="w-full px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {mossCleanAmount > 0
+                                ? `🌿 Clean Moss → Pan (+${mossCleanAmount.toFixed(1)} paydirt)`
+                                : `🌿 Clean Moss → Pan`
+                            }
+                        </button>
+                    </div>
+                )}
+
+                {/* Pan Section */}
                 {unlockedPanning && (
                     <div className="p-4 bg-white border-2 border-yellow-300 rounded-xl space-y-3">
                         {/* Pan Progress Bar */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-semibold text-yellow-900">
-                                    {hasSluiceBox ? '🚿 Sluice Box' : '🥘 Pan'}
+                                    🥘 Pan
                                 </span>
                                 <span className="text-sm font-semibold text-yellow-700">
                                     {panFilled.toFixed(1)} / {effectivePanCap}

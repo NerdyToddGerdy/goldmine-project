@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV20, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV21, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -80,6 +80,7 @@ export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
 // Sluice box mechanic: dirt → paydirt conversion
 export const SLUICE_CONVERSION_RATIO = 0.65;  // 10 dirt → 6.5 paydirt (35% mass loss)
 export const PAYDIRT_YIELD_MULTIPLIER = 2.5;  // each paydirt unit yields 2.5× more gold; net: 0.65 × 2.5 = 1.625×
+export const SLUICE_DRAIN_RATE = 3;           // units of dirt drained from sluice box per second (base rate)
 
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
@@ -108,6 +109,8 @@ export type GameState = {
     // Manual action state
     bucketFilled: number // how much dirt is in the bucket (0 to BUCKET_CAPACITY)
     panFilled: number // how much dirt/paydirt is in the pan (0 to PAN_CAPACITY)
+    sluiceBoxFilled: number // dirt currently draining through the sluice box
+    minersMossFilled: number // concentrated paydirt caught by the miner's moss
 
     // Resources
     dirt: number // raw dirt from scooping
@@ -230,7 +233,8 @@ export type GameState = {
 
     // Actions - Game
     scoopDirt: () => void // manual action - fills bucket
-    emptyBucket: () => void // empties bucket into dirt or paydirt (depending on sluice box)
+    emptyBucket: () => void // empties bucket into pan (no sluice) or sluice box (when hasSluiceBox, only if sluice empty)
+    cleanMoss: () => void // transfers miner's moss paydirt into the pan (capped at pan capacity)
     sluiceDirt: () => void // manual action (costs dirt, produces paydirt) - DEPRECATED, use emptyBucket
     panForGold: () => void // manual action (costs paydirt)
     travelTo: (location: 'mine' | 'town') => void // instant location change (internal/dev use)
@@ -393,6 +397,8 @@ export const gameStore = createStore<GameState>()(
             // Manual action state
             bucketFilled: 0,
             panFilled: 0,
+            sluiceBoxFilled: 0,
+            minersMossFilled: 0,
 
             // Resources
             dirt: 0,
@@ -475,7 +481,7 @@ export const gameStore = createStore<GameState>()(
             hasAutoEmpty: false,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV20().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV21().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -508,6 +514,8 @@ export const gameStore = createStore<GameState>()(
                     location: 'mine',
                     bucketFilled: 0,
                     panFilled: 0,
+                    sluiceBoxFilled: 0,
+                    minersMossFilled: 0,
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
@@ -569,6 +577,8 @@ export const gameStore = createStore<GameState>()(
                     location: 'mine',
                     bucketFilled: 0,
                     panFilled: 0,
+                    sluiceBoxFilled: 0,
+                    minersMossFilled: 0,
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
@@ -625,7 +635,7 @@ export const gameStore = createStore<GameState>()(
                     timePlayed: 0,
                     darkMode: false,
                     hasAutoEmpty: false,
-                    lastSeenChangelogVersion: defaultSaveV20().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV21().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
@@ -646,6 +656,8 @@ export const gameStore = createStore<GameState>()(
                     location: s.location,
                     bucketFilled: s.bucketFilled,
                     panFilled: s.panFilled,
+                    sluiceBoxFilled: s.sluiceBoxFilled,
+                    minersMossFilled: s.minersMossFilled,
                     dirt: s.dirt,
                     paydirt: s.paydirt,
                     gold: s.gold,
@@ -724,6 +736,8 @@ export const gameStore = createStore<GameState>()(
                     location: migrated.location,
                     bucketFilled: migrated.bucketFilled,
                     panFilled: migrated.panFilled,
+                    sluiceBoxFilled: migrated.sluiceBoxFilled,
+                    minersMossFilled: migrated.minersMossFilled,
                     dirt: migrated.dirt,
                     paydirt: migrated.paydirt,
                     gold: migrated.gold,
@@ -826,16 +840,32 @@ export const gameStore = createStore<GameState>()(
                 set((s) => {
                     if (s.bucketFilled === 0) return s;
 
-                    // Sluice box converts dirt → paydirt: 35% mass loss but 2.5× gold yield per unit
-                    const conversionRatio = s.hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1;
-                    const amountToAdd = s.bucketFilled * conversionRatio;
+                    if (s.hasSluiceBox) {
+                        // Sluice path: dirt goes into the sluice box to drain over time
+                        // Can only add when sluice is completely empty
+                        if (s.sluiceBoxFilled > 0) return s;
+                        return { sluiceBoxFilled: s.bucketFilled, bucketFilled: 0 };
+                    }
 
+                    // Direct pan path (no sluice box)
                     const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
-                    const newPanFilled = Math.min(s.panFilled + amountToAdd, panCap);
-
                     return {
-                        panFilled: newPanFilled,
+                        panFilled: Math.min(s.panFilled + s.bucketFilled, panCap),
                         bucketFilled: 0,
+                    };
+                });
+            },
+
+            cleanMoss: () => {
+                set((s) => {
+                    if (s.minersMossFilled <= 0) return s;
+                    const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
+                    const spaceInPan = panCap - s.panFilled;
+                    const transferred = Math.min(s.minersMossFilled, spaceInPan);
+                    if (transferred <= 0) return s;
+                    return {
+                        minersMossFilled: s.minersMossFilled - transferred,
+                        panFilled: s.panFilled + transferred,
                     };
                 });
             },
@@ -1397,13 +1427,43 @@ export const gameStore = createStore<GameState>()(
                     const dirtPerTick = (effectiveShovels * UPGRADES.shovel.dirtPerSec * (1 + 0.1 * s.dustScoopBoost)) / 60; // per tick at 60fps
                     let newBucketFilled = s.bucketFilled;
                     let newPanFilled = s.panFilled;
+                    let newSluiceBoxFilled = s.sluiceBoxFilled;
+                    let newMinersMossFilled = s.minersMossFilled;
+
+                    // Sluice box drain: dirt drains over time, concentrated paydirt collects in miner's moss
+                    if (s.hasSluiceBox) {
+                        const sluiceCap = panCap; // sluice capacity = pan capacity
+                        if (newSluiceBoxFilled > 0 && newMinersMossFilled < sluiceCap) {
+                            const drainPerTick = SLUICE_DRAIN_RATE / 60;
+                            // Don't drain more than moss can absorb (via conversion ratio)
+                            const maxDrain = Math.min(newSluiceBoxFilled, (sluiceCap - newMinersMossFilled) / SLUICE_CONVERSION_RATIO);
+                            const actualDrain = Math.min(drainPerTick, maxDrain);
+                            newSluiceBoxFilled -= actualDrain;
+                            newMinersMossFilled = Math.min(newMinersMossFilled + actualDrain * SLUICE_CONVERSION_RATIO, sluiceCap);
+                        }
+                    }
 
                     // Auto-empty: always if upgrade owned, otherwise only when miners are active
-                    if (s.bucketFilled >= bucketCap && newPanFilled < panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
-                        const conversionRatio = s.hasSluiceBox ? SLUICE_CONVERSION_RATIO : 1;
-                        const amountToAdd = s.bucketFilled * conversionRatio;
-                        newPanFilled = Math.min(newPanFilled + amountToAdd, panCap);
-                        newBucketFilled = 0;
+                    if (s.hasSluiceBox) {
+                        // Sluice path: bucket → sluice (only when sluice is completely empty)
+                        if (s.bucketFilled >= bucketCap && newSluiceBoxFilled === 0 && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                            newSluiceBoxFilled = s.bucketFilled;
+                            newBucketFilled = 0;
+                        }
+                    } else {
+                        // Direct pan path
+                        if (s.bucketFilled >= bucketCap && newPanFilled < panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                            newPanFilled = Math.min(newPanFilled + s.bucketFilled, panCap);
+                            newBucketFilled = 0;
+                        }
+                    }
+
+                    // Auto-clean: sluice workers transfer miner's moss into the pan
+                    if (s.hasSluiceBox && effectiveSluiceWorkers > 0 && newMinersMossFilled > 0 && newPanFilled < panCap) {
+                        const spaceInPan = panCap - newPanFilled;
+                        const transferred = Math.min(newMinersMossFilled, spaceInPan);
+                        newMinersMossFilled -= transferred;
+                        newPanFilled += transferred;
                     }
 
                     // Miners fill bucket
@@ -1605,6 +1665,8 @@ export const gameStore = createStore<GameState>()(
                         timePlayed: newTimePlayed,
                         bucketFilled: newBucketFilled,
                         panFilled: newPanFilled,
+                        sluiceBoxFilled: newSluiceBoxFilled,
+                        minersMossFilled: newMinersMossFilled,
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
                         gold: s.gold + goldGained - goldSold - driverGoldSold - bankerArrivalGoldSold,
@@ -1662,6 +1724,8 @@ export const gameStore = createStore<GameState>()(
             location: state.location,
             bucketFilled: state.bucketFilled,
             panFilled: state.panFilled,
+            sluiceBoxFilled: state.sluiceBoxFilled,
+            minersMossFilled: state.minersMossFilled,
             dirt: state.dirt,
             paydirt: state.paydirt,
             gold: state.gold,
@@ -1722,7 +1786,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV20();
+                return defaultSaveV21();
             }
         },
         onRehydrateStorage: ()=> (state) => {

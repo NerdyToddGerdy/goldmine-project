@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 20 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 21 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -351,12 +351,18 @@ export type SaveV20 = Omit<SaveV19, 'version'> & {
     peakRunMoney: number;        // highest runMoneyEarned in a single run
 };
 
-export type LatestSave = SaveV20;
+export type SaveV21 = Omit<SaveV20, 'version'> & {
+    version: 21;
+    sluiceBoxFilled: number;   // dirt currently in the sluice box
+    minersMossFilled: number;  // concentrated paydirt caught by the miner's moss
+};
+
+export type LatestSave = SaveV21;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV20();
+        return defaultSaveV21();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1105,10 +1111,21 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 20);
     }
 
-    // Already v20, ensure fields exist
-    const s = raw as Partial<SaveV20>;
+    if (fromVersion < 21) {
+        // v20 → v21: add sluice box drain state + miner's moss
+        const s = raw as SaveV20;
+        return migrateToLatest({
+            ...s,
+            version: 21,
+            sluiceBoxFilled: 0,
+            minersMossFilled: 0,
+        }, 21);
+    }
+
+    // Already v21, ensure fields exist
+    const s = raw as Partial<SaveV21>;
     return {
-        version: 20,
+        version: 21,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1168,6 +1185,8 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         totalGoldExtracted: s.totalGoldExtracted ?? 0,
         totalMoneyEarned: s.totalMoneyEarned ?? 0,
         peakRunMoney: s.peakRunMoney ?? 0,
+        sluiceBoxFilled: s.sluiceBoxFilled ?? 0,
+        minersMossFilled: s.minersMossFilled ?? 0,
     };
 }
 
@@ -1544,5 +1563,15 @@ export function defaultSaveV20(): SaveV20 {
         totalGoldExtracted: 0,
         totalMoneyEarned: 0,
         peakRunMoney: 0,
+    };
+}
+
+export function defaultSaveV21(): SaveV21 {
+    const { version: _v, ...rest } = defaultSaveV20();
+    return {
+        ...rest,
+        version: 21,
+        sluiceBoxFilled: 0,
+        minersMossFilled: 0,
     };
 }
