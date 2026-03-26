@@ -7,6 +7,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.5',
+        date: '2026-03-25',
+        title: 'Polish Sprint — Travel, Banker & UX',
+        changes: [
+            'Travel button now transforms in-place into a progress bar with moving vehicle emoji and cancel button',
+            'Banker workers auto-sell your gold on arrival at Town — no more manual selling required',
+            'Tab switching has a smooth fade + slide transition',
+            'New payroll widget in Mine shows banker income vs. worker costs and net per minute',
+        ],
+    },
+    {
         version: 'v1.4',
         date: '2026-03-25',
         title: 'Lifetime Stats Panel',
