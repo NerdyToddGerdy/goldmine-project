@@ -102,8 +102,8 @@ export function Mine() {
         <div className="space-y-6">
             <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
 
-            {/* Travel to Town — transforms into progress bar while traveling */}
-            {unlockedTown && (
+            {/* Travel to Town — shown once player has panned gold; transforms into progress bar while traveling */}
+            {(unlockedTown || gold > 0) && (
                 <div className="p-3 bg-white border border-green-200 rounded-xl">
                     {isTraveling && travelDestination === 'town' ? (
                         <div className="space-y-2">
@@ -428,20 +428,6 @@ export function Mine() {
                     </div>
                 )}
 
-                {/* Travel to Town — shown when player has gold but hasn't discovered Town yet */}
-                {!unlockedTown && gold >= 0.5 && (
-                    <div className="p-4 bg-green-50 border-2 border-green-300 rounded-xl space-y-3">
-                        <p className="text-sm font-semibold text-green-900">You have gold! Travel to Town to sell it.</p>
-                        <button
-                            onClick={travelToTown}
-                            disabled={isTraveling}
-                            className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            🚶 Travel to Town ({VEHICLE_TIERS[0].travelSecs}s)
-                        </button>
-                    </div>
-                )}
-
                 {/* Sluice Box unlock message */}
                 {!hasSluiceBox && money < EQUIPMENT.sluiceBox.cost && unlockedPanning && (
                     <div className="text-sm text-blue-700 italic text-center p-3 bg-blue-50 border border-blue-200 rounded-xl">
@@ -449,9 +435,9 @@ export function Mine() {
                     </div>
                 )}
 
-                {!unlockedPanning && bucketFilled < 2 && (
+                {!unlockedPanning && (
                     <div className="text-sm text-amber-700 italic text-center">
-                        Scoop bucket to 2 to unlock panning!
+                        Fill the bucket to start panning!
                     </div>
                 )}
             </div>
@@ -473,13 +459,6 @@ export function Mine() {
                     payrollPerMin={payrollPerMin}
                     bankerIncomePerMin={bankerIncomePerMin}
                 />
-            )}
-
-            {/* Hint: earn gold to travel */}
-            {!unlockedTown && gold < 0.5 && unlockedPanning && (
-                <div className="text-sm text-amber-700 italic text-center p-3 bg-amber-100 rounded-xl">
-                    Pan gold to 0.5 oz and you can travel to Town!
-                </div>
             )}
 
             {/* Dev debug overlay (#30) */}

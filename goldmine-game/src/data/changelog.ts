@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.10.1',
+        date: '2026-03-27',
+        title: 'Patch — Progressive Mine UI',
+        changes: [
+            'Empty Bucket button and Pan section hidden until the bucket fills to capacity for the first time',
+            'Travel to Town button now appears at the top (its permanent location) as soon as the player first pans gold — no more button at the bottom',
+            'Onboarding hint updated: "Fill the bucket to start panning!" replaces the old "Scoop bucket to 2" message',
+        ],
+    },
+    {
         version: 'v1.10',
         date: '2026-03-27',
         title: 'Hauler — Auto-Empty Becomes Labor',

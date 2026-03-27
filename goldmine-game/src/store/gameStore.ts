@@ -903,8 +903,8 @@ export const gameStore = createStore<GameState>()(
                     const gained = s.scoopPower * (1 + 0.1 * s.dustScoopBoost);
                     const newFilled = Math.min(s.bucketFilled + gained, bucketCap);
 
-                    // Unlock panning after bucket gets to 2 or more for the first time
-                    const newUnlocks = newFilled >= 2 && !s.unlockedPanning;
+                    // Unlock panning once the bucket is full for the first time
+                    const newUnlocks = newFilled >= bucketCap && !s.unlockedPanning;
 
                     if (s.patchActive && s.patchRemaining > 0) {
                         // Scoop rich dirt from the active patch first
