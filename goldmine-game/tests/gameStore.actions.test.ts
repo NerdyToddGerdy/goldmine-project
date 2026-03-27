@@ -41,11 +41,19 @@ afterEach(() => {
 // ─── panForGold ───────────────────────────────────────────────────────────────
 
 describe('panForGold', () => {
-    it('does nothing when panFilled < 1', () => {
-        gameStore.setState({ panFilled: 0.5 });
+    it('does nothing when panFilled is 0', () => {
+        gameStore.setState({ panFilled: 0 });
         gameStore.getState().panForGold();
         expect(gameStore.getState().gold).toBe(0);
-        expect(gameStore.getState().panFilled).toBe(0.5);
+        expect(gameStore.getState().panFilled).toBe(0);
+    });
+
+    it('pans partial amounts (panFilled < 1) yielding proportional gold', () => {
+        // panFilled=0.5, panClickAmount=1 → materialUsed=0.5, gold=0.5*1*0.2=0.1
+        gameStore.setState({ panFilled: 0.5 });
+        gameStore.getState().panForGold();
+        expect(gameStore.getState().gold).toBeCloseTo(0.1, 10);
+        expect(gameStore.getState().panFilled).toBeCloseTo(0, 10);
     });
 
     it('produces gold and reduces panFilled at base extraction rate', () => {

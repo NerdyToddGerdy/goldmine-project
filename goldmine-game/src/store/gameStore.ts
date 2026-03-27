@@ -1004,7 +1004,7 @@ export const gameStore = createStore<GameState>()(
 
             panForGold: () => {
                 const s = get();
-                if (s.panFilled < 1) return;
+                if (s.panFilled <= 0) return;
                 const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.dustPanSpeed + s.panSpeedUpgrades));
                 let extractionRate = BASE_EXTRACTION;
                 extractionRate += s.sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
@@ -1545,7 +1545,7 @@ export const gameStore = createStore<GameState>()(
                     const bucketCap = getEffectiveBucketCapacity(s.dustBucketSize + s.bucketUpgrades);
                     const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
                     const minersIdle = s.bucketFilled >= bucketCap;   // bucket full → miners blocked
-                    const prospectsIdle = s.panFilled < 1;             // pan empty → prospectors blocked
+                    const prospectsIdle = s.panFilled <= 0;             // pan empty → prospectors blocked
 
                     // Active payroll excludes idle workers
                     const fullPayrollPerTick = getTotalPayroll(s) / 60;

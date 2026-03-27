@@ -7,6 +7,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.10.2',
+        date: '2026-03-27',
+        title: 'Patch — Pan Drains to Zero',
+        changes: [
+            'Pan for Gold now works on partial amounts — any dirt in the pan (even < 1) can be panned for proportional gold yield',
+            'Prospectors also work on partial pan contents instead of going idle when pan drops below 1',
+        ],
+    },
+    {
         version: 'v1.10.1',
         date: '2026-03-27',
         title: 'Patch — Progressive Mine UI',

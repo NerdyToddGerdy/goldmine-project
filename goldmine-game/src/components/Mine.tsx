@@ -329,7 +329,7 @@ export function Mine() {
                         {/* Pan for Gold Button */}
                         <button
                             onClick={panForGold}
-                            disabled={panFilled < 1 || isTraveling}
+                            disabled={panFilled <= 0 || isTraveling}
                             className="w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)

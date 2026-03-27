@@ -117,11 +117,18 @@ describe('prospector production per tick', () => {
         expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
     });
 
-    it('prospectors go idle when panFilled < 1', () => {
+    it('prospectors go idle when panFilled is 0', () => {
+        gameStore.setState({ pans: 1, panFilled: 0, money: 9999 });
+        runTicks(1);
+        // prospectsIdle = panFilled <= 0 = true → effectivePans = 0 → no gold
+        expect(gameStore.getState().gold).toBe(0);
+    });
+
+    it('prospectors work on partial panFilled (< 1)', () => {
         gameStore.setState({ pans: 1, panFilled: 0.5, money: 9999 });
         runTicks(1);
-        // prospectsIdle = panFilled < 1 = true → effectivePans = 0 → no gold
-        expect(gameStore.getState().gold).toBe(0);
+        // pan has dirt → prospectors produce gold
+        expect(gameStore.getState().gold).toBeGreaterThan(0);
     });
 });
 
