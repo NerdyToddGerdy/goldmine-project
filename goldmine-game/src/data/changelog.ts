@@ -7,6 +7,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.10',
+        date: '2026-03-27',
+        title: 'Hauler — Auto-Empty Becomes Labor',
+        changes: [
+            'Auto-Empty Bucket replaced by Haulers — hire workers in the Labor Office instead of buying a one-time upgrade',
+            'First Hauler hire costs $35 and automatically empties the full bucket into the sluice (or pan) — same behavior as the old upgrade',
+            'Hauler wage is $0.08/sec; additional Haulers can be hired but the first one is all you need',
+            'Players who had Auto-Empty purchased are migrated to 1 Hauler automatically',
+        ],
+    },
+    {
+        version: 'v1.9.2',
+        date: '2026-03-27',
+        title: 'Patch — Price Rebalance',
+        changes: [
+            'Furnace cost reduced $2,500 → $1,500 — fills the gap left by the oven removal',
+            'Furnace Operator hire cost reduced ($500 → $150 base); workers are now automation-only with no value bonus',
+            'Furnace Operator wage reduced $0.40 → $0.22/sec to match the reduced role',
+            'Better Furnace upgrade cost reduced ($500 → $300 base, 1.5× → 1.4× scaling) — boosts smelt rate, not value',
+            'Removed unused Bank Counter entry from equipment constants (never shown in shop)',
+        ],
+    },
+    {
         version: 'v1.9.1',
         date: '2026-03-27',
         title: 'Patch — Oven Removed',

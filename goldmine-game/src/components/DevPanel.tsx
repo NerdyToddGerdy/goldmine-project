@@ -8,7 +8,6 @@ const FLAGS = [
     { key: 'unlockedPanning',        label: '⛏️ Panning' },
     { key: 'unlockedTown',           label: '🏘️ Town' },
     { key: 'unlockedBanking',        label: '🏦 Banking' },
-    { key: 'hasAutoEmpty',           label: '🪣 Auto-Empty' },
     { key: 'hasSluiceBox',           label: '💧 Sluice Box' },
     { key: 'hasFurnace',             label: '⚒️ Furnace' },
     { key: 'hasDriver',              label: '🚗 Driver' },
@@ -46,7 +45,6 @@ export function DevPanel() {
         unlockedPanning: s.unlockedPanning,
         unlockedTown: s.unlockedTown,
         unlockedBanking: s.unlockedBanking,
-        hasAutoEmpty: s.hasAutoEmpty,
         hasSluiceBox: s.hasSluiceBox,
         hasFurnace: s.hasFurnace,
         hasDriver: s.hasDriver,
@@ -208,7 +206,7 @@ export function DevPanel() {
                         <button
                             onClick={() => gameStore.setState({
                                 unlockedPanning: true, unlockedTown: true, unlockedBanking: true,
-                                hasAutoEmpty: true, hasSluiceBox: true,
+                                hasSluiceBox: true,
                                 hasFurnace: true, hasDriver: true,
                             })}
                             className="px-3 py-1 rounded-lg text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 border border-purple-400 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-all"

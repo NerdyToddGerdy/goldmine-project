@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 26 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 27 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -393,12 +393,15 @@ export type SaveV25 = Omit<SaveV24, 'version'> & {
 // v26: oven removed — hasOven, ovenWorkers, ovenGear stripped
 export type SaveV26 = Omit<SaveV25, 'version' | 'hasOven' | 'ovenWorkers' | 'ovenGear'> & { version: 26; };
 
-export type LatestSave = SaveV26;
+// v27: hasAutoEmpty replaced by haulers worker count
+export type SaveV27 = Omit<SaveV26, 'version' | 'hasAutoEmpty'> & { version: 27; haulers: number; };
+
+export type LatestSave = SaveV27;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV26();
+        return defaultSaveV27();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1186,10 +1189,18 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...rest, version: 26 }, 26);
     }
 
-    // Already v26, ensure fields exist
-    const s = raw as Partial<SaveV26>;
+    if (fromVersion < 27) {
+        const s = raw as SaveV26;
+        const { hasAutoEmpty: _ha, ...rest } = s;
+        // Preserve: if they had auto-empty purchased, give them 1 hauler
+        const haulers = (_ha ?? false) ? 1 : 0;
+        return migrateToLatest({ ...rest, version: 27, haulers }, 27);
+    }
+
+    // Already v27, ensure fields exist
+    const s = raw as Partial<SaveV27>;
     return {
-        version: 26,
+        version: 27,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1206,6 +1217,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         shovels: s.shovels ?? 0,
         pans: s.pans ?? 0,
         carts: s.carts ?? 0,
+        haulers: s.haulers ?? 0,
         sluiceWorkers: s.sluiceWorkers ?? 0,
         furnaceWorkers: s.furnaceWorkers ?? 0,
         bankerWorkers: s.bankerWorkers ?? 0,
@@ -1238,7 +1250,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         panSpeedUpgrades: s.panSpeedUpgrades ?? 0,
         goldPrice: s.goldPrice ?? 1.0,
         lastGoldPriceUpdate: s.lastGoldPriceUpdate ?? 0,
-        hasAutoEmpty: s.hasAutoEmpty ?? false,
         lastSeenChangelogVersion: s.lastSeenChangelogVersion ?? CHANGELOG[0].version,
         totalGoldExtracted: s.totalGoldExtracted ?? 0,
         totalMoneyEarned: s.totalMoneyEarned ?? 0,
@@ -1672,4 +1683,9 @@ export function defaultSaveV25(): SaveV25 {
 export function defaultSaveV26(): SaveV26 {
     const { version: _v, hasOven: _ho, ovenWorkers: _ow, ovenGear: _og, ...rest } = defaultSaveV25();
     return { ...rest, version: 26 };
+}
+
+export function defaultSaveV27(): SaveV27 {
+    const { version: _v, hasAutoEmpty: _ha, ...rest } = defaultSaveV26();
+    return { ...rest, version: 27, haulers: 0 };
 }

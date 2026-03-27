@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV26, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV27, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -197,7 +197,7 @@ export type GameState = {
     goldPriceHistory: number[]   // last 20 price samples for sparkline (session-only, not persisted)
 
     // Auto-empty upgrade (persisted)
-    hasAutoEmpty: boolean        // purchased auto-empty bucket upgrade
+    haulers: number              // workers who auto-empty the bucket when full
 
     // Metal detector
     richDirtInBucket: number     // portion of bucket fill that came from high-yield patch
@@ -306,9 +306,10 @@ export const UPGRADES = {
     betterShovel: { baseCost: 50, multiplier: 1.3 }, // increases manual scoop
     betterPan: { baseCost: 100, multiplier: 1.3 }, // increases manual pan
     betterSluice: { baseCost: 75, multiplier: 1.4 }, // increases sluice worker bonus
-    betterFurnace: { baseCost: 500, multiplier: 1.5 }, // increases furnace worker bonus
+    betterFurnace: { baseCost: 300, multiplier: 1.4 }, // increases smelt rate
+    haulerWorker: { baseCost: 35, multiplier: 1.2 }, // auto-empties bucket into sluice/pan when full
     sluiceWorker: { baseCost: 75, multiplier: 1.2, extractionBonus: 0.1 }, // +10% extraction per worker
-    furnaceWorker: { baseCost: 500, multiplier: 1.3 }, // auto-loads, smelts, and collects gold bars
+    furnaceWorker: { baseCost: 150, multiplier: 1.25 }, // auto-loads, smelts, and collects gold bars
     bankerWorker: { baseCost: 200, multiplier: 1.25, goldPerSec: 2.0 }, // Sells 2 gold/sec automatically
     detectorWorker: { baseCost: 100, multiplier: 1.2, spotsPerSec: 0.5 },
 };
@@ -316,9 +317,7 @@ export const UPGRADES = {
 // Equipment costs (one-time purchases - unlock workers)
 export const EQUIPMENT = {
     sluiceBox: { cost: 200 }, // Unlocks sluice workers
-    furnace: { cost: 2500 }, // Unlocks furnace workers + removes fee
-    bankCounter: { cost: 400 }, // Unlocks banker workers
-    autoEmpty: { cost: 75 }, // Auto-empties bucket to pan when full
+    furnace: { cost: 1500 }, // Unlocks furnace workers + removes fee
     metalDetector: { cost: 350 }, // Unlocks detect action + detector workers
     motherlode: { cost: 500 }, // 20% chance of 3× spots per detect
 };
@@ -358,8 +357,9 @@ export const PAN_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 export const WORKER_WAGES = {
     shovel: 0.10,           // Miners
     pan: 0.15,              // Prospectors
+    haulerWorker: 0.08,     // Haulers
     sluiceWorker: 0.20,     // Sluice Operators
-    furnaceWorker: 0.40,    // Furnace Operators
+    furnaceWorker: 0.22,    // Furnace Operators
     bankerWorker: 0.35,     // Bankers
     detectorWorker: 0.18,   // Detector Operators
 };
@@ -386,6 +386,7 @@ export function getTotalWageForType(workerType: keyof typeof WORKER_WAGES, count
 export function getTotalPayroll(state: {
     shovels: number;
     pans: number;
+    haulers: number;
     sluiceWorkers: number;
     furnaceWorkers: number;
     bankerWorkers: number;
@@ -394,6 +395,7 @@ export function getTotalPayroll(state: {
     return (
         getTotalWageForType('shovel', state.shovels) +
         getTotalWageForType('pan', state.pans) +
+        getTotalWageForType('haulerWorker', state.haulers) +
         getTotalWageForType('sluiceWorker', state.sluiceWorkers) +
         getTotalWageForType('furnaceWorker', state.furnaceWorkers) +
         getTotalWageForType('bankerWorker', state.bankerWorkers) +
@@ -439,6 +441,7 @@ export const gameStore = createStore<GameState>()(
             shovels: 0,
             pans: 0,
             carts: 0,
+            haulers: 0,
             sluiceWorkers: 0,
             furnaceWorkers: 0,
             bankerWorkers: 0,
@@ -494,9 +497,6 @@ export const gameStore = createStore<GameState>()(
             lastGoldPriceUpdate: 0,
             goldPriceHistory: [1.0],
 
-            // Auto-empty upgrade
-            hasAutoEmpty: false,
-
             // Metal detector
             richDirtInBucket: 0,
             richDirtInSluice: 0,
@@ -520,7 +520,7 @@ export const gameStore = createStore<GameState>()(
             goldBars: 0,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV26().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV27().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -566,6 +566,7 @@ export const gameStore = createStore<GameState>()(
                     shovels: 0,
                     pans: 0,
                     carts: 0,
+                    haulers: 0,
                     sluiceWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
@@ -590,7 +591,6 @@ export const gameStore = createStore<GameState>()(
                     goldPrice: 1.0,
                     lastGoldPriceUpdate: 0,
                     goldPriceHistory: [1.0],
-                    hasAutoEmpty: false,
                     richDirtInBucket: 0,
                     richDirtInSluice: 0,
                     hasMetalDetector: false,
@@ -637,6 +637,7 @@ export const gameStore = createStore<GameState>()(
                     shovels: 0,
                     pans: 0,
                     carts: 0,
+                    haulers: 0,
                     sluiceWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
@@ -675,7 +676,6 @@ export const gameStore = createStore<GameState>()(
                     goldPriceHistory: [1.0],
                     timePlayed: 0,
                     darkMode: false,
-                    hasAutoEmpty: false,
                     richDirtInBucket: 0,
                     richDirtInSluice: 0,
                     hasMetalDetector: false,
@@ -692,7 +692,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceRunning: false,
                     furnaceBars: 0,
                     goldBars: 0,
-                    lastSeenChangelogVersion: defaultSaveV26().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV27().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
@@ -726,6 +726,7 @@ export const gameStore = createStore<GameState>()(
                     shovels: s.shovels,
                     pans: s.pans,
                     carts: s.carts,
+                    haulers: s.haulers,
                     sluiceWorkers: s.sluiceWorkers,
                     furnaceWorkers: s.furnaceWorkers,
                     bankerWorkers: s.bankerWorkers,
@@ -758,7 +759,6 @@ export const gameStore = createStore<GameState>()(
                     darkMode: s.darkMode,
                     goldPrice: s.goldPrice,
                     lastGoldPriceUpdate: s.lastGoldPriceUpdate,
-                    hasAutoEmpty: s.hasAutoEmpty,
                     lastSeenChangelogVersion: s.lastSeenChangelogVersion,
                     totalGoldExtracted: s.totalGoldExtracted,
                     totalMoneyEarned: s.totalMoneyEarned,
@@ -816,6 +816,7 @@ export const gameStore = createStore<GameState>()(
                     shovels: migrated.shovels,
                     pans: migrated.pans,
                     carts: migrated.carts,
+                    haulers: migrated.haulers,
                     sluiceWorkers: migrated.sluiceWorkers,
                     furnaceWorkers: migrated.furnaceWorkers,
                     bankerWorkers: migrated.bankerWorkers,
@@ -848,7 +849,6 @@ export const gameStore = createStore<GameState>()(
                     darkMode: migrated.darkMode,
                     goldPrice: migrated.goldPrice,
                     lastGoldPriceUpdate: migrated.lastGoldPriceUpdate,
-                    hasAutoEmpty: migrated.hasAutoEmpty,
                     lastSeenChangelogVersion: migrated.lastSeenChangelogVersion,
                     totalGoldExtracted: migrated.totalGoldExtracted,
                     totalMoneyEarned: migrated.totalMoneyEarned,
@@ -1243,12 +1243,12 @@ export const gameStore = createStore<GameState>()(
                         set({ money: s.money - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
                         return true;
                     }
-                } else if (upgrade === 'autoEmpty') {
-                    if (s.hasAutoEmpty) return false;
-                    const cost = EQUIPMENT.autoEmpty.cost;
-                    if (s.money < cost) return false;
-                    set({ money: s.money - cost, hasAutoEmpty: true });
-                    return true;
+                } else if (upgrade === 'haulerWorker') {
+                    const cost = getUpgradeCost('haulerWorker', s.haulers);
+                    if (s.money >= cost) {
+                        set({ money: s.money - cost, haulers: s.haulers + 1 });
+                        return true;
+                    }
                 } else if (upgrade === 'metalDetector') {
                     const cost = EQUIPMENT.metalDetector.cost;
                     if (s.money >= cost && !s.hasMetalDetector) {
@@ -1285,6 +1285,11 @@ export const gameStore = createStore<GameState>()(
                 } else if (workerType === 'pan') {
                     if (s.pans > 0) {
                         set({ pans: s.pans - 1 });
+                        return true;
+                    }
+                } else if (workerType === 'haulerWorker') {
+                    if (s.haulers > 0) {
+                        set({ haulers: s.haulers - 1 });
                         return true;
                     }
                 } else if (workerType === 'sluiceWorker') {
@@ -1453,6 +1458,7 @@ export const gameStore = createStore<GameState>()(
                     shovels: 0,
                     pans: 0,
                     carts: 0,
+                    haulers: 0,
                     sluiceWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
@@ -1585,7 +1591,7 @@ export const gameStore = createStore<GameState>()(
                     // Auto-empty: always if upgrade owned, otherwise only when miners are active
                     if (s.hasSluiceBox) {
                         // Sluice path: bucket → sluice when full bucket fits in remaining space
-                        if (s.bucketFilled >= bucketCap && newSluiceBoxFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                        if (s.bucketFilled >= bucketCap && newSluiceBoxFilled + s.bucketFilled <= panCap && ((canAffordWorkers && s.haulers > 0) || dirtPerTick > 0)) {
                             newSluiceBoxFilled += s.bucketFilled;
                             newRichDirtInSluice += newRichDirtInBucketForAutoEmpty;
                             newRichDirtInBucketForAutoEmpty = 0;
@@ -1593,7 +1599,7 @@ export const gameStore = createStore<GameState>()(
                         }
                     } else {
                         // Direct pan path: entire bucket must fit
-                        if (s.bucketFilled >= bucketCap && newPanFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
+                        if (s.bucketFilled >= bucketCap && newPanFilled + s.bucketFilled <= panCap && ((canAffordWorkers && s.haulers > 0) || dirtPerTick > 0)) {
                             newPanFilled += s.bucketFilled;
                             newRichDirtInBucketForAutoEmpty = 0;
                             newBucketFilled = 0;
@@ -1981,6 +1987,7 @@ export const gameStore = createStore<GameState>()(
             shovels: state.shovels,
             pans: state.pans,
             carts: state.carts,
+            haulers: state.haulers,
             sluiceWorkers: state.sluiceWorkers,
             furnaceWorkers: state.furnaceWorkers,
             bankerWorkers: state.bankerWorkers,
@@ -2013,7 +2020,6 @@ export const gameStore = createStore<GameState>()(
             darkMode: state.darkMode,
             goldPrice: state.goldPrice,
             lastGoldPriceUpdate: state.lastGoldPriceUpdate,
-            hasAutoEmpty: state.hasAutoEmpty,
             lastSeenChangelogVersion: state.lastSeenChangelogVersion,
             totalGoldExtracted: state.totalGoldExtracted,
             totalMoneyEarned: state.totalMoneyEarned,
@@ -2040,7 +2046,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV26();
+                return defaultSaveV27();
             }
         },
         onRehydrateStorage: ()=> (state) => {

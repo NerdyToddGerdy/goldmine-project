@@ -128,18 +128,18 @@ describe('prospector production per tick', () => {
 // ─── auto-empty bucket logic ───────────────────────────────────────────────────
 
 describe('auto-empty bucket', () => {
-    it('does NOT auto-empty without hasAutoEmpty when no miners', () => {
-        // No miners (dirtPerTick = 0), no hasAutoEmpty → condition fails
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, hasAutoEmpty: false, shovels: 0 });
+    it('does NOT auto-empty without haulers when no miners', () => {
+        // No miners (dirtPerTick = 0), no haulers → condition fails
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, haulers: 0, shovels: 0 });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBe(0);
         expect(gameStore.getState().bucketFilled).toBe(10);
     });
 
-    it('auto-empties bucket when hasAutoEmpty is true even without miners', () => {
-        // bucketFilled=10, panFilled=0, hasAutoEmpty=true, no sluiceBox → sluicePower=1
+    it('auto-empties bucket when haulers > 0 even without miners', () => {
+        // bucketFilled=10, panFilled=0, haulers=1, no sluiceBox → sluicePower=1
         // amountToAdd = 10 * 1 = 10, newPanFilled = min(0+10, 20) = 10
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false, money: 0 });
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, haulers: 1, shovels: 0, hasSluiceBox: false, money: 1 });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(10, 8);
         expect(gameStore.getState().bucketFilled).toBe(0);
@@ -147,7 +147,7 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox routes bucket into sluiceBoxFilled (not panFilled) on auto-empty', () => {
         // With sluice box, auto-empty fills sluiceBoxFilled, not panFilled
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, sluiceBoxFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, sluiceBoxFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0, money: 1 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 8);
         expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(10, 8);
@@ -157,7 +157,7 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox auto-empty adds to sluice when bucket fits in remaining space', () => {
         // sluiceBoxFilled=5, bucketFilled=10, panCap=20 → 5+10=15 ≤ 20 → empties
-        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0, money: 1 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 5);
         // drain fires first (−0.05), then bucket adds: (5 − 0.05) + 10 = 14.95
@@ -166,14 +166,14 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox auto-empty is blocked when bucket would overflow the sluice', () => {
         // sluiceBoxFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked
-        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 15, panFilled: 0, hasAutoEmpty: true, hasSluiceBox: true, shovels: 0 });
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 15, panFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(10, 5); // unchanged
     });
 
     it('auto-empty is blocked when bucket would overflow pan (pan full, no sluice)', () => {
         // panFilled=20 (at panCap with no upgrades), bucket=10 → 20+10=30 > 20 → blocked
-        gameStore.setState({ bucketFilled: 10, panFilled: 20, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false });
+        gameStore.setState({ bucketFilled: 10, panFilled: 20, haulers: 1, shovels: 0, hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(20, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);
@@ -181,7 +181,7 @@ describe('auto-empty bucket', () => {
 
     it('auto-empty is blocked when bucket partially overflows pan (no sluice)', () => {
         // panFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked even though pan has space
-        gameStore.setState({ bucketFilled: 10, panFilled: 15, hasAutoEmpty: true, shovels: 0, hasSluiceBox: false });
+        gameStore.setState({ bucketFilled: 10, panFilled: 15, haulers: 1, shovels: 0, hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(15, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);

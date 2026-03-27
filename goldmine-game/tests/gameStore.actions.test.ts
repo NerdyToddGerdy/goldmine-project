@@ -483,11 +483,12 @@ describe('buyUpgrade equipment', () => {
         expect(gameStore.getState().money).toBe(9999);
     });
 
-    it('autoEmpty sets hasAutoEmpty and deducts cost', () => {
-        gameStore.setState({ money: 200 });
-        expect(gameStore.getState().buyUpgrade('autoEmpty')).toBe(true);
-        expect(gameStore.getState().hasAutoEmpty).toBe(true);
-        expect(gameStore.getState().money).toBeCloseTo(200 - EQUIPMENT.autoEmpty.cost, 8);
+    it('haulerWorker hire increments haulers and deducts cost', () => {
+        const cost = getUpgradeCost('haulerWorker', 0);
+        gameStore.setState({ money: 500 });
+        expect(gameStore.getState().buyUpgrade('haulerWorker')).toBe(true);
+        expect(gameStore.getState().haulers).toBe(1);
+        expect(gameStore.getState().money).toBeCloseTo(500 - cost, 8);
     });
 
     it('bucketUpgrade is capped at MAX_GEAR_UPGRADE_LEVEL', () => {
@@ -516,8 +517,8 @@ describe('fireWorker', () => {
     });
 
     it('works for all worker types', () => {
-        gameStore.setState({ pans: 2, sluiceWorkers: 1, furnaceWorkers: 1, bankerWorkers: 1 });
-        for (const type of ['pan', 'sluiceWorker', 'furnaceWorker', 'bankerWorker']) {
+        gameStore.setState({ pans: 2, haulers: 1, sluiceWorkers: 1, furnaceWorkers: 1, bankerWorkers: 1 });
+        for (const type of ['pan', 'haulerWorker', 'sluiceWorker', 'furnaceWorker', 'bankerWorker']) {
             expect(gameStore.getState().fireWorker(type)).toBe(true);
         }
     });
@@ -559,7 +560,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(26);
+        expect(parsed.version).toBe(27);
     });
 
     it('exportSave round-trips through importSave', () => {

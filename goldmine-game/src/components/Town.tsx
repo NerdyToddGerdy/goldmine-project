@@ -31,8 +31,7 @@ export function Town() {
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
     const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
-    const hasAutoEmpty = useGameStore((s) => s.hasAutoEmpty);
-    const unlockedPanning = useGameStore((s) => s.unlockedPanning);
+    const haulers = useGameStore((s) => s.haulers);
     const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
     const hasMotherlode = useGameStore((s) => s.hasMotherlode);
     const detectorWorkers = useGameStore((s) => s.detectorWorkers);
@@ -51,6 +50,7 @@ export function Town() {
     const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
     const betterFurnaceCost = getUpgradeCost('betterFurnace', furnaceGear - 1);
+    const haulerWorkerCost = getUpgradeCost('haulerWorker', haulers);
     const sluiceWorkerCost = getUpgradeCost('sluiceWorker', sluiceWorkers);
     const furnaceWorkerCost = getUpgradeCost('furnaceWorker', furnaceWorkers);
     const bankerWorkerCost = getUpgradeCost('bankerWorker', bankerWorkers);
@@ -59,6 +59,7 @@ export function Town() {
     // Calculate wages for each worker type
     const shovelTotalWage = getTotalWageForType('shovel', shovels);
     const panTotalWage = getTotalWageForType('pan', pans);
+    const haulerWorkerTotalWage = getTotalWageForType('haulerWorker', haulers);
     const sluiceWorkerTotalWage = getTotalWageForType('sluiceWorker', sluiceWorkers);
     const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
@@ -77,12 +78,13 @@ export function Town() {
     const shovelNextWage = getWorkerWage('shovel', shovels + 1);
     const panNextWage = getWorkerWage('pan', pans + 1);
     const sluiceWorkerNextWage = getWorkerWage('sluiceWorker', sluiceWorkers + 1);
+    const haulerWorkerNextWage = getWorkerWage('haulerWorker', haulers + 1);
     const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
     const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
     const detectorWorkerNextWage = getWorkerWage('detectorWorker', detectorWorkers + 1);
 
     // Estimate current auto-sell income to detect payroll overruns
-    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
+    const totalPayroll = shovelTotalWage + panTotalWage + haulerWorkerTotalWage + sluiceWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
     const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee);
 
@@ -288,20 +290,6 @@ export function Town() {
                                             onBuy={() => buyUpgrade('panSpeedUpgrade')}
                                             icon="⚡"
                                         />
-                                        {unlockedPanning && (
-                                            <UpgradeButton
-                                                name="Auto-Empty Bucket"
-                                                description={hasAutoEmpty
-                                                    ? 'Bucket empties to pan automatically when full'
-                                                    : 'Automatically empties bucket to pan when full — no more clicking!'}
-                                                cost={EQUIPMENT.autoEmpty.cost}
-                                                locked={hasAutoEmpty}
-                                                canAfford={!hasAutoEmpty && money >= EQUIPMENT.autoEmpty.cost}
-                                                playerMoney={money}
-                                                onBuy={() => buyUpgrade('autoEmpty')}
-                                                icon={hasAutoEmpty ? '✅' : '🪣'}
-                                            />
-                                        )}
                                     </div>
                                 </div>
 
@@ -453,6 +441,22 @@ export function Town() {
                             playerMoney={money}
                             nextHireWage={panNextWage}
                             nextHireWouldExceedIncome={(totalPayroll + panNextWage) > autoSellIncome}
+                        />
+
+                        <WorkerRow
+                            name="Hauler"
+                            description="Empties the bucket into the sluice (or pan) automatically when full"
+                            count={haulers}
+                            hireCost={haulerWorkerCost}
+                            wage={haulerWorkerTotalWage}
+                            canHire={money >= haulerWorkerCost}
+                            canFire={haulers > 0}
+                            onHire={() => buyUpgrade('haulerWorker')}
+                            onFire={() => fireWorker('haulerWorker')}
+                            icon="🪣"
+                            playerMoney={money}
+                            nextHireWage={haulerWorkerNextWage}
+                            nextHireWouldExceedIncome={(totalPayroll + haulerWorkerNextWage) > autoSellIncome}
                         />
 
                         {hasSluiceBox ? (

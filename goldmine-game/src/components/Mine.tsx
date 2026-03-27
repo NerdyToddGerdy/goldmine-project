@@ -63,7 +63,8 @@ export function Mine() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
     // Payroll widget calculations (per minute)
-    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
+    const haulers = useGameStore((s) => s.haulers);
+    const payrollPerMin = getTotalPayroll({ shovels, pans, haulers, sluiceWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
     const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee) * 60;
 
