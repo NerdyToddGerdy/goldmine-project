@@ -7,6 +7,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.8',
+        date: '2026-03-26',
+        title: 'Metal Detector — Rich Dirt & High-Yield Spots',
+        changes: [
+            'New equipment: Metal Detector ($350) — unlocks 🔍 Detect High-Gold Patch button in the Mine',
+            'Detecting a patch queues a high-yield spot (cap 5, upgradeable); next scoop consumes 1 spot and fills the bucket with rich dirt',
+            'Rich dirt converts in the sluice at 85% vs 65% for normal dirt — up to 30% more paydirt per scoop',
+            'New upgrade: Motherlode Sensor ($500) — 20% chance each Detect yields 3× spots',
+            'New worker: Detector Operator — auto-detects 0.5 spots/sec each (Labor Office, requires Metal Detector)',
+            'New legacy upgrades: Keen Eye (+1 spot per Detect action) and Spot Cache (+2 spot cap) — spend Legacy Dust after prestige',
+        ],
+    },
+    {
         version: 'v1.7.1',
         date: '2026-03-26',
         title: 'Patch — Bucket → Pan Capacity Rule',

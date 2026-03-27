@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks, DETECTOR_SPOTS_PER_SEC } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
@@ -36,6 +36,9 @@ export function Town() {
     const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
     const hasAutoEmpty = useGameStore((s) => s.hasAutoEmpty);
     const unlockedPanning = useGameStore((s) => s.unlockedPanning);
+    const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
+    const hasMotherlode = useGameStore((s) => s.hasMotherlode);
+    const detectorWorkers = useGameStore((s) => s.detectorWorkers);
     const goldPrice = useGameStore((s) => s.goldPrice);
     const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
     const fireWorker = (workerType: string) => gameStore.getState().fireWorker(workerType);
@@ -56,6 +59,7 @@ export function Town() {
     const ovenWorkerCost = getUpgradeCost('ovenWorker', ovenWorkers);
     const furnaceWorkerCost = getUpgradeCost('furnaceWorker', furnaceWorkers);
     const bankerWorkerCost = getUpgradeCost('bankerWorker', bankerWorkers);
+    const detectorWorkerCost = getUpgradeCost('detectorWorker', detectorWorkers);
 
     // Calculate wages for each worker type
     const shovelTotalWage = getTotalWageForType('shovel', shovels);
@@ -64,6 +68,7 @@ export function Town() {
     const ovenWorkerTotalWage = getTotalWageForType('ovenWorker', ovenWorkers);
     const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
+    const detectorWorkerTotalWage = getTotalWageForType('detectorWorker', detectorWorkers);
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
@@ -81,9 +86,10 @@ export function Town() {
     const ovenWorkerNextWage = getWorkerWage('ovenWorker', ovenWorkers + 1);
     const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
     const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
+    const detectorWorkerNextWage = getWorkerWage('detectorWorker', detectorWorkers + 1);
 
     // Estimate current auto-sell income to detect payroll overruns
-    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage;
+    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
     const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
     let autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     if (!hasFurnace && furnaceWorkers > 0) autoSellFee = Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015);
@@ -389,6 +395,30 @@ export function Town() {
                                     onBuy={() => buyUpgrade('furnace')}
                                     icon={hasFurnace ? '✅' : '⚗️'}
                                 />
+
+                                <UpgradeButton
+                                    name="Metal Detector"
+                                    description={`Unlocks 🔍 Detect action in the Mine — high-gold patches make next scoop produce rich dirt (85% vs 65% conversion). 🔗 Unlocks Detector Operators.`}
+                                    cost={EQUIPMENT.metalDetector.cost}
+                                    locked={hasMetalDetector}
+                                    canAfford={money >= EQUIPMENT.metalDetector.cost && !hasMetalDetector}
+                                    playerMoney={money}
+                                    onBuy={() => buyUpgrade('metalDetector')}
+                                    icon={hasMetalDetector ? '✅' : '🔍'}
+                                />
+
+                                {hasMetalDetector && (
+                                    <UpgradeButton
+                                        name="Motherlode Sensor"
+                                        description="20% chance each detected patch has 3× rich dirt capacity (motherlode!)"
+                                        cost={EQUIPMENT.motherlode.cost}
+                                        locked={hasMotherlode}
+                                        canAfford={money >= EQUIPMENT.motherlode.cost && !hasMotherlode}
+                                        playerMoney={money}
+                                        onBuy={() => buyUpgrade('motherlode')}
+                                        icon={hasMotherlode ? '✅' : '🌋'}
+                                    />
+                                )}
                             </>
                             )}
 
@@ -515,6 +545,26 @@ export function Town() {
                             />
                         ) : (
                             <LockedWorkerRow name="Furnace Operator" icon="⚗️" requiresName="Furnace" requiresCost={EQUIPMENT.furnace.cost} />
+                        )}
+
+                        {hasMetalDetector ? (
+                            <WorkerRow
+                                name="Detector Operator"
+                                description={`Auto-detects ${DETECTOR_SPOTS_PER_SEC} high-gold spot/sec per worker`}
+                                count={detectorWorkers}
+                                hireCost={detectorWorkerCost}
+                                wage={detectorWorkerTotalWage}
+                                canHire={money >= detectorWorkerCost}
+                                canFire={detectorWorkers > 0}
+                                onHire={() => buyUpgrade('detectorWorker')}
+                                onFire={() => fireWorker('detectorWorker')}
+                                icon="🔍"
+                                playerMoney={money}
+                                nextHireWage={detectorWorkerNextWage}
+                                nextHireWouldExceedIncome={(totalPayroll + detectorWorkerNextWage) > autoSellIncome}
+                            />
+                        ) : (
+                            <LockedWorkerRow name="Detector Operator" icon="🔍" requiresName="Metal Detector" requiresCost={EQUIPMENT.metalDetector.cost} />
                         )}
 
                         <WorkerRow

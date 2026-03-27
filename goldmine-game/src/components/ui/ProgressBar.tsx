@@ -1,4 +1,4 @@
-type ProgressBarColor = 'amber' | 'yellow' | 'green' | 'blue' | 'red' | 'cyan';
+type ProgressBarColor = 'amber' | 'yellow' | 'green' | 'blue' | 'red' | 'cyan' | 'violet';
 
 const COLOR = {
     amber: {
@@ -48,6 +48,14 @@ const COLOR = {
         fillFull: 'from-cyan-500 to-cyan-600',
         glow: 'ring-2 ring-cyan-400',
         text: 'text-cyan-700',
+    },
+    violet: {
+        track: 'bg-violet-100 border-violet-300',
+        fill: 'from-violet-500 to-violet-600',
+        fillMid: 'from-violet-500 to-purple-500',
+        fillFull: 'from-purple-500 to-fuchsia-500',
+        glow: 'ring-2 ring-violet-400',
+        text: 'text-violet-700',
     },
 };
 

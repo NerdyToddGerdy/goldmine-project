@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 22 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 24 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -359,12 +359,34 @@ export type SaveV21 = Omit<SaveV20, 'version'> & {
 
 export type SaveV22 = Omit<SaveV21, 'version' | 'separatorWorkers' | 'hasMagneticSeparator' | 'separatorGear'> & { version: 22; };
 
-export type LatestSave = SaveV22;
+export type SaveV23 = Omit<SaveV22, 'version'> & {
+    version: 23;
+    highYieldSpots: number;
+    richDirtInBucket: number;
+    richDirtInSluice: number;
+    hasMetalDetector: boolean;
+    detectorWorkers: number;
+    hasMotherlode: boolean;
+    dustDetectRate: number;
+    dustSpotCap: number;
+};
+
+// v24: replaced highYieldSpots with progress-bar detection model (detectProgress/Target, patchActive/Remaining/Capacity)
+export type SaveV24 = Omit<SaveV23, 'version' | 'highYieldSpots'> & {
+    version: 24;
+    detectProgress: number;   // current click progress toward finding a patch
+    detectTarget: number;     // randomized target (0 = no search started yet)
+    patchActive: boolean;     // true when a patch has been discovered and is ready to scoop
+    patchRemaining: number;   // rich dirt units left in the active patch
+    patchCapacity: number;    // total capacity when patch was discovered (for display)
+};
+
+export type LatestSave = SaveV24;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV22();
+        return defaultSaveV24();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1130,10 +1152,21 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...rest, version: 22 }, 22);
     }
 
-    // Already v22, ensure fields exist
-    const s = raw as Partial<SaveV22>;
+    if (fromVersion < 23) {
+        const s = raw as SaveV22;
+        return migrateToLatest({ ...s, version: 23, highYieldSpots: 0, richDirtInBucket: 0, richDirtInSluice: 0, hasMetalDetector: false, detectorWorkers: 0, hasMotherlode: false, dustDetectRate: 0, dustSpotCap: 0 }, 23);
+    }
+
+    if (fromVersion < 24) {
+        const s = raw as SaveV23;
+        const { highYieldSpots: _hy, ...rest } = s;
+        return migrateToLatest({ ...rest, version: 24, detectProgress: 0, detectTarget: 0, patchActive: false, patchRemaining: 0, patchCapacity: 0 }, 24);
+    }
+
+    // Already v24, ensure fields exist
+    const s = raw as Partial<SaveV24>;
     return {
-        version: 22,
+        version: 24,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1192,6 +1225,18 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         peakRunMoney: s.peakRunMoney ?? 0,
         sluiceBoxFilled: s.sluiceBoxFilled ?? 0,
         minersMossFilled: s.minersMossFilled ?? 0,
+        richDirtInBucket: s.richDirtInBucket ?? 0,
+        richDirtInSluice: s.richDirtInSluice ?? 0,
+        hasMetalDetector: s.hasMetalDetector ?? false,
+        detectorWorkers: s.detectorWorkers ?? 0,
+        hasMotherlode: s.hasMotherlode ?? false,
+        dustDetectRate: s.dustDetectRate ?? 0,
+        dustSpotCap: s.dustSpotCap ?? 0,
+        detectProgress: s.detectProgress ?? 0,
+        detectTarget: s.detectTarget ?? 0,
+        patchActive: s.patchActive ?? false,
+        patchRemaining: s.patchRemaining ?? 0,
+        patchCapacity: s.patchCapacity ?? 0,
     };
 }
 
@@ -1584,4 +1629,13 @@ export function defaultSaveV21(): SaveV21 {
 export function defaultSaveV22(): SaveV22 {
     const { version: _v, separatorWorkers: _sw, hasMagneticSeparator: _hms, separatorGear: _sg, ...rest } = defaultSaveV21();
     return { ...rest, version: 22 };
+}
+
+export function defaultSaveV23(): SaveV23 {
+    return { ...defaultSaveV22(), version: 23, highYieldSpots: 0, richDirtInBucket: 0, richDirtInSluice: 0, hasMetalDetector: false, detectorWorkers: 0, hasMotherlode: false, dustDetectRate: 0, dustSpotCap: 0 };
+}
+
+export function defaultSaveV24(): SaveV24 {
+    const { highYieldSpots: _hy, version: _v, ...rest } = defaultSaveV23();
+    return { ...rest, version: 24, detectProgress: 0, detectTarget: 0, patchActive: false, patchRemaining: 0, patchCapacity: 0 };
 }

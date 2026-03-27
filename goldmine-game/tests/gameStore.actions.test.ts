@@ -14,6 +14,11 @@ import {
     MAX_GEAR_UPGRADE_LEVEL,
     BUCKET_UPGRADE_COSTS,
     WITHDRAWAL_PENALTY,
+    DETECT_PROGRESS_PER_CLICK,
+    DETECT_TARGET_MIN,
+    DETECT_TARGET_MAX,
+    PATCH_CAPACITY_MIN,
+    PATCH_CAPACITY_MAX,
 } from '../src/store/gameStore';
 
 // Stub browser globals so actions that call window/document don't throw
@@ -463,7 +468,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(22);
+        expect(parsed.version).toBe(24);
     });
 
     it('exportSave round-trips through importSave', () => {
@@ -523,5 +528,94 @@ describe('emptyBucket — direct pan path (no sluice)', () => {
         gameStore.setState({ bucketFilled: 0, panFilled: 5, hasSluiceBox: false });
         gameStore.getState().emptyBucket();
         expect(gameStore.getState().panFilled).toBe(5);
+    });
+
+    it('transfers richDirtInBucket to richDirtInSluice when emptying to sluice', () => {
+        gameStore.setState({ bucketFilled: 5, richDirtInBucket: 3, hasSluiceBox: true, sluiceBoxFilled: 0, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().sluiceBoxFilled).toBe(5);
+        expect(gameStore.getState().richDirtInSluice).toBe(3);
+        expect(gameStore.getState().richDirtInBucket).toBe(0);
+        expect(gameStore.getState().bucketFilled).toBe(0);
+    });
+
+    it('resets richDirtInBucket to 0 when emptying to pan (no sluice)', () => {
+        gameStore.setState({ bucketFilled: 5, richDirtInBucket: 2, hasSluiceBox: false, panFilled: 0, unlockedPanning: true });
+        gameStore.getState().emptyBucket();
+        expect(gameStore.getState().panFilled).toBe(5);
+        expect(gameStore.getState().richDirtInBucket).toBe(0);
+    });
+});
+
+// ─── detectPatch ──────────────────────────────────────────────────────────────
+
+describe('detectPatch', () => {
+    it('does nothing without a metal detector', () => {
+        gameStore.setState({ hasMetalDetector: false, detectProgress: 0, detectTarget: 0 });
+        gameStore.getState().detectPatch();
+        expect(gameStore.getState().detectProgress).toBe(0);
+        expect(gameStore.getState().patchActive).toBe(false);
+    });
+
+    it('does nothing when a patch is already active', () => {
+        gameStore.setState({ hasMetalDetector: true, patchActive: true, detectProgress: 0, detectTarget: 5 });
+        gameStore.getState().detectPatch();
+        expect(gameStore.getState().detectProgress).toBe(0); // unchanged
+    });
+
+    it('rolls a random detectTarget on first click and advances progress', () => {
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 0, dustDetectRate: 0, hasMotherlode: false });
+        gameStore.getState().detectPatch();
+        const { detectTarget, detectProgress } = gameStore.getState();
+        expect(detectTarget).toBeGreaterThanOrEqual(DETECT_TARGET_MIN);
+        expect(detectTarget).toBeLessThanOrEqual(DETECT_TARGET_MAX);
+        expect(detectProgress).toBeCloseTo(DETECT_PROGRESS_PER_CLICK, 5);
+    });
+
+    it('dustDetectRate increases progress per click', () => {
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 100, dustDetectRate: 2, hasMotherlode: false });
+        gameStore.getState().detectPatch();
+        expect(gameStore.getState().detectProgress).toBeCloseTo(DETECT_PROGRESS_PER_CLICK + 2, 5);
+    });
+
+    it('discovers a patch when progress reaches target', () => {
+        // Set target to 1 so a single click completes the search
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 1, dustDetectRate: 0, dustSpotCap: 0, hasMotherlode: false });
+        gameStore.getState().detectPatch();
+        const { patchActive, patchRemaining, patchCapacity, detectProgress, detectTarget } = gameStore.getState();
+        expect(patchActive).toBe(true);
+        expect(patchRemaining).toBeGreaterThanOrEqual(PATCH_CAPACITY_MIN);
+        expect(patchRemaining).toBeLessThanOrEqual(PATCH_CAPACITY_MAX);
+        expect(patchCapacity).toBe(patchRemaining);
+        expect(detectProgress).toBe(0);
+        expect(detectTarget).toBe(0);
+    });
+});
+
+// ─── scoopDirt with active patch ─────────────────────────────────────────────
+
+describe('scoopDirt with active patch', () => {
+    it('scoops rich dirt and decrements patchRemaining when patch is active', () => {
+        gameStore.setState({ patchActive: true, patchRemaining: 10, patchCapacity: 10, bucketFilled: 0, richDirtInBucket: 0, scoopPower: 1, dustScoopBoost: 0 });
+        gameStore.getState().scoopDirt();
+        const { patchRemaining, patchActive, richDirtInBucket, bucketFilled } = gameStore.getState();
+        expect(bucketFilled).toBeCloseTo(1, 5);
+        expect(richDirtInBucket).toBeCloseTo(1, 5);
+        expect(patchRemaining).toBeCloseTo(9, 5);
+        expect(patchActive).toBe(true);
+    });
+
+    it('deactivates patch when patchRemaining reaches 0', () => {
+        gameStore.setState({ patchActive: true, patchRemaining: 0.5, patchCapacity: 10, bucketFilled: 0, richDirtInBucket: 0, scoopPower: 1, dustScoopBoost: 0 });
+        gameStore.getState().scoopDirt();
+        expect(gameStore.getState().patchActive).toBe(false);
+        expect(gameStore.getState().patchRemaining).toBe(0);
+    });
+
+    it('scoops normal dirt when patch is not active', () => {
+        gameStore.setState({ patchActive: false, patchRemaining: 0, bucketFilled: 0, richDirtInBucket: 0, scoopPower: 1, dustScoopBoost: 0 });
+        gameStore.getState().scoopDirt();
+        expect(gameStore.getState().richDirtInBucket).toBe(0);
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(1, 5);
     });
 });

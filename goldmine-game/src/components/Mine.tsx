@@ -41,6 +41,14 @@ export function Mine() {
     const goldPrice = useGameStore((s) => s.goldPrice);
     const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
     const isPaused = useGameStore((s) => s.isPaused);
+    const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
+    const richDirtInBucket = useGameStore((s) => s.richDirtInBucket);
+    const detectorWorkers = useGameStore((s) => s.detectorWorkers);
+    const detectProgress = useGameStore((s) => s.detectProgress);
+    const detectTarget = useGameStore((s) => s.detectTarget);
+    const patchActive = useGameStore((s) => s.patchActive);
+    const patchRemaining = useGameStore((s) => s.patchRemaining);
+    const patchCapacity = useGameStore((s) => s.patchCapacity);
 
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
@@ -52,7 +60,7 @@ export function Mine() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
     // Payroll widget calculations (per minute)
-    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, ovenWorkers, furnaceWorkers, bankerWorkers }) * 60;
+    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, ovenWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
     const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
     const autoSellFee = !hasFurnace
         ? (furnaceWorkers > 0 ? Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015) : SMELTING_FEE_PERCENT)
@@ -61,6 +69,7 @@ export function Mine() {
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
+    const detectPatch = () => gameStore.getState().detectPatch();
     const cleanMoss = () => gameStore.getState().cleanMoss();
     const panForGold = () => gameStore.getState().panForGold();
     const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
@@ -135,6 +144,48 @@ export function Mine() {
                 </div>
             )}
 
+            {/* Metal Detector Section */}
+            {hasMetalDetector && (
+                <div className="p-4 bg-white border-2 border-violet-300 rounded-xl space-y-3">
+                    <h3 className="text-sm font-semibold text-violet-900">🔍 Metal Detector</h3>
+
+                    {patchActive ? (
+                        /* Active patch: show remaining rich dirt */
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-violet-800">⛏️ Rich Patch Found!</span>
+                                <span className="text-sm font-semibold text-violet-700">{patchRemaining.toFixed(1)} / {patchCapacity} remaining</span>
+                            </div>
+                            <ProgressBar value={patchCapacity - patchRemaining} max={patchCapacity} color="violet" isActive={true} />
+                            <p className="text-xs text-violet-600 text-center">Scoop to harvest rich dirt — miners prioritize this patch</p>
+                        </div>
+                    ) : (
+                        /* Detection phase: progress bar + detect button */
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-violet-800">Searching…</span>
+                                <span className="text-sm font-semibold text-violet-700">
+                                    {detectTarget === 0 ? '? clicks' : `${detectProgress.toFixed(1)} / ${detectTarget}`}
+                                </span>
+                            </div>
+                            <ProgressBar
+                                value={detectTarget > 0 ? detectProgress : 0}
+                                max={detectTarget > 0 ? detectTarget : 1}
+                                color="violet"
+                                isActive={detectorWorkers > 0 && !isTraveling}
+                            />
+                            <button
+                                onClick={detectPatch}
+                                disabled={isTraveling}
+                                className="w-full px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                🔍 Detect{detectTarget === 0 ? ' — Start Search' : ' (+1)'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Manual Actions */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-amber-800">Actions</h3>
@@ -153,7 +204,11 @@ export function Mine() {
                         <div className="h-5 mt-1 flex items-center justify-center">
                             {isTraveling
                                 ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
-                                : bucketIsFull && <span className="text-xs text-amber-700 font-semibold">Bucket is full! Empty it to continue scooping.</span>
+                                : bucketIsFull
+                                    ? <span className="text-xs text-amber-700 font-semibold">Bucket is full! Empty it to continue scooping.</span>
+                                    : patchActive && richDirtInBucket > 0
+                                        ? <span className="text-xs text-violet-700 font-semibold">✨ {richDirtInBucket.toFixed(1)} rich dirt in bucket</span>
+                                        : null
                             }
                         </div>
                     </div>
@@ -164,7 +219,7 @@ export function Mine() {
                         disabled={bucketIsFull || isTraveling}
                         className="w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        🪨 Scoop Dirt (+{scoopPower.toFixed(1)})
+                        🪨 Scoop Dirt (+{scoopPower.toFixed(1)}){patchActive ? ' ✨ Rich' : ''}
                     </button>
 
                     {/* Empty Bucket Button */}

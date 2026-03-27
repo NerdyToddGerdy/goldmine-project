@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV22, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV24, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -81,6 +81,15 @@ export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
 export const SLUICE_CONVERSION_RATIO = 0.65;  // 10 dirt → 6.5 paydirt (35% mass loss)
 export const PAYDIRT_YIELD_MULTIPLIER = 2.5;  // each paydirt unit yields 2.5× more gold; net: 0.65 × 2.5 = 1.625×
 export const SLUICE_DRAIN_RATE = 3;           // units of dirt drained from sluice box per second (base rate)
+
+export const RICH_CONVERSION_RATIO = 0.85;  // rich dirt: 85% → paydirt (vs 65% normal)
+export const MOTHERLODE_CHANCE = 0.20;      // 20% chance of 3× patch capacity
+export const DETECTOR_SPOTS_PER_SEC = 0.5;  // auto-detect progress per second per worker
+export const DETECT_PROGRESS_PER_CLICK = 1; // base progress added per manual detect click
+export const DETECT_TARGET_MIN = 5;         // min clicks to discover a patch
+export const DETECT_TARGET_MAX = 15;        // max clicks to discover a patch
+export const PATCH_CAPACITY_MIN = 5;        // min rich dirt units per discovered patch
+export const PATCH_CAPACITY_MAX = 15;       // max rich dirt units per discovered patch
 
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
@@ -166,6 +175,8 @@ export type GameState = {
     dustBucketSize: number  // 0-3: +5 bucket capacity per level
     dustPanSpeed: number    // 0-3: +20% pan processing rate per level
     dustPanCapacity: number // 0-3: +10 pan capacity per level
+    dustDetectRate: number  // 0-3: +1 spot per detect per level
+    dustSpotCap: number     // 0-3: +2 spot cap per level
 
     // Money-purchasable gear upgrades (persisted, reset on prestige)
     bucketUpgrades: number   // 0-3: +5 bucket capacity per level
@@ -190,6 +201,18 @@ export type GameState = {
 
     // Auto-empty upgrade (persisted)
     hasAutoEmpty: boolean        // purchased auto-empty bucket upgrade
+
+    // Metal detector
+    richDirtInBucket: number     // portion of bucket fill that came from high-yield patch
+    richDirtInSluice: number     // portion of sluice contents that is rich dirt
+    hasMetalDetector: boolean
+    detectorWorkers: number
+    hasMotherlode: boolean
+    detectProgress: number       // current click progress toward finding a patch (0..detectTarget)
+    detectTarget: number         // randomized target clicks for current search (0 = no search started)
+    patchActive: boolean         // true when a patch is discovered and has remaining rich dirt
+    patchRemaining: number       // rich dirt units left in the active patch
+    patchCapacity: number        // total capacity when patch was discovered (for progress display)
 
     // Changelog tracking (persisted)
     lastSeenChangelogVersion: string  // last changelog version player acknowledged
@@ -232,6 +255,7 @@ export type GameState = {
     scoopDirt: () => void // manual action - fills bucket
     emptyBucket: () => void // empties bucket into pan (no sluice) or adds to sluice box if bucket fits in remaining space
     cleanMoss: () => void // transfers miner's moss paydirt into the pan (capped at pan capacity)
+    detectPatch: () => void // manual action - advances detection progress toward a high-yield patch
     sluiceDirt: () => void // manual action (costs dirt, produces paydirt) - DEPRECATED, use emptyBucket
     panForGold: () => void // manual action (costs paydirt)
     travelTo: (location: 'mine' | 'town') => void // instant location change (internal/dev use)
@@ -265,7 +289,7 @@ export type GameState = {
     prestige: () => void
 
     // Legacy Dust shop
-    buyDustUpgrade: (type: 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity') => boolean
+    buyDustUpgrade: (type: 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity' | 'detectRate' | 'spotCap') => boolean
 }
 
 // Upgrade costs and definitions
@@ -282,6 +306,7 @@ export const UPGRADES = {
     ovenWorker: { baseCost: 150, multiplier: 1.2, valueBonus: 0.2 }, // +20% sell value per worker
     furnaceWorker: { baseCost: 500, multiplier: 1.3, valueBonus: 0.3 }, // +30% sell value per worker
     bankerWorker: { baseCost: 200, multiplier: 1.25, goldPerSec: 2.0 }, // Sells 2 gold/sec automatically
+    detectorWorker: { baseCost: 100, multiplier: 1.2, spotsPerSec: 0.5 },
 };
 
 // Equipment costs (one-time purchases - unlock workers)
@@ -291,6 +316,8 @@ export const EQUIPMENT = {
     furnace: { cost: 2500 }, // Unlocks furnace workers + removes fee
     bankCounter: { cost: 400 }, // Unlocks banker workers
     autoEmpty: { cost: 75 }, // Auto-empties bucket to pan when full
+    metalDetector: { cost: 350 }, // Unlocks detect action + detector workers
+    motherlode: { cost: 500 }, // 20% chance of 3× spots per detect
 };
 
 // Vehicle tiers for travel mechanic
@@ -324,12 +351,13 @@ export const PAN_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 
 // Wage system - base wages per second
 export const WORKER_WAGES = {
-    shovel: 0.10,        // Miners
-    pan: 0.15,           // Prospectors
-    sluiceWorker: 0.20,  // Sluice Operators
-    ovenWorker: 0.25,    // Oven Operators
-    furnaceWorker: 0.40, // Furnace Operators
-    bankerWorker: 0.35,  // Bankers
+    shovel: 0.10,           // Miners
+    pan: 0.15,              // Prospectors
+    sluiceWorker: 0.20,     // Sluice Operators
+    ovenWorker: 0.25,       // Oven Operators
+    furnaceWorker: 0.40,    // Furnace Operators
+    bankerWorker: 0.35,     // Bankers
+    detectorWorker: 0.18,   // Detector Operators
 };
 
 export const WAGE_SCALING_MULTIPLIER = 1.15; // 15% increase per additional worker of same type
@@ -358,6 +386,7 @@ export function getTotalPayroll(state: {
     ovenWorkers: number;
     furnaceWorkers: number;
     bankerWorkers: number;
+    detectorWorkers: number;
 }): number {
     return (
         getTotalWageForType('shovel', state.shovels) +
@@ -365,7 +394,8 @@ export function getTotalPayroll(state: {
         getTotalWageForType('sluiceWorker', state.sluiceWorkers) +
         getTotalWageForType('ovenWorker', state.ovenWorkers) +
         getTotalWageForType('furnaceWorker', state.furnaceWorkers) +
-        getTotalWageForType('bankerWorker', state.bankerWorkers)
+        getTotalWageForType('bankerWorker', state.bankerWorkers) +
+        getTotalWageForType('detectorWorker', state.detectorWorkers)
     );
 }
 
@@ -468,8 +498,24 @@ export const gameStore = createStore<GameState>()(
             // Auto-empty upgrade
             hasAutoEmpty: false,
 
+            // Metal detector
+            richDirtInBucket: 0,
+            richDirtInSluice: 0,
+            hasMetalDetector: false,
+            detectorWorkers: 0,
+            hasMotherlode: false,
+            detectProgress: 0,
+            detectTarget: 0,
+            patchActive: false,
+            patchRemaining: 0,
+            patchCapacity: 0,
+
+            // Legacy Dust upgrades (detector)
+            dustDetectRate: 0,
+            dustSpotCap: 0,
+
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV22().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV24().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -543,6 +589,16 @@ export const gameStore = createStore<GameState>()(
                     lastGoldPriceUpdate: 0,
                     goldPriceHistory: [1.0],
                     hasAutoEmpty: false,
+                    richDirtInBucket: 0,
+                    richDirtInSluice: 0,
+                    hasMetalDetector: false,
+                    detectorWorkers: 0,
+                    hasMotherlode: false,
+                    detectProgress: 0,
+                    detectTarget: 0,
+                    patchActive: false,
+                    patchRemaining: 0,
+                    patchCapacity: 0,
                     _accumulator: 0,
                     devMode: false,
                     devLogs: [],
@@ -617,7 +673,19 @@ export const gameStore = createStore<GameState>()(
                     timePlayed: 0,
                     darkMode: false,
                     hasAutoEmpty: false,
-                    lastSeenChangelogVersion: defaultSaveV22().lastSeenChangelogVersion,
+                    richDirtInBucket: 0,
+                    richDirtInSluice: 0,
+                    hasMetalDetector: false,
+                    detectorWorkers: 0,
+                    hasMotherlode: false,
+                    detectProgress: 0,
+                    detectTarget: 0,
+                    patchActive: false,
+                    patchRemaining: 0,
+                    patchCapacity: 0,
+                    dustDetectRate: 0,
+                    dustSpotCap: 0,
+                    lastSeenChangelogVersion: defaultSaveV24().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
@@ -691,6 +759,18 @@ export const gameStore = createStore<GameState>()(
                     totalGoldExtracted: s.totalGoldExtracted,
                     totalMoneyEarned: s.totalMoneyEarned,
                     peakRunMoney: s.peakRunMoney,
+                    richDirtInBucket: s.richDirtInBucket,
+                    richDirtInSluice: s.richDirtInSluice,
+                    hasMetalDetector: s.hasMetalDetector,
+                    detectorWorkers: s.detectorWorkers,
+                    hasMotherlode: s.hasMotherlode,
+                    dustDetectRate: s.dustDetectRate,
+                    dustSpotCap: s.dustSpotCap,
+                    detectProgress: s.detectProgress,
+                    detectTarget: s.detectTarget,
+                    patchActive: s.patchActive,
+                    patchRemaining: s.patchRemaining,
+                    patchCapacity: s.patchCapacity,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -768,6 +848,18 @@ export const gameStore = createStore<GameState>()(
                     totalGoldExtracted: migrated.totalGoldExtracted,
                     totalMoneyEarned: migrated.totalMoneyEarned,
                     peakRunMoney: migrated.peakRunMoney,
+                    richDirtInBucket: migrated.richDirtInBucket,
+                    richDirtInSluice: migrated.richDirtInSluice,
+                    hasMetalDetector: migrated.hasMetalDetector,
+                    detectorWorkers: migrated.detectorWorkers,
+                    hasMotherlode: migrated.hasMotherlode,
+                    dustDetectRate: migrated.dustDetectRate,
+                    dustSpotCap: migrated.dustSpotCap,
+                    detectProgress: migrated.detectProgress,
+                    detectTarget: migrated.detectTarget,
+                    patchActive: migrated.patchActive,
+                    patchRemaining: migrated.patchRemaining,
+                    patchCapacity: migrated.patchCapacity,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -805,6 +897,20 @@ export const gameStore = createStore<GameState>()(
                     // Unlock panning after bucket gets to 2 or more for the first time
                     const newUnlocks = newFilled >= 2 && !s.unlockedPanning;
 
+                    if (s.patchActive && s.patchRemaining > 0) {
+                        // Scoop rich dirt from the active patch first
+                        const richGained = Math.min(gained, s.patchRemaining);
+                        const newPatchRemaining = s.patchRemaining - richGained;
+                        const newRichDirtInBucket = Math.min(newFilled, s.richDirtInBucket + richGained);
+                        return {
+                            bucketFilled: newFilled,
+                            richDirtInBucket: newRichDirtInBucket,
+                            patchRemaining: newPatchRemaining,
+                            patchActive: newPatchRemaining > 0,
+                            unlockedPanning: s.unlockedPanning || newUnlocks,
+                        };
+                    }
+
                     return {
                         bucketFilled: newFilled,
                         unlockedPanning: s.unlockedPanning || newUnlocks,
@@ -820,7 +926,7 @@ export const gameStore = createStore<GameState>()(
                         // Sluice path: bucket adds to sluice as long as it fits
                         const sluiceCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
                         if (s.sluiceBoxFilled + s.bucketFilled > sluiceCap) return s;
-                        return { sluiceBoxFilled: s.sluiceBoxFilled + s.bucketFilled, bucketFilled: 0 };
+                        return { sluiceBoxFilled: s.sluiceBoxFilled + s.bucketFilled, bucketFilled: 0, richDirtInSluice: s.richDirtInSluice + s.richDirtInBucket, richDirtInBucket: 0 };
                     }
 
                     // Direct pan path (no sluice box): entire bucket must fit
@@ -829,6 +935,7 @@ export const gameStore = createStore<GameState>()(
                     return {
                         panFilled: s.panFilled + s.bucketFilled,
                         bucketFilled: 0,
+                        richDirtInBucket: 0,
                     };
                 });
             },
@@ -844,6 +951,30 @@ export const gameStore = createStore<GameState>()(
                         minersMossFilled: s.minersMossFilled - transferred,
                         panFilled: s.panFilled + transferred,
                     };
+                });
+            },
+
+            detectPatch: () => {
+                set((s) => {
+                    if (!s.hasMetalDetector) return s;
+                    if (s.patchActive) return s; // already have an active patch
+
+                    // Roll a random target on the first click of a new search
+                    const target = s.detectTarget === 0
+                        ? Math.floor(Math.random() * (DETECT_TARGET_MAX - DETECT_TARGET_MIN + 1)) + DETECT_TARGET_MIN
+                        : s.detectTarget;
+
+                    const progress = s.detectProgress + DETECT_PROGRESS_PER_CLICK + s.dustDetectRate;
+
+                    if (progress >= target) {
+                        // Patch discovered!
+                        const baseCapacity = Math.floor(Math.random() * (PATCH_CAPACITY_MAX - PATCH_CAPACITY_MIN + 1)) + PATCH_CAPACITY_MIN + 5 * s.dustSpotCap;
+                        const isMotherlode = s.hasMotherlode && Math.random() < MOTHERLODE_CHANCE;
+                        const capacity = isMotherlode ? baseCapacity * 3 : baseCapacity;
+                        return { detectProgress: 0, detectTarget: 0, patchActive: true, patchRemaining: capacity, patchCapacity: capacity };
+                    }
+
+                    return { detectProgress: progress, detectTarget: target };
                 });
             },
 
@@ -1090,6 +1221,26 @@ export const gameStore = createStore<GameState>()(
                     if (s.money < cost) return false;
                     set({ money: s.money - cost, hasAutoEmpty: true });
                     return true;
+                } else if (upgrade === 'metalDetector') {
+                    const cost = EQUIPMENT.metalDetector.cost;
+                    if (s.money >= cost && !s.hasMetalDetector) {
+                        set({ money: s.money - cost, hasMetalDetector: true });
+                        get().addToast('🔍 Metal Detector purchased!', 'success');
+                        return true;
+                    }
+                } else if (upgrade === 'motherlode') {
+                    const cost = EQUIPMENT.motherlode.cost;
+                    if (s.money >= cost && s.hasMetalDetector && !s.hasMotherlode) {
+                        set({ money: s.money - cost, hasMotherlode: true });
+                        get().addToast('💎 Motherlode Upgrade installed!', 'success');
+                        return true;
+                    }
+                } else if (upgrade === 'detectorWorker') {
+                    const cost = getUpgradeCost('detectorWorker', s.detectorWorkers);
+                    if (s.money >= cost && s.hasMetalDetector) {
+                        set({ money: s.money - cost, detectorWorkers: s.detectorWorkers + 1 });
+                        return true;
+                    }
                 }
 
                 return false;
@@ -1126,6 +1277,11 @@ export const gameStore = createStore<GameState>()(
                 } else if (workerType === 'bankerWorker') {
                     if (s.bankerWorkers > 0) {
                         set({ bankerWorkers: s.bankerWorkers - 1 });
+                        return true;
+                    }
+                } else if (workerType === 'detectorWorker') {
+                    if (s.detectorWorkers > 0) {
+                        set({ detectorWorkers: s.detectorWorkers - 1 });
                         return true;
                     }
                 }
@@ -1249,6 +1405,8 @@ export const gameStore = createStore<GameState>()(
                     dustBucketSize: s.dustBucketSize,
                     dustPanSpeed: s.dustPanSpeed,
                     dustPanCapacity: s.dustPanCapacity,
+                    dustDetectRate: s.dustDetectRate,
+                    dustSpotCap: s.dustSpotCap,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                     timeScale: s.timeScale,
@@ -1300,6 +1458,16 @@ export const gameStore = createStore<GameState>()(
                     goldInPocket: 0,
                     sluiceBoxFilled: 0,
                     minersMossFilled: 0,
+                    richDirtInBucket: 0,
+                    richDirtInSluice: 0,
+                    hasMetalDetector: false,
+                    detectorWorkers: 0,
+                    hasMotherlode: false,
+                    detectProgress: 0,
+                    detectTarget: 0,
+                    patchActive: false,
+                    patchRemaining: 0,
+                    patchCapacity: 0,
                     lastGoldPriceUpdate: 0,
                     _accumulator: 0,
                     toasts: [],
@@ -1311,26 +1479,23 @@ export const gameStore = createStore<GameState>()(
             buyDustUpgrade: (type) => {
                 const s = get();
                 let current: number;
-                if (type === 'scoopBoost') current = s.dustScoopBoost;
-                else if (type === 'panYield') current = s.dustPanYield;
-                else if (type === 'goldValue') current = s.dustGoldValue;
-                else if (type === 'headStart') current = s.dustHeadStart;
-                else if (type === 'bucketSize') current = s.dustBucketSize;
-                else if (type === 'panSpeed') current = s.dustPanSpeed;
-                else current = s.dustPanCapacity;
+                let fieldName: keyof typeof s;
+                if (type === 'scoopBoost') { current = s.dustScoopBoost; fieldName = 'dustScoopBoost'; }
+                else if (type === 'panYield') { current = s.dustPanYield; fieldName = 'dustPanYield'; }
+                else if (type === 'goldValue') { current = s.dustGoldValue; fieldName = 'dustGoldValue'; }
+                else if (type === 'headStart') { current = s.dustHeadStart; fieldName = 'dustHeadStart'; }
+                else if (type === 'bucketSize') { current = s.dustBucketSize; fieldName = 'dustBucketSize'; }
+                else if (type === 'panSpeed') { current = s.dustPanSpeed; fieldName = 'dustPanSpeed'; }
+                else if (type === 'detectRate') { current = s.dustDetectRate; fieldName = 'dustDetectRate'; }
+                else if (type === 'spotCap') { current = s.dustSpotCap; fieldName = 'dustSpotCap'; }
+                else { current = s.dustPanCapacity; fieldName = 'dustPanCapacity'; }
 
                 if (current >= DUST_UPGRADE_MAX_LEVEL) return false;
                 const cost = DUST_UPGRADE_COSTS[current];
                 if (s.legacyDust < cost) return false;
 
                 const next = current + 1;
-                if (type === 'scoopBoost') set({ legacyDust: s.legacyDust - cost, dustScoopBoost: next });
-                else if (type === 'panYield') set({ legacyDust: s.legacyDust - cost, dustPanYield: next });
-                else if (type === 'goldValue') set({ legacyDust: s.legacyDust - cost, dustGoldValue: next });
-                else if (type === 'headStart') set({ legacyDust: s.legacyDust - cost, dustHeadStart: next });
-                else if (type === 'bucketSize') set({ legacyDust: s.legacyDust - cost, dustBucketSize: next });
-                else if (type === 'panSpeed') set({ legacyDust: s.legacyDust - cost, dustPanSpeed: next });
-                else set({ legacyDust: s.legacyDust - cost, dustPanCapacity: next });
+                set({ legacyDust: s.legacyDust - cost, [fieldName]: next });
 
                 return true;
             },
@@ -1374,17 +1539,22 @@ export const gameStore = createStore<GameState>()(
                     let newPanFilled = s.panFilled;
                     let newSluiceBoxFilled = s.sluiceBoxFilled;
                     let newMinersMossFilled = s.minersMossFilled;
+                    let newRichDirtInSluice = s.richDirtInSluice;
+                    let newRichDirtInBucketForAutoEmpty = s.richDirtInBucket; // tracks auto-empty transfers
 
                     // Sluice box drain: dirt drains over time, concentrated paydirt collects in miner's moss
                     if (s.hasSluiceBox) {
                         const sluiceCap = panCap; // sluice capacity = pan capacity
                         if (newSluiceBoxFilled > 0 && newMinersMossFilled < sluiceCap) {
+                            const richRatio = newSluiceBoxFilled > 0 ? Math.min(1, newRichDirtInSluice / newSluiceBoxFilled) : 0;
+                            const effectiveConversion = richRatio * RICH_CONVERSION_RATIO + (1 - richRatio) * SLUICE_CONVERSION_RATIO;
                             const drainPerTick = SLUICE_DRAIN_RATE / 60;
                             // Don't drain more than moss can absorb (via conversion ratio)
-                            const maxDrain = Math.min(newSluiceBoxFilled, (sluiceCap - newMinersMossFilled) / SLUICE_CONVERSION_RATIO);
+                            const maxDrain = Math.min(newSluiceBoxFilled, (sluiceCap - newMinersMossFilled) / effectiveConversion);
                             const actualDrain = Math.min(drainPerTick, maxDrain);
                             newSluiceBoxFilled = Math.max(0, newSluiceBoxFilled - actualDrain);
-                            newMinersMossFilled = Math.min(newMinersMossFilled + actualDrain * SLUICE_CONVERSION_RATIO, sluiceCap);
+                            newRichDirtInSluice = Math.max(0, newRichDirtInSluice - actualDrain * richRatio);
+                            newMinersMossFilled = Math.min(newMinersMossFilled + actualDrain * effectiveConversion, sluiceCap);
                         }
                     }
 
@@ -1393,12 +1563,15 @@ export const gameStore = createStore<GameState>()(
                         // Sluice path: bucket → sluice when full bucket fits in remaining space
                         if (s.bucketFilled >= bucketCap && newSluiceBoxFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
                             newSluiceBoxFilled += s.bucketFilled;
+                            newRichDirtInSluice += newRichDirtInBucketForAutoEmpty;
+                            newRichDirtInBucketForAutoEmpty = 0;
                             newBucketFilled = 0;
                         }
                     } else {
                         // Direct pan path: entire bucket must fit
                         if (s.bucketFilled >= bucketCap && newPanFilled + s.bucketFilled <= panCap && (s.hasAutoEmpty || dirtPerTick > 0)) {
                             newPanFilled += s.bucketFilled;
+                            newRichDirtInBucketForAutoEmpty = 0;
                             newBucketFilled = 0;
                         }
                     }
@@ -1411,9 +1584,45 @@ export const gameStore = createStore<GameState>()(
                         newPanFilled += transferred;
                     }
 
-                    // Miners fill bucket
+                    // Detector workers advance detection progress automatically
+                    let newDetectProgress = s.detectProgress;
+                    let newDetectTarget = s.detectTarget;
+                    let newPatchActive = s.patchActive;
+                    let newPatchRemaining = s.patchRemaining;
+                    let newPatchCapacity = s.patchCapacity;
+                    if (s.hasMetalDetector && s.detectorWorkers > 0 && canAffordWorkers && !s.patchActive) {
+                        const progressGain = (DETECTOR_SPOTS_PER_SEC * s.detectorWorkers) / 60;
+                        // Roll a target if not started yet
+                        if (newDetectTarget === 0) {
+                            newDetectTarget = Math.floor(Math.random() * (DETECT_TARGET_MAX - DETECT_TARGET_MIN + 1)) + DETECT_TARGET_MIN;
+                        }
+                        newDetectProgress += progressGain;
+                        if (newDetectProgress >= newDetectTarget) {
+                            const baseCapacity = Math.floor(Math.random() * (PATCH_CAPACITY_MAX - PATCH_CAPACITY_MIN + 1)) + PATCH_CAPACITY_MIN + 5 * s.dustSpotCap;
+                            const isMotherlode = s.hasMotherlode && Math.random() < MOTHERLODE_CHANCE;
+                            const capacity = isMotherlode ? baseCapacity * 3 : baseCapacity;
+                            newPatchActive = true;
+                            newPatchRemaining = capacity;
+                            newPatchCapacity = capacity;
+                            newDetectProgress = 0;
+                            newDetectTarget = 0;
+                        }
+                    }
+
+                    // Miners fill bucket — prioritize active patch (rich dirt) over regular dirt
+                    let newRichDirtInBucket = newRichDirtInBucketForAutoEmpty;
                     if (dirtPerTick > 0 && newBucketFilled < bucketCap) {
-                        newBucketFilled = Math.min(newBucketFilled + dirtPerTick, bucketCap);
+                        const spaceInBucket = bucketCap - newBucketFilled;
+                        const actualGain = Math.min(dirtPerTick, spaceInBucket);
+                        if (newPatchActive && newPatchRemaining > 0) {
+                            const richGain = Math.min(actualGain, newPatchRemaining);
+                            newPatchRemaining -= richGain;
+                            if (newPatchRemaining <= 0) newPatchActive = false;
+                            newRichDirtInBucket = Math.min(newBucketFilled + actualGain, bucketCap) <= bucketCap
+                                ? newRichDirtInBucket + richGain
+                                : newRichDirtInBucket;
+                        }
+                        newBucketFilled = Math.min(newBucketFilled + actualGain, bucketCap);
                     }
 
                     const dirtChange = 0;
@@ -1611,6 +1820,13 @@ export const gameStore = createStore<GameState>()(
                         panFilled: newPanFilled,
                         sluiceBoxFilled: newSluiceBoxFilled,
                         minersMossFilled: newMinersMossFilled,
+                        richDirtInBucket: newRichDirtInBucket,
+                        richDirtInSluice: newRichDirtInSluice,
+                        detectProgress: newDetectProgress,
+                        detectTarget: newDetectTarget,
+                        patchActive: newPatchActive,
+                        patchRemaining: newPatchRemaining,
+                        patchCapacity: newPatchCapacity,
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
                         gold: s.gold + goldGained - goldSold - driverGoldSold - bankerArrivalGoldSold,
@@ -1721,13 +1937,25 @@ export const gameStore = createStore<GameState>()(
             totalGoldExtracted: state.totalGoldExtracted,
             totalMoneyEarned: state.totalMoneyEarned,
             peakRunMoney: state.peakRunMoney,
+            richDirtInBucket: state.richDirtInBucket,
+            richDirtInSluice: state.richDirtInSluice,
+            hasMetalDetector: state.hasMetalDetector,
+            detectorWorkers: state.detectorWorkers,
+            hasMotherlode: state.hasMotherlode,
+            dustDetectRate: state.dustDetectRate,
+            dustSpotCap: state.dustSpotCap,
+            detectProgress: state.detectProgress,
+            detectTarget: state.detectTarget,
+            patchActive: state.patchActive,
+            patchRemaining: state.patchRemaining,
+            patchCapacity: state.patchCapacity,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV22();
+                return defaultSaveV24();
             }
         },
         onRehydrateStorage: ()=> (state) => {

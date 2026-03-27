@@ -1,7 +1,7 @@
-import { useGameStore, gameStore, DUST_UPGRADE_COSTS, DUST_UPGRADE_MAX_LEVEL, DUST_HEAD_START_AMOUNTS } from "../store/gameStore";
+import { useGameStore, gameStore, DUST_UPGRADE_COSTS, DUST_UPGRADE_MAX_LEVEL, DUST_HEAD_START_AMOUNTS, PATCH_CAPACITY_MIN, PATCH_CAPACITY_MAX } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 
-type DustUpgradeKey = 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity';
+type DustUpgradeKey = 'scoopBoost' | 'panYield' | 'goldValue' | 'headStart' | 'bucketSize' | 'panSpeed' | 'panCapacity' | 'detectRate' | 'spotCap';
 
 const DUST_UPGRADES: {
     key: DustUpgradeKey;
@@ -41,6 +41,18 @@ const DUST_UPGRADES: {
                 : `+$${curr}/run (maxed)`;
         },
     },
+    {
+        key: 'detectRate',
+        name: 'Keen Eye',
+        icon: '👁️',
+        description: (lvl) => `+${lvl} detect progress per click${lvl < DUST_UPGRADE_MAX_LEVEL ? ` → +${lvl + 1}` : ' (maxed)'}`,
+    },
+    {
+        key: 'spotCap',
+        name: 'Rich Vein',
+        icon: '💎',
+        description: (lvl) => `Patch capacity: ${PATCH_CAPACITY_MIN + 5 * lvl}–${PATCH_CAPACITY_MAX + 5 * lvl}${lvl < DUST_UPGRADE_MAX_LEVEL ? ` → ${PATCH_CAPACITY_MIN + 5 * (lvl + 1)}–${PATCH_CAPACITY_MAX + 5 * (lvl + 1)}` : ' (maxed)'}`,
+    },
 ];
 
 export function PrestigeShop() {
@@ -49,10 +61,14 @@ export function PrestigeShop() {
     const dustPanYield = useGameStore((s) => s.dustPanYield);
     const dustGoldValue = useGameStore((s) => s.dustGoldValue);
     const dustHeadStart = useGameStore((s) => s.dustHeadStart);
+    const dustDetectRate = useGameStore((s) => s.dustDetectRate);
+    const dustSpotCap = useGameStore((s) => s.dustSpotCap);
     const levelOf = (key: DustUpgradeKey) => {
         if (key === 'scoopBoost') return dustScoopBoost;
         if (key === 'panYield') return dustPanYield;
         if (key === 'goldValue') return dustGoldValue;
+        if (key === 'detectRate') return dustDetectRate;
+        if (key === 'spotCap') return dustSpotCap;
         return dustHeadStart;
     };
 
