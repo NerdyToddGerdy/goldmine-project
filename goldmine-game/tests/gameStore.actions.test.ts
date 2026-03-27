@@ -19,6 +19,7 @@ import {
     DETECT_TARGET_MAX,
     PATCH_CAPACITY_MIN,
     PATCH_CAPACITY_MAX,
+    FURNACE_CAPACITY,
 } from '../src/store/gameStore';
 
 // Stub browser globals so actions that call window/document don't throw
@@ -108,32 +109,127 @@ describe('sellGold', () => {
         expect(gameStore.getState().goldInPocket).toBe(0);
     });
 
-    it('waives smelting fee with hasFurnace', () => {
-        gameStore.setState({ gold: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0 });
+    it('sells goldBars (no fee) with hasFurnace', () => {
+        // With furnace: sell goldBars at full price
+        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0 });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(5.0, 8);
+        expect(gameStore.getState().goldBars).toBeCloseTo(0, 8);
     });
 
-    it('applies dustGoldValue sell multiplier', () => {
+    it('does nothing when goldBars=0 with hasFurnace', () => {
+        gameStore.setState({ goldBars: 0, goldInPocket: 5, hasFurnace: true });
+        gameStore.getState().sellGold();
+        expect(gameStore.getState().money).toBe(0);
+    });
+
+    it('applies dustGoldValue sell multiplier with furnace', () => {
         // dustGoldValue=2 → multiplier = 1 + 0.1*2 = 1.2 → finalValue = 5 * 1.2 = 6.0
-        gameStore.setState({ gold: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 2 });
+        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 2 });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
     });
 
-    it('applies goldPrice multiplier', () => {
-        gameStore.setState({ gold: 4, goldInPocket: 4, goldPrice: 1.5, hasFurnace: true, dustGoldValue: 0 });
+    it('applies goldPrice multiplier with furnace', () => {
+        gameStore.setState({ goldBars: 4, goldInPocket: 4, goldPrice: 1.5, hasFurnace: true, dustGoldValue: 0 });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
     });
 
     it('updates runMoneyEarned, totalMoneyEarned, and peakRunMoney', () => {
-        gameStore.setState({ gold: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0, peakRunMoney: 0 });
+        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0, peakRunMoney: 0 });
         gameStore.getState().sellGold();
         const { runMoneyEarned, totalMoneyEarned, peakRunMoney } = gameStore.getState();
         expect(runMoneyEarned).toBeCloseTo(5, 8);
         expect(totalMoneyEarned).toBeCloseTo(5, 8);
         expect(peakRunMoney).toBeCloseTo(5, 8);
+    });
+});
+
+// ─── loadFurnace ──────────────────────────────────────────────────────────────
+
+describe('loadFurnace', () => {
+    it('does nothing without hasFurnace', () => {
+        gameStore.setState({ gold: 5, hasFurnace: false });
+        gameStore.getState().loadFurnace();
+        expect(gameStore.getState().furnaceFilled).toBe(0);
+        expect(gameStore.getState().gold).toBe(5);
+    });
+
+    it('does nothing when no gold', () => {
+        gameStore.setState({ gold: 0, hasFurnace: true });
+        gameStore.getState().loadFurnace();
+        expect(gameStore.getState().furnaceFilled).toBe(0);
+    });
+
+    it('transfers gold into furnace up to capacity', () => {
+        gameStore.setState({ gold: 5, hasFurnace: true, furnaceFilled: 0 });
+        gameStore.getState().loadFurnace();
+        const s = gameStore.getState();
+        expect(s.furnaceFilled).toBeCloseTo(5, 8);
+        expect(s.gold).toBeCloseTo(0, 8);
+    });
+
+    it('caps at FURNACE_CAPACITY', () => {
+        // gold=20, furnaceFilled=0, FURNACE_CAPACITY=10 → transfer=10
+        gameStore.setState({ gold: 20, hasFurnace: true, furnaceFilled: 0 });
+        gameStore.getState().loadFurnace();
+        const s = gameStore.getState();
+        expect(s.furnaceFilled).toBe(10);
+        expect(s.gold).toBeCloseTo(10, 8);
+    });
+
+    it('does nothing when furnace already full', () => {
+        gameStore.setState({ gold: 5, hasFurnace: true, furnaceFilled: 10 });
+        gameStore.getState().loadFurnace();
+        expect(gameStore.getState().furnaceFilled).toBe(10);
+        expect(gameStore.getState().gold).toBe(5);
+    });
+});
+
+// ─── toggleFurnace ────────────────────────────────────────────────────────────
+
+describe('toggleFurnace', () => {
+    it('does nothing without hasFurnace', () => {
+        gameStore.setState({ hasFurnace: false, furnaceFilled: 5, furnaceRunning: false });
+        gameStore.getState().toggleFurnace();
+        expect(gameStore.getState().furnaceRunning).toBe(false);
+    });
+
+    it('does nothing if furnace is empty', () => {
+        gameStore.setState({ hasFurnace: true, furnaceFilled: 0, furnaceRunning: false });
+        gameStore.getState().toggleFurnace();
+        expect(gameStore.getState().furnaceRunning).toBe(false);
+    });
+
+    it('turns on when furnace has content', () => {
+        gameStore.setState({ hasFurnace: true, furnaceFilled: 5, furnaceRunning: false });
+        gameStore.getState().toggleFurnace();
+        expect(gameStore.getState().furnaceRunning).toBe(true);
+    });
+
+    it('turns off when already running', () => {
+        gameStore.setState({ hasFurnace: true, furnaceFilled: 5, furnaceRunning: true });
+        gameStore.getState().toggleFurnace();
+        expect(gameStore.getState().furnaceRunning).toBe(false);
+    });
+});
+
+// ─── collectBars ──────────────────────────────────────────────────────────────
+
+describe('collectBars', () => {
+    it('does nothing when furnaceBars is 0', () => {
+        gameStore.setState({ furnaceBars: 0, goldBars: 0 });
+        gameStore.getState().collectBars();
+        expect(gameStore.getState().goldBars).toBe(0);
+    });
+
+    it('moves furnaceBars to goldBars and resets furnaceBars', () => {
+        gameStore.setState({ furnaceBars: 3.5, goldBars: 1.0 });
+        gameStore.getState().collectBars();
+        const s = gameStore.getState();
+        expect(s.goldBars).toBeCloseTo(4.5, 8);
+        expect(s.furnaceBars).toBe(0);
     });
 });
 
@@ -468,7 +564,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(24);
+        expect(parsed.version).toBe(25);
     });
 
     it('exportSave round-trips through importSave', () => {

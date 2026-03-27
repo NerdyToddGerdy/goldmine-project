@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV24, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV25, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -214,6 +214,12 @@ export type GameState = {
     patchRemaining: number       // rich dirt units left in the active patch
     patchCapacity: number        // total capacity when patch was discovered (for progress display)
 
+    // Furnace active smelting (persisted)
+    furnaceFilled: number     // oz of gold flakes currently loaded in furnace
+    furnaceRunning: boolean   // switch state — smelting is active
+    furnaceBars: number       // bars produced inside furnace, not yet collected
+    goldBars: number          // bars in player's possession (sellable)
+
     // Changelog tracking (persisted)
     lastSeenChangelogVersion: string  // last changelog version player acknowledged
 
@@ -263,7 +269,10 @@ export type GameState = {
     cancelTravel: () => void // aborts travel, player stays at current location
     buyVehicle: (tier: number) => boolean
     buyDriver: () => boolean
-    sellGold: () => void // convert all gold -> money
+    loadFurnace: () => void  // transfer gold flakes → furnaceFilled (up to FURNACE_CAPACITY)
+    toggleFurnace: () => void // toggle furnaceRunning switch
+    collectBars: () => void  // move furnaceBars → goldBars
+    sellGold: () => void // sell goldBars (with furnace) or gold flakes (without)
     buyUpgrade: (upgrade: string) => boolean // returns success
     fireWorker: (workerType: string) => boolean // fires one worker, returns success
 
@@ -304,7 +313,7 @@ export const UPGRADES = {
     betterFurnace: { baseCost: 500, multiplier: 1.5 }, // increases furnace worker bonus
     sluiceWorker: { baseCost: 75, multiplier: 1.2, extractionBonus: 0.1 }, // +10% extraction per worker
     ovenWorker: { baseCost: 150, multiplier: 1.2, valueBonus: 0.2 }, // +20% sell value per worker
-    furnaceWorker: { baseCost: 500, multiplier: 1.3, valueBonus: 0.3 }, // +30% sell value per worker
+    furnaceWorker: { baseCost: 500, multiplier: 1.3 }, // auto-loads, smelts, and collects gold bars
     bankerWorker: { baseCost: 200, multiplier: 1.25, goldPerSec: 2.0 }, // Sells 2 gold/sec automatically
     detectorWorker: { baseCost: 100, multiplier: 1.2, spotsPerSec: 0.5 },
 };
@@ -335,7 +344,9 @@ export function getTravelDurationTicks(vehicleTier: number): number {
 }
 
 // Constants
-export const SMELTING_FEE_PERCENT = 0.15; // 15% fee when selling gold
+export const SMELTING_FEE_PERCENT = 0.15; // 15% fee when selling gold without furnace
+export const FURNACE_CAPACITY = 10;        // oz of gold flakes the furnace holds
+export const SMELT_RATE_BASE = 1.0;        // oz flakes → bars per second (× furnaceGear)
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
 
 // Legacy Dust upgrade shop
@@ -514,8 +525,14 @@ export const gameStore = createStore<GameState>()(
             dustDetectRate: 0,
             dustSpotCap: 0,
 
+            // Furnace active smelting
+            furnaceFilled: 0,
+            furnaceRunning: false,
+            furnaceBars: 0,
+            goldBars: 0,
+
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV24().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV25().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -599,6 +616,10 @@ export const gameStore = createStore<GameState>()(
                     patchActive: false,
                     patchRemaining: 0,
                     patchCapacity: 0,
+                    furnaceFilled: 0,
+                    furnaceRunning: false,
+                    furnaceBars: 0,
+                    goldBars: 0,
                     _accumulator: 0,
                     devMode: false,
                     devLogs: [],
@@ -685,7 +706,11 @@ export const gameStore = createStore<GameState>()(
                     patchCapacity: 0,
                     dustDetectRate: 0,
                     dustSpotCap: 0,
-                    lastSeenChangelogVersion: defaultSaveV24().lastSeenChangelogVersion,
+                    furnaceFilled: 0,
+                    furnaceRunning: false,
+                    furnaceBars: 0,
+                    goldBars: 0,
+                    lastSeenChangelogVersion: defaultSaveV25().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
@@ -771,6 +796,10 @@ export const gameStore = createStore<GameState>()(
                     patchActive: s.patchActive,
                     patchRemaining: s.patchRemaining,
                     patchCapacity: s.patchCapacity,
+                    furnaceFilled: s.furnaceFilled,
+                    furnaceRunning: s.furnaceRunning,
+                    furnaceBars: s.furnaceBars,
+                    goldBars: s.goldBars,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -860,6 +889,10 @@ export const gameStore = createStore<GameState>()(
                     patchActive: migrated.patchActive,
                     patchRemaining: migrated.patchRemaining,
                     patchCapacity: migrated.patchCapacity,
+                    furnaceFilled: migrated.furnaceFilled,
+                    furnaceRunning: migrated.furnaceRunning,
+                    furnaceBars: migrated.furnaceBars,
+                    goldBars: migrated.goldBars,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -1017,8 +1050,8 @@ export const gameStore = createStore<GameState>()(
                     isTraveling: true,
                     travelDestination: destination,
                     travelProgress: 0,
-                    // Snapshot gold in pocket when departing for Town
-                    goldInPocket: destination === 'town' ? s.gold : 0,
+                    // Snapshot sellable gold in pocket when departing for Town
+                    goldInPocket: destination === 'town' ? (s.hasFurnace ? s.goldBars : s.gold) : 0,
                 });
             },
 
@@ -1050,21 +1083,65 @@ export const gameStore = createStore<GameState>()(
 
             sellGold: () => {
                 const s = get();
-                const sellable = Math.min(s.gold, s.goldInPocket);
-                if (sellable < 0.01) return;
-                const baseValue = sellable * s.goldPrice;
-                const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
-                const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
-                const newRunMoney = s.runMoneyEarned + finalValue;
-                set({
-                    money: s.money + finalValue,
-                    runMoneyEarned: newRunMoney,
-                    gold: s.gold - sellable,
-                    goldInPocket: 0,
-                    totalMoneyEarned: s.totalMoneyEarned + finalValue,
-                    peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
+                if (s.hasFurnace) {
+                    // With furnace: sell goldBars only (no fee — already smelted)
+                    const sellable = Math.min(s.goldBars, s.goldInPocket);
+                    if (sellable < 0.01) return;
+                    const baseValue = sellable * s.goldPrice;
+                    const finalValue = baseValue * (1 + 0.1 * s.dustGoldValue);
+                    const newRunMoney = s.runMoneyEarned + finalValue;
+                    set({
+                        money: s.money + finalValue,
+                        runMoneyEarned: newRunMoney,
+                        goldBars: s.goldBars - sellable,
+                        goldInPocket: 0,
+                        totalMoneyEarned: s.totalMoneyEarned + finalValue,
+                        peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
+                    });
+                    get().addFloatingNumber('money', finalValue);
+                } else {
+                    // Without furnace: sell raw gold flakes with 15% fee
+                    const sellable = Math.min(s.gold, s.goldInPocket);
+                    if (sellable < 0.01) return;
+                    const baseValue = sellable * s.goldPrice;
+                    const fee = baseValue * SMELTING_FEE_PERCENT;
+                    const finalValue = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                    const newRunMoney = s.runMoneyEarned + finalValue;
+                    set({
+                        money: s.money + finalValue,
+                        runMoneyEarned: newRunMoney,
+                        gold: s.gold - sellable,
+                        goldInPocket: 0,
+                        totalMoneyEarned: s.totalMoneyEarned + finalValue,
+                        peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
+                    });
+                    get().addFloatingNumber('money', finalValue);
+                }
+            },
+
+            loadFurnace: () => {
+                set((s) => {
+                    if (!s.hasFurnace) return s;
+                    const space = FURNACE_CAPACITY - s.furnaceFilled;
+                    if (space <= 0 || s.gold <= 0) return s;
+                    const transfer = Math.min(s.gold, space);
+                    return { gold: s.gold - transfer, furnaceFilled: s.furnaceFilled + transfer };
                 });
-                get().addFloatingNumber('money', finalValue);
+            },
+
+            toggleFurnace: () => {
+                set((s) => {
+                    if (!s.hasFurnace) return s;
+                    if (!s.furnaceRunning && s.furnaceFilled <= 0) return s; // can't start empty
+                    return { furnaceRunning: !s.furnaceRunning };
+                });
+            },
+
+            collectBars: () => {
+                set((s) => {
+                    if (s.furnaceBars <= 0) return s;
+                    return { goldBars: s.goldBars + s.furnaceBars, furnaceBars: 0 };
+                });
             },
 
             buyUpgrade: (upgrade: string) => {
@@ -1468,6 +1545,10 @@ export const gameStore = createStore<GameState>()(
                     patchActive: false,
                     patchRemaining: 0,
                     patchCapacity: 0,
+                    furnaceFilled: 0,
+                    furnaceRunning: false,
+                    furnaceBars: 0,
+                    goldBars: 0,
                     lastGoldPriceUpdate: 0,
                     _accumulator: 0,
                     toasts: [],
@@ -1644,30 +1725,33 @@ export const gameStore = createStore<GameState>()(
                         goldGained = panConsumed * extractionRate * paydirtMultiplier * (1 + 0.1 * s.dustPanYield);
                     }
 
-                    // Automation: bankers sell gold
+                    // Automation: bankers sell gold bars (with furnace) or raw gold (without)
                     let goldSold = 0;
+                    let goldBarsSold = 0;
                     let moneyGained = 0;
 
                     if (effectiveBankerWorkers > 0) {
                         const sellRate = (effectiveBankerWorkers * UPGRADES.bankerWorker.goldPerSec) / 60; // gold/tick
-                        const maxSellable = s.gold + goldGained;
-                        goldSold = Math.min(maxSellable, sellRate);
+                        // Calculate value bonus from oven workers only (furnace workers no longer give value bonus)
+                        const valueMultiplier = 1.0 + s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
 
-                        if (goldSold > 0) {
-                            // Calculate value bonuses from oven/furnace workers
-                            let valueMultiplier = 1.0;
-                            valueMultiplier += s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
-                            valueMultiplier += s.furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * s.furnaceGear;
-
-                            // Smelting fee applies without a furnace; furnace workers reduce it
-                            let effectiveFeePercent = !s.hasFurnace ? SMELTING_FEE_PERCENT : 0;
-                            if (!s.hasFurnace && s.furnaceWorkers > 0) {
-                                effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (s.furnaceWorkers * 0.015));
+                        if (s.hasFurnace) {
+                            // With furnace: sell goldBars only (no fee)
+                            const maxSellable = s.goldBars;
+                            goldBarsSold = Math.min(maxSellable, sellRate);
+                            if (goldBarsSold > 0) {
+                                const baseValue = goldBarsSold * valueMultiplier * s.goldPrice;
+                                moneyGained = baseValue * (1 + 0.1 * s.dustGoldValue);
                             }
-
-                            const baseValue = goldSold * valueMultiplier * s.goldPrice;
-                            const fee = baseValue * effectiveFeePercent;
-                            moneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                        } else {
+                            // Without furnace: sell raw gold with fee
+                            const maxSellable = s.gold + goldGained;
+                            goldSold = Math.min(maxSellable, sellRate);
+                            if (goldSold > 0) {
+                                const baseValue = goldSold * valueMultiplier * s.goldPrice;
+                                const fee = baseValue * SMELTING_FEE_PERCENT;
+                                moneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                            }
                         }
                     }
 
@@ -1755,19 +1839,26 @@ export const gameStore = createStore<GameState>()(
                     let driverMoneyGained = 0;
                     let newDriverTripTicks = s.driverTripTicks;
 
+                    let driverBarsSold = 0;
                     if (s.hasDriver) {
                         const tripDuration = getTravelDurationTicks(s.vehicleTier);
-                        const availableGold = s.gold + goldGained - goldSold;
+                        const availableGold = s.hasFurnace ? s.goldBars - goldBarsSold : s.gold + goldGained - goldSold;
                         if (availableGold > 0 || s.driverTripTicks > 0) {
                             newDriverTripTicks = s.driverTripTicks + 1;
-                            // Driver arrives at town — sell all gold
+                            // Driver arrives at town — sell all available
                             if (newDriverTripTicks === tripDuration && availableGold > 0) {
-                                driverGoldSold = availableGold;
-                                const baseValue = driverGoldSold * s.goldPrice;
-                                const fee = !s.hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
-                                driverMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                                if (s.hasFurnace) {
+                                    driverBarsSold = availableGold;
+                                    const baseValue = driverBarsSold * s.goldPrice;
+                                    driverMoneyGained = baseValue * (1 + 0.1 * s.dustGoldValue);
+                                } else {
+                                    driverGoldSold = availableGold;
+                                    const baseValue = driverGoldSold * s.goldPrice;
+                                    const fee = baseValue * SMELTING_FEE_PERCENT;
+                                    driverMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                                }
                                 capturedDriverMoney = driverMoneyGained;
-                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver sold ${driverGoldSold.toFixed(3)}oz → $${driverMoneyGained.toFixed(2)}`);
+                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver sold ${(driverGoldSold + driverBarsSold).toFixed(3)}oz → $${driverMoneyGained.toFixed(2)}`);
                             }
                             // Driver completes round-trip — reset counter
                             if (newDriverTripTicks >= tripDuration * 2) {
@@ -1778,26 +1869,75 @@ export const gameStore = createStore<GameState>()(
 
                     // Banker auto-sell: on arrival at Town with goldInPocket
                     let bankerArrivalGoldSold = 0;
+                    let bankerArrivalBarsSold = 0;
                     let bankerArrivalMoneyGained = 0;
-                    const goldAvailableAfterOtherSells = s.gold + goldGained - goldSold - driverGoldSold;
+                    const valueMultiplierArrival = 1.0 + s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
 
-                    if (newLocation === 'town' && s.bankerWorkers > 0 && s.goldInPocket > 0 && goldAvailableAfterOtherSells > 0) {
-                        bankerArrivalGoldSold = Math.min(s.goldInPocket, goldAvailableAfterOtherSells);
+                    if (newLocation === 'town' && s.bankerWorkers > 0 && s.goldInPocket > 0) {
+                        if (s.hasFurnace) {
+                            const availAfterOthers = s.goldBars - goldBarsSold - driverBarsSold;
+                            if (availAfterOthers > 0) {
+                                bankerArrivalBarsSold = Math.min(s.goldInPocket, availAfterOthers);
+                                const baseValue = bankerArrivalBarsSold * valueMultiplierArrival * s.goldPrice;
+                                bankerArrivalMoneyGained = baseValue * (1 + 0.1 * s.dustGoldValue);
+                            }
+                        } else {
+                            const goldAvailableAfterOtherSells = s.gold + goldGained - goldSold - driverGoldSold;
+                            if (goldAvailableAfterOtherSells > 0) {
+                                bankerArrivalGoldSold = Math.min(s.goldInPocket, goldAvailableAfterOtherSells);
+                                const baseValue = bankerArrivalGoldSold * valueMultiplierArrival * s.goldPrice;
+                                const fee = baseValue * SMELTING_FEE_PERCENT;
+                                bankerArrivalMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
+                            }
+                        }
+                        if (bankerArrivalMoneyGained > 0) {
+                            capturedBankerArrivalMoney = bankerArrivalMoneyGained;
+                            if (s.devMode) devEvents.push(`[${s.tickCount}] Banker auto-sold ${(bankerArrivalGoldSold + bankerArrivalBarsSold).toFixed(3)}oz → $${bankerArrivalMoneyGained.toFixed(2)}`);
+                        }
+                    }
 
-                        let valueMultiplier = 1.0;
-                        valueMultiplier += s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
-                        valueMultiplier += s.furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * s.furnaceGear;
+                    // Furnace: smelt tick and worker automation
+                    let newFurnaceFilled = s.furnaceFilled;
+                    let newFurnaceRunning = s.furnaceRunning;
+                    let newFurnaceBars = s.furnaceBars;
+                    let newGoldBars = s.goldBars - goldBarsSold - driverBarsSold - bankerArrivalBarsSold;
 
-                        let effectiveFeePercent = !s.hasFurnace ? SMELTING_FEE_PERCENT : 0;
-                        if (!s.hasFurnace && s.furnaceWorkers > 0) {
-                            effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (s.furnaceWorkers * 0.015));
+                    if (s.hasFurnace) {
+                        // Furnace worker automation: auto-load, auto-start, auto-collect
+                        if (s.furnaceWorkers > 0 && canAffordWorkers) {
+                            // Auto-load: move gold flakes → furnaceFilled
+                            const goldAfterGained = s.gold + goldGained - goldSold;
+                            if (goldAfterGained > 0 && newFurnaceFilled < FURNACE_CAPACITY) {
+                                const space = FURNACE_CAPACITY - newFurnaceFilled;
+                                const autoTransfer = Math.min(goldAfterGained, space);
+                                // Note: auto-load consumes from gold; goldSold already accounts for banker sales
+                                // We track this by adjusting gold in the return below
+                                newFurnaceFilled += autoTransfer;
+                                // goldSold gets an effective increase from this auto-load
+                                goldSold += autoTransfer;
+                            }
+                            // Auto-start: if furnace has content and isn't running, start it
+                            if (newFurnaceFilled > 0 && !newFurnaceRunning) {
+                                newFurnaceRunning = true;
+                            }
+                            // Auto-collect: move furnaceBars → goldBars
+                            if (newFurnaceBars > 0) {
+                                newGoldBars += newFurnaceBars;
+                                newFurnaceBars = 0;
+                            }
                         }
 
-                        const baseValue = bankerArrivalGoldSold * valueMultiplier * s.goldPrice;
-                        const fee = baseValue * effectiveFeePercent;
-                        bankerArrivalMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
-                        capturedBankerArrivalMoney = bankerArrivalMoneyGained;
-                        if (s.devMode) devEvents.push(`[${s.tickCount}] Banker auto-sold ${bankerArrivalGoldSold.toFixed(3)}oz → $${bankerArrivalMoneyGained.toFixed(2)}`);
+                        // Smelt tick: drain furnaceFilled → furnaceBars
+                        if (newFurnaceRunning && newFurnaceFilled > 0) {
+                            const smeltPerTick = (SMELT_RATE_BASE * s.furnaceGear) / 60;
+                            const actualSmelt = Math.min(newFurnaceFilled, smeltPerTick);
+                            newFurnaceFilled -= actualSmelt;
+                            newFurnaceBars += actualSmelt;
+                            if (newFurnaceFilled <= 0) {
+                                newFurnaceFilled = 0;
+                                newFurnaceRunning = false;
+                            }
+                        }
                     }
 
                     // Gold market price update
@@ -1830,12 +1970,16 @@ export const gameStore = createStore<GameState>()(
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
                         gold: s.gold + goldGained - goldSold - driverGoldSold - bankerArrivalGoldSold,
+                        goldBars: Math.max(0, newGoldBars),
+                        furnaceFilled: newFurnaceFilled,
+                        furnaceRunning: newFurnaceRunning,
+                        furnaceBars: newFurnaceBars,
                         money: moneyAfterPayroll + driverMoneyGained + bankerArrivalMoneyGained,
                         runMoneyEarned: s.runMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained,
                         totalGoldExtracted: s.totalGoldExtracted + goldGained,
                         totalMoneyEarned: s.totalMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained,
                         peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned + moneyGained + driverMoneyGained + bankerArrivalMoneyGained),
-                        goldInPocket: bankerArrivalGoldSold > 0 ? 0 : s.goldInPocket,
+                        goldInPocket: (bankerArrivalGoldSold > 0 || bankerArrivalBarsSold > 0) ? 0 : s.goldInPocket,
                         investmentSafeBonds: newInvestmentSafeBonds,
                         investmentStocks: newInvestmentStocks,
                         investmentHighRisk: newInvestmentHighRisk,
@@ -1949,13 +2093,17 @@ export const gameStore = createStore<GameState>()(
             patchActive: state.patchActive,
             patchRemaining: state.patchRemaining,
             patchCapacity: state.patchCapacity,
+            furnaceFilled: state.furnaceFilled,
+            furnaceRunning: state.furnaceRunning,
+            furnaceBars: state.furnaceBars,
+            goldBars: state.goldBars,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV24();
+                return defaultSaveV25();
             }
         },
         onRehydrateStorage: ()=> (state) => {
@@ -1977,8 +2125,8 @@ export const gameStore = createStore<GameState>()(
             if (state.minersMossFilled < 0) state.minersMossFilled = 0;
             state.devMode = false;
             state.devLogs = [];
-            // Restore gold-in-pocket on reload: if at Town, all current gold was carried there
-            state.goldInPocket = state.location === 'town' ? state.gold : 0;
+            // Restore gold-in-pocket on reload: if at Town, all current sellable gold was carried there
+            state.goldInPocket = state.location === 'town' ? (state.hasFurnace ? state.goldBars : state.gold) : 0;
             // Apply persisted dark mode preference
             if (state.darkMode) {
                 document.documentElement.classList.add('dark');

@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE } from "../store/gameStore";
 import { ProgressBar } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -50,6 +50,11 @@ export function Mine() {
     const patchRemaining = useGameStore((s) => s.patchRemaining);
     const patchCapacity = useGameStore((s) => s.patchCapacity);
 
+    const furnaceFilled = useGameStore((s) => s.furnaceFilled);
+    const furnaceRunning = useGameStore((s) => s.furnaceRunning);
+    const furnaceBars = useGameStore((s) => s.furnaceBars);
+    const goldBars = useGameStore((s) => s.goldBars);
+
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
     // Travel progress bar calculations
@@ -61,10 +66,8 @@ export function Mine() {
 
     // Payroll widget calculations (per minute)
     const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, ovenWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
-    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
-    const autoSellFee = !hasFurnace
-        ? (furnaceWorkers > 0 ? Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015) : SMELTING_FEE_PERCENT)
-        : 0;
+    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
+    const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee) * 60;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
@@ -72,6 +75,9 @@ export function Mine() {
     const detectPatch = () => gameStore.getState().detectPatch();
     const cleanMoss = () => gameStore.getState().cleanMoss();
     const panForGold = () => gameStore.getState().panForGold();
+    const loadFurnace = () => gameStore.getState().loadFurnace();
+    const toggleFurnace = () => gameStore.getState().toggleFurnace();
+    const collectBars = () => gameStore.getState().collectBars();
     const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
     const hireProspector = () => gameStore.getState().buyUpgrade('pan');
     const travelToTown = () => gameStore.getState().startTravel('town');
@@ -344,6 +350,83 @@ export function Mine() {
                                 Hire ${prospectorCost}
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Furnace Section */}
+                {hasFurnace && (
+                    <div className="p-4 bg-white border-2 border-orange-300 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-orange-900">🔥 Furnace</h3>
+                            <span className="text-xs text-orange-600">
+                                {SMELT_RATE_BASE * furnaceGear} oz/sec
+                            </span>
+                        </div>
+
+                        {/* Furnace fill progress bar */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-orange-700 font-semibold">Loaded</span>
+                                <span className="text-xs text-orange-700 font-semibold">{furnaceFilled.toFixed(1)} / {FURNACE_CAPACITY} oz</span>
+                            </div>
+                            <ProgressBar value={furnaceFilled} max={FURNACE_CAPACITY} color="amber" isActive={furnaceRunning} isFull={furnaceFilled >= FURNACE_CAPACITY} />
+                        </div>
+
+                        {/* Load and switch buttons */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={loadFurnace}
+                                disabled={isTraveling || gold <= 0 || furnaceFilled >= FURNACE_CAPACITY}
+                                className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                🔥 Load ({Math.min(gold, FURNACE_CAPACITY - furnaceFilled).toFixed(1)} oz)
+                            </button>
+                            <button
+                                onClick={toggleFurnace}
+                                disabled={isTraveling || furnaceFilled <= 0}
+                                className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    furnaceRunning
+                                        ? 'bg-red-100 hover:bg-red-200 text-red-800 border-red-300'
+                                        : 'bg-green-100 hover:bg-green-200 text-green-800 border-green-300'
+                                }`}
+                            >
+                                {furnaceRunning ? '⏹ Off' : '▶ On'}
+                            </button>
+                        </div>
+
+                        {/* Gold flakes hint */}
+                        {gold > 0 && (
+                            <p className="text-xs text-orange-600 text-center">
+                                {gold.toFixed(2)} oz flakes ready to load
+                            </p>
+                        )}
+
+                        {/* Bars ready to collect */}
+                        {furnaceBars > 0 && (
+                            <div className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                <span className="text-sm font-semibold text-amber-800">🧱 {furnaceBars.toFixed(2)} oz bars ready</span>
+                                <button
+                                    onClick={collectBars}
+                                    disabled={isTraveling}
+                                    className="px-3 py-1 text-sm font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    Collect
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Gold bars in inventory */}
+                        {goldBars > 0 && (
+                            <p className="text-xs text-amber-700 text-center font-semibold">
+                                🧱 {goldBars.toFixed(2)} oz bars in inventory — travel to Town to sell
+                            </p>
+                        )}
+
+                        {furnaceWorkers > 0 && (
+                            <p className="text-xs text-orange-500 text-center">
+                                Furnace Operators are auto-loading, smelting &amp; collecting
+                            </p>
+                        )}
                     </div>
                 )}
 

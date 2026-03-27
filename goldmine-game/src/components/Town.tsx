@@ -90,9 +90,8 @@ export function Town() {
 
     // Estimate current auto-sell income to detect payroll overruns
     const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
-    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear + furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
-    let autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    if (!hasFurnace && furnaceWorkers > 0) autoSellFee = Math.max(0, SMELTING_FEE_PERCENT - furnaceWorkers * 0.015);
+    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
+    const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
     const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee);
 
     return (
@@ -346,7 +345,7 @@ export function Town() {
                                             {hasFurnace && (
                                                 <UpgradeButton
                                                     name="Better Furnace"
-                                                    description={`Furnace value bonus: ${(UPGRADES.furnaceWorker.valueBonus * furnaceGear * 100).toFixed(0)}% → ${(UPGRADES.furnaceWorker.valueBonus * (furnaceGear + 1) * 100).toFixed(0)}% per worker`}
+                                                    description={`Smelt rate: ${furnaceGear}× oz/sec → ${furnaceGear + 1}× oz/sec`}
                                                     cost={betterFurnaceCost}
                                                     currentLevel={furnaceGear - 1}
                                                     canAfford={money >= betterFurnaceCost}
@@ -530,7 +529,7 @@ export function Town() {
                         {hasFurnace ? (
                             <WorkerRow
                                 name="Furnace Operator"
-                                description={`+${(UPGRADES.furnaceWorker.valueBonus * 100).toFixed(0)}% gold value, reduces smelting fee`}
+                                description="Auto-loads, smelts, and collects gold bars"
                                 count={furnaceWorkers}
                                 hireCost={furnaceWorkerCost}
                                 wage={furnaceWorkerTotalWage}

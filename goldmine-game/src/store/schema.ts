@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 24 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 25 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -381,12 +381,21 @@ export type SaveV24 = Omit<SaveV23, 'version' | 'highYieldSpots'> & {
     patchCapacity: number;    // total capacity when patch was discovered (for display)
 };
 
-export type LatestSave = SaveV24;
+// v25: furnace becomes active smelting stage — gold flakes → furnace → gold bars
+export type SaveV25 = Omit<SaveV24, 'version'> & {
+    version: 25;
+    furnaceFilled: number;    // oz of gold flakes currently loaded in furnace
+    furnaceRunning: boolean;  // switch state — smelting is active
+    furnaceBars: number;      // bars produced inside furnace, not yet collected
+    goldBars: number;         // bars in player's possession (sellable)
+};
+
+export type LatestSave = SaveV25;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV24();
+        return defaultSaveV25();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1163,10 +1172,15 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...rest, version: 24, detectProgress: 0, detectTarget: 0, patchActive: false, patchRemaining: 0, patchCapacity: 0 }, 24);
     }
 
-    // Already v24, ensure fields exist
-    const s = raw as Partial<SaveV24>;
+    if (fromVersion < 25) {
+        const s = raw as SaveV24;
+        return migrateToLatest({ ...s, version: 25, furnaceFilled: 0, furnaceRunning: false, furnaceBars: 0, goldBars: 0 }, 25);
+    }
+
+    // Already v25, ensure fields exist
+    const s = raw as Partial<SaveV25>;
     return {
-        version: 24,
+        version: 25,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1237,6 +1251,10 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         patchActive: s.patchActive ?? false,
         patchRemaining: s.patchRemaining ?? 0,
         patchCapacity: s.patchCapacity ?? 0,
+        furnaceFilled: s.furnaceFilled ?? 0,
+        furnaceRunning: s.furnaceRunning ?? false,
+        furnaceBars: s.furnaceBars ?? 0,
+        goldBars: s.goldBars ?? 0,
     };
 }
 
@@ -1638,4 +1656,9 @@ export function defaultSaveV23(): SaveV23 {
 export function defaultSaveV24(): SaveV24 {
     const { highYieldSpots: _hy, version: _v, ...rest } = defaultSaveV23();
     return { ...rest, version: 24, detectProgress: 0, detectTarget: 0, patchActive: false, patchRemaining: 0, patchCapacity: 0 };
+}
+
+export function defaultSaveV25(): SaveV25 {
+    const { version: _v, ...rest } = defaultSaveV24();
+    return { ...rest, version: 25, furnaceFilled: 0, furnaceRunning: false, furnaceBars: 0, goldBars: 0 };
 }

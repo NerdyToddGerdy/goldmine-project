@@ -234,10 +234,10 @@ describe('sluice drain and miner\'s moss', () => {
 // ─── driver round-trip sell ────────────────────────────────────────────────────
 
 describe('driver auto-sell', () => {
-    it('driver sells all gold at trip duration (mule cart)', () => {
+    it('driver sells all gold bars at trip duration (mule cart, with furnace)', () => {
         const tripDuration = getTravelDurationTicks(1); // 8s * 60 = 480 ticks
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 5,
+            hasDriver: true, vehicleTier: 1, goldBars: 5, gold: 0,
             hasFurnace: true, goldPrice: 1.0, dustGoldValue: 0,
             money: 0, driverTripTicks: 0,
             // No workers — payroll = 0
@@ -245,21 +245,21 @@ describe('driver auto-sell', () => {
             ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);
-        expect(gameStore.getState().gold).toBeCloseTo(0, 6);
+        expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
         expect(gameStore.getState().money).toBeCloseTo(5, 6);
     });
 
     it('driver does not sell before trip duration completes', () => {
         const tripDuration = getTravelDurationTicks(1); // 480
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 5,
+            hasDriver: true, vehicleTier: 1, goldBars: 5, gold: 0,
             hasFurnace: true, goldPrice: 1.0,
             money: 0, driverTripTicks: 0,
             shovels: 0, pans: 0, sluiceWorkers: 0,
             ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration - 1); // one short
-        expect(gameStore.getState().gold).toBeCloseTo(5, 6); // gold not yet sold
+        expect(gameStore.getState().goldBars).toBeCloseTo(5, 6); // bars not yet sold
     });
 
     it('driver applies smelting fee without hasFurnace', () => {

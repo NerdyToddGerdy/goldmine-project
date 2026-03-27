@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { migrateToLatest, defaultSaveV24 } from "../../../src/store/schema";
+import { migrateToLatest, defaultSaveV25 } from "../../../src/store/schema";
 
 describe("migrateToLatest", () => {
     it("migrates v1 dirtyGold -> paydirt", () => {
@@ -11,7 +11,7 @@ describe("migrateToLatest", () => {
             dirtyGold: 9,
         };
         const out = migrateToLatest(v1, 1);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.tickCount).toBe(7);
         expect(out.timeScale).toBe(2);
         expect(out.gold).toBe(3);
@@ -20,7 +20,7 @@ describe("migrateToLatest", () => {
 
     it("handles empty input with defaults", () => {
         const out = migrateToLatest(undefined, undefined);
-        expect(out).toEqual(defaultSaveV24());
+        expect(out).toEqual(defaultSaveV25());
     });
 
     it("passes through v2 shape filling defaults", () => {
@@ -77,7 +77,7 @@ describe("migrateToLatest", () => {
             darkMode: false,
         };
         const out = migrateToLatest(v12, 12);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.legacyDust).toBe(0);
         expect(out.runMoneyEarned).toBe(0);
         expect(out.prestigeCount).toBe(0);
@@ -110,7 +110,7 @@ describe("migrateToLatest", () => {
             dustScoopBoost: 2, dustPanYield: 1, dustGoldValue: 0, dustHeadStart: 1,
         };
         const out = migrateToLatest(v14, 14);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.dustScoopBoost).toBe(2); // preserved
         expect(out.dustPanYield).toBe(1);   // preserved
         expect(out.dustBucketSize).toBe(0); // new field defaults to 0
@@ -162,7 +162,7 @@ describe("migrateToLatest", () => {
             darkMode: true,
         };
         const out = migrateToLatest(v11, 11);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.unlockedBanking).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
         expect('unlockedShop' in out).toBe(false);
@@ -187,7 +187,7 @@ describe("migrateToLatest", () => {
             dustBucketSize: 1, dustPanSpeed: 0, dustPanCapacity: 2,
         };
         const out = migrateToLatest(v15, 15);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.vehicleTier).toBe(0);       // new field defaults to 0
         expect(out.hasDriver).toBe(false);     // new field defaults to false
         expect(out.dustBucketSize).toBe(1);    // preserved
@@ -216,7 +216,7 @@ describe("migrateToLatest", () => {
             vehicleTier: 1, hasDriver: false,
         };
         const out = migrateToLatest(v16, 16);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.bucketUpgrades).toBe(0);    // new field defaults to 0
         expect(out.panCapUpgrades).toBe(0);
         expect(out.panSpeedUpgrades).toBe(0);
@@ -244,7 +244,7 @@ describe("migrateToLatest", () => {
             vehicleTier: 0, hasDriver: false,
         };
         const out = migrateToLatest(v17, 17);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.goldPrice).toBe(1.0);           // new field defaults to 1.0
         expect(out.lastGoldPriceUpdate).toBe(0);   // new field defaults to 0
         expect(out.bucketUpgrades).toBe(1);        // preserved
@@ -272,7 +272,7 @@ describe("migrateToLatest", () => {
             goldPrice: 1.2, lastGoldPriceUpdate: 100,
         };
         const out = migrateToLatest(v18, 18);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.hasAutoEmpty).toBe(false);                        // new field defaults to false
         expect(out.lastSeenChangelogVersion).toBe('v0.18');          // existing players see new popup
         expect(out.money).toBe(200);                                 // preserved
@@ -293,7 +293,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v3, 3);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.location).toBe('town');
         expect(out.dirt).toBe(3);
         expect(out.paydirt).toBe(7);
@@ -324,7 +324,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: false, unlockedShop: true,
         };
         const out = migrateToLatest(v4, 4);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.hasSluiceBox).toBe(true);
         expect(out.sluiceWorkers).toBe(0);
         expect(out.sluicePower).toBe(1);
@@ -348,7 +348,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v5, 5);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.sluiceWorkers).toBe(2);
         expect(out.ovenWorkers).toBe(1);
         expect(out.bankerWorkers).toBe(0);
@@ -371,7 +371,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v6, 6);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.sluicePower).toBe(2);
         expect(out.sluiceGear).toBe(3);
         expect(out.ovenGear).toBe(2);
@@ -395,7 +395,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v7, 7);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.bankerWorkers).toBe(3);
         expect(out.bucketFilled).toBe(0);
         expect(out.panFilled).toBe(0);
@@ -419,7 +419,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: false, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v8, 8);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.bucketFilled).toBe(5);
         expect(out.panFilled).toBe(0);
         expect(out.investmentSafeBonds).toBe(0);
@@ -446,7 +446,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: false, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v9, 9);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.panFilled).toBe(8);
         expect(out.bucketFilled).toBe(3);
         expect(out.money).toBe(75);
@@ -472,7 +472,7 @@ describe("migrateToLatest", () => {
             legacyDust: 8, runMoneyEarned: 300, prestigeCount: 2,
         };
         const out = migrateToLatest(v13, 13);
-        expect(out.version).toBe(24);
+        expect(out.version).toBe(25);
         expect(out.legacyDust).toBe(8);
         expect(out.runMoneyEarned).toBe(300);
         expect(out.prestigeCount).toBe(2);

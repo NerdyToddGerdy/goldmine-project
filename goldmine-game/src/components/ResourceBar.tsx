@@ -3,6 +3,7 @@ import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
+    const goldBars = useGameStore((s) => s.goldBars);
     const money = useGameStore((s) => s.money);
 
     // Get worker counts and equipment
@@ -10,11 +11,9 @@ export function ResourceBar() {
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
     const ovenWorkers = useGameStore((s) => s.ovenWorkers);
-    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const ovenGear = useGameStore((s) => s.ovenGear);
-    const furnaceGear = useGameStore((s) => s.furnaceGear);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
 
     // Bucket/pan state for idle detection
@@ -60,16 +59,9 @@ export function ResourceBar() {
     // Calculate auto-sell income from bankers
     let autoSellIncome = 0;
     if (goldSellRate > 0) {
-        // Calculate value bonuses from oven/furnace workers
-        let valueMultiplier = 1.0;
-        valueMultiplier += ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
-        valueMultiplier += furnaceWorkers * UPGRADES.furnaceWorker.valueBonus * furnaceGear;
-
-        // Smelting fee applies without a furnace; furnace workers reduce it
-        let effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-        if (!hasFurnace && furnaceWorkers > 0) {
-            effectiveFeePercent = Math.max(0, SMELTING_FEE_PERCENT - (furnaceWorkers * 0.015));
-        }
+        // Calculate value bonuses from oven workers (furnace workers no longer give value bonus)
+        const valueMultiplier = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
+        const effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
 
         const baseValue = goldSellRate * valueMultiplier;
         const fee = baseValue * effectiveFeePercent;
@@ -92,10 +84,10 @@ export function ResourceBar() {
             <div className={`grid gap-2 ${prestigeCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <div className="relative">
                     <ResourceCard
-                        label="Gold"
-                        value={gold}
+                        label={hasFurnace ? "Gold Bars" : "Gold"}
+                        value={hasFurnace ? goldBars : gold}
                         rate={goldRate}
-                        icon="✨"
+                        icon={hasFurnace ? "🧱" : "✨"}
                         color="yellow"
                         priceInfo={goldPriceProgress !== undefined ? { price: goldPrice, progress: goldPriceProgress } : undefined}
                     />

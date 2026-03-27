@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.9',
+        date: '2026-03-26',
+        title: 'Furnace — Active Smelting Phase',
+        changes: [
+            'Furnace is now an active processing stage: pan gold (flakes) → Load Furnace → Switch ON → auto-smelt → Collect Bars',
+            'Gold bars sell at full market price with no smelting fee; raw flakes sell with the 15% fee (pre-furnace path unchanged)',
+            'Furnace Operators auto-load, auto-start, and auto-collect — keeping throughput continuous',
+            'Better Furnace upgrade now increases smelt rate (×furnaceGear oz/sec) instead of a sell value bonus',
+            'New resource: Gold Bars (🧱) shown in the resource bar when furnace is owned',
+        ],
+    },
+    {
         version: 'v1.8',
         date: '2026-03-26',
         title: 'Metal Detector — Rich Dirt & High-Yield Spots',

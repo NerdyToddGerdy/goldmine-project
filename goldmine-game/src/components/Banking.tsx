@@ -6,6 +6,7 @@ import { PrestigeShop } from "./PrestigeShop";
 
 export function Banking() {
     const gold = useGameStore((s) => s.gold);
+    const goldBars = useGameStore((s) => s.goldBars);
     const goldInPocket = useGameStore((s) => s.goldInPocket);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const goldPrice = useGameStore((s) => s.goldPrice);
@@ -34,12 +35,14 @@ export function Banking() {
 
     const sellGold = () => gameStore.getState().sellGold();
 
-    const sellable = Math.min(gold, goldInPocket);
+    // With furnace: sell goldBars; without: sell raw gold
+    const sellable = hasFurnace ? Math.min(goldBars, goldInPocket) : Math.min(gold, goldInPocket);
     const baseValue = sellable * goldPrice;
-    const fee = !hasFurnace ? baseValue * SMELTING_FEE_PERCENT : 0;
+    const fee = hasFurnace ? 0 : baseValue * SMELTING_FEE_PERCENT;
     const finalValue = (baseValue - fee) * (1 + 0.1 * dustGoldValue);
 
-    const extraGold = gold - sellable;
+    // Extra gold that stayed at mine (mined during travel, not in pocket)
+    const extraGold = hasFurnace ? goldBars - sellable : gold - sellable;
 
     // Price trend arrow
     const prevPriceRef = useRef(goldPrice);
@@ -97,7 +100,7 @@ export function Banking() {
                 {sellable >= 0.01 && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm space-y-1">
                         <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                            <span>{formatNumber(sellable)} oz × ${goldPrice.toFixed(2)}</span>
+                            <span>{hasFurnace ? '🧱' : '⚗️'} {formatNumber(sellable)} oz × ${goldPrice.toFixed(2)}</span>
                             <span>${formatNumber(baseValue)}</span>
                         </div>
                         {fee > 0 && (
@@ -116,7 +119,14 @@ export function Banking() {
                 {/* Furnace upsell hint */}
                 {fee > 0 && !hasFurnace && (
                     <div className="text-xs text-amber-700 dark:text-amber-400 text-center">
-                        💡 Buy a Furnace in Shop → Equipment to waive the smelting fee
+                        💡 Buy a Furnace in Shop → Equipment to smelt into bars and waive the fee
+                    </div>
+                )}
+
+                {/* Furnace hint: load before traveling */}
+                {hasFurnace && gold > 0 && goldBars <= 0 && (
+                    <div className="text-xs text-orange-600 dark:text-orange-400 text-center">
+                        🔥 You have {gold.toFixed(2)} oz flakes at the Mine — load the furnace before traveling
                     </div>
                 )}
 
@@ -132,13 +142,13 @@ export function Banking() {
                         disabled={sellable < 0.01}
                         className="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        💰 Sell {formatNumber(sellable)} oz
+                        {hasFurnace ? '🧱' : '💰'} Sell {formatNumber(sellable)} oz{hasFurnace ? ' bars' : ''}
                     </button>
                 )}
 
                 {extraGold >= 0.01 && (
                     <div className="text-xs text-amber-700 dark:text-amber-400 text-center">
-                        ✨ {formatNumber(extraGold)} oz panned en route — stays at the Mine
+                        ✨ {formatNumber(extraGold)} oz {hasFurnace ? 'bars' : 'panned en route'} — stays at the Mine
                     </div>
                 )}
             </div>
