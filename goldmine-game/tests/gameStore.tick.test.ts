@@ -242,7 +242,7 @@ describe('driver auto-sell', () => {
             money: 0, driverTripTicks: 0,
             // No workers — payroll = 0
             shovels: 0, pans: 0, sluiceWorkers: 0,
-            ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);
         expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
@@ -256,7 +256,7 @@ describe('driver auto-sell', () => {
             hasFurnace: true, goldPrice: 1.0,
             money: 0, driverTripTicks: 0,
             shovels: 0, pans: 0, sluiceWorkers: 0,
-            ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration - 1); // one short
         expect(gameStore.getState().goldBars).toBeCloseTo(5, 6); // bars not yet sold
@@ -269,7 +269,7 @@ describe('driver auto-sell', () => {
             hasFurnace: false, goldPrice: 1.0, dustGoldValue: 0,
             money: 0, driverTripTicks: 0,
             shovels: 0, pans: 0, sluiceWorkers: 0,
-            ovenWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);
         // money = 10 * 1.0 * (1 - 0.15) = 8.5

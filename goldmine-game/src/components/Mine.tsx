@@ -21,7 +21,6 @@ export function Mine() {
     const sluiceGear = useGameStore((s) => s.sluiceGear);
 
     const hasFurnace = useGameStore((s) => s.hasFurnace);
-    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
@@ -32,7 +31,6 @@ export function Mine() {
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
-    const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
     const devMode = useGameStore((s) => s.devMode);
     const tickCount = useGameStore((s) => s.tickCount);
@@ -65,10 +63,9 @@ export function Mine() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
     // Payroll widget calculations (per minute)
-    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, ovenWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
-    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
+    const payrollPerMin = getTotalPayroll({ shovels, pans, sluiceWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
     const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee) * 60;
+    const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee) * 60;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();

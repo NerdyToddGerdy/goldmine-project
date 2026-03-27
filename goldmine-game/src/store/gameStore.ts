@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV25, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV26, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 
 // Fixed simulation step (ms). 60 FPS -> ~16.666..., we use 16.6667.
 export const FIXED_DT_MS = 1000 / 60;
@@ -138,13 +138,11 @@ export type GameState = {
     pans: number // prospectors that pan for gold
     carts: number // auto-travel upgrades
     sluiceWorkers: number // operate sluice boxes for bonus extraction
-    ovenWorkers: number // operate ovens to clean gold
     furnaceWorkers: number // operate furnaces to smelt gold
     bankerWorkers: number // automatically sell gold for money
 
     // Equipment (owned/unlocked) - now prerequisites for workers
     hasSluiceBox: boolean // unlocks sluice workers
-    hasOven: boolean // unlocks oven workers
     hasFurnace: boolean // unlocks furnace workers
 
     // Manual action power
@@ -154,7 +152,6 @@ export type GameState = {
 
     // Equipment gear levels (improve worker effectiveness)
     sluiceGear: number // improves sluice worker bonus
-    ovenGear: number // improves oven worker bonus
     furnaceGear: number // improves furnace worker bonus
 
     // Unlock flags
@@ -309,10 +306,8 @@ export const UPGRADES = {
     betterShovel: { baseCost: 50, multiplier: 1.3 }, // increases manual scoop
     betterPan: { baseCost: 100, multiplier: 1.3 }, // increases manual pan
     betterSluice: { baseCost: 75, multiplier: 1.4 }, // increases sluice worker bonus
-    betterOven: { baseCost: 150, multiplier: 1.4 }, // increases oven worker bonus
     betterFurnace: { baseCost: 500, multiplier: 1.5 }, // increases furnace worker bonus
     sluiceWorker: { baseCost: 75, multiplier: 1.2, extractionBonus: 0.1 }, // +10% extraction per worker
-    ovenWorker: { baseCost: 150, multiplier: 1.2, valueBonus: 0.2 }, // +20% sell value per worker
     furnaceWorker: { baseCost: 500, multiplier: 1.3 }, // auto-loads, smelts, and collects gold bars
     bankerWorker: { baseCost: 200, multiplier: 1.25, goldPerSec: 2.0 }, // Sells 2 gold/sec automatically
     detectorWorker: { baseCost: 100, multiplier: 1.2, spotsPerSec: 0.5 },
@@ -321,7 +316,6 @@ export const UPGRADES = {
 // Equipment costs (one-time purchases - unlock workers)
 export const EQUIPMENT = {
     sluiceBox: { cost: 200 }, // Unlocks sluice workers
-    oven: { cost: 500 }, // Unlocks oven workers
     furnace: { cost: 2500 }, // Unlocks furnace workers + removes fee
     bankCounter: { cost: 400 }, // Unlocks banker workers
     autoEmpty: { cost: 75 }, // Auto-empties bucket to pan when full
@@ -365,7 +359,6 @@ export const WORKER_WAGES = {
     shovel: 0.10,           // Miners
     pan: 0.15,              // Prospectors
     sluiceWorker: 0.20,     // Sluice Operators
-    ovenWorker: 0.25,       // Oven Operators
     furnaceWorker: 0.40,    // Furnace Operators
     bankerWorker: 0.35,     // Bankers
     detectorWorker: 0.18,   // Detector Operators
@@ -394,7 +387,6 @@ export function getTotalPayroll(state: {
     shovels: number;
     pans: number;
     sluiceWorkers: number;
-    ovenWorkers: number;
     furnaceWorkers: number;
     bankerWorkers: number;
     detectorWorkers: number;
@@ -403,7 +395,6 @@ export function getTotalPayroll(state: {
         getTotalWageForType('shovel', state.shovels) +
         getTotalWageForType('pan', state.pans) +
         getTotalWageForType('sluiceWorker', state.sluiceWorkers) +
-        getTotalWageForType('ovenWorker', state.ovenWorkers) +
         getTotalWageForType('furnaceWorker', state.furnaceWorkers) +
         getTotalWageForType('bankerWorker', state.bankerWorkers) +
         getTotalWageForType('detectorWorker', state.detectorWorkers)
@@ -449,13 +440,11 @@ export const gameStore = createStore<GameState>()(
             pans: 0,
             carts: 0,
             sluiceWorkers: 0,
-            ovenWorkers: 0,
             furnaceWorkers: 0,
             bankerWorkers: 0,
 
             // Equipment
             hasSluiceBox: false,
-            hasOven: false,
             hasFurnace: false,
 
             // Manual powers
@@ -465,7 +454,6 @@ export const gameStore = createStore<GameState>()(
 
             // Equipment gear levels
             sluiceGear: 1,
-            ovenGear: 1,
             furnaceGear: 1,
 
             // Unlocks
@@ -532,7 +520,7 @@ export const gameStore = createStore<GameState>()(
             goldBars: 0,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV25().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV26().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -579,17 +567,14 @@ export const gameStore = createStore<GameState>()(
                     pans: 0,
                     carts: 0,
                     sluiceWorkers: 0,
-                    ovenWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
                     hasSluiceBox: false,
-                    hasOven: false,
                     hasFurnace: false,
                     scoopPower: 1,
                     sluicePower: 1,
                     panPower: 1,
                     sluiceGear: 1,
-                    ovenGear: 1,
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
@@ -653,17 +638,14 @@ export const gameStore = createStore<GameState>()(
                     pans: 0,
                     carts: 0,
                     sluiceWorkers: 0,
-                    ovenWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
                     hasSluiceBox: false,
-                    hasOven: false,
                     hasFurnace: false,
                     scoopPower: 1,
                     sluicePower: 1,
                     panPower: 1,
                     sluiceGear: 1,
-                    ovenGear: 1,
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
@@ -710,7 +692,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceRunning: false,
                     furnaceBars: 0,
                     goldBars: 0,
-                    lastSeenChangelogVersion: defaultSaveV25().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV26().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     totalMoneyEarned: 0,
                     peakRunMoney: 0,
@@ -745,17 +727,14 @@ export const gameStore = createStore<GameState>()(
                     pans: s.pans,
                     carts: s.carts,
                     sluiceWorkers: s.sluiceWorkers,
-                    ovenWorkers: s.ovenWorkers,
                     furnaceWorkers: s.furnaceWorkers,
                     bankerWorkers: s.bankerWorkers,
                     hasSluiceBox: s.hasSluiceBox,
-                    hasOven: s.hasOven,
                     hasFurnace: s.hasFurnace,
                     scoopPower: s.scoopPower,
                     sluicePower: s.sluicePower,
                     panPower: s.panPower,
                     sluiceGear: s.sluiceGear,
-                    ovenGear: s.ovenGear,
                     furnaceGear: s.furnaceGear,
                     unlockedPanning: s.unlockedPanning,
                     unlockedTown: s.unlockedTown,
@@ -838,17 +817,14 @@ export const gameStore = createStore<GameState>()(
                     pans: migrated.pans,
                     carts: migrated.carts,
                     sluiceWorkers: migrated.sluiceWorkers,
-                    ovenWorkers: migrated.ovenWorkers,
                     furnaceWorkers: migrated.furnaceWorkers,
                     bankerWorkers: migrated.bankerWorkers,
                     hasSluiceBox: migrated.hasSluiceBox,
-                    hasOven: migrated.hasOven,
                     hasFurnace: migrated.hasFurnace,
                     scoopPower: migrated.scoopPower,
                     sluicePower: migrated.sluicePower,
                     panPower: migrated.panPower,
                     sluiceGear: migrated.sluiceGear,
-                    ovenGear: migrated.ovenGear,
                     furnaceGear: migrated.furnaceGear,
                     unlockedPanning: migrated.unlockedPanning,
                     unlockedTown: migrated.unlockedTown,
@@ -1174,15 +1150,6 @@ export const gameStore = createStore<GameState>()(
                         });
                         return true;
                     }
-                } else if (upgrade === 'ovenWorker') {
-                    const cost = getUpgradeCost('ovenWorker', s.ovenWorkers);
-                    if (s.money >= cost && s.hasOven) {
-                        set({
-                            money: s.money - cost,
-                            ovenWorkers: s.ovenWorkers + 1,
-                        });
-                        return true;
-                    }
                 } else if (upgrade === 'furnaceWorker') {
                     const cost = getUpgradeCost('furnaceWorker', s.furnaceWorkers);
                     if (s.money >= cost && s.hasFurnace) {
@@ -1223,15 +1190,6 @@ export const gameStore = createStore<GameState>()(
                         });
                         return true;
                     }
-                } else if (upgrade === 'betterOven') {
-                    const cost = getUpgradeCost('betterOven', s.ovenGear - 1);
-                    if (s.money >= cost && s.hasOven) {
-                        set({
-                            money: s.money - cost,
-                            ovenGear: s.ovenGear + 1,
-                        });
-                        return true;
-                    }
                 } else if (upgrade === 'betterFurnace') {
                     const cost = getUpgradeCost('betterFurnace', s.furnaceGear - 1);
                     if (s.money >= cost && s.hasFurnace) {
@@ -1246,13 +1204,6 @@ export const gameStore = createStore<GameState>()(
                     if (s.money >= cost && !s.hasSluiceBox) {
                         set({ money: s.money - cost, hasSluiceBox: true });
                         get().addToast('🚿 Sluice Box purchased! Sluice Operators now available.', 'success');
-                        return true;
-                    }
-                } else if (upgrade === 'oven') {
-                    const cost = EQUIPMENT.oven.cost;
-                    if (s.money >= cost && !s.hasOven) {
-                        set({ money: s.money - cost, hasOven: true });
-                        get().addToast('🔥 Oven purchased! Oven Operators now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'furnace') {
@@ -1339,11 +1290,6 @@ export const gameStore = createStore<GameState>()(
                 } else if (workerType === 'sluiceWorker') {
                     if (s.sluiceWorkers > 0) {
                         set({ sluiceWorkers: s.sluiceWorkers - 1 });
-                        return true;
-                    }
-                } else if (workerType === 'ovenWorker') {
-                    if (s.ovenWorkers > 0) {
-                        set({ ovenWorkers: s.ovenWorkers - 1 });
                         return true;
                     }
                 } else if (workerType === 'furnaceWorker') {
@@ -1508,17 +1454,14 @@ export const gameStore = createStore<GameState>()(
                     pans: 0,
                     carts: 0,
                     sluiceWorkers: 0,
-                    ovenWorkers: 0,
                     furnaceWorkers: 0,
                     bankerWorkers: 0,
                     hasSluiceBox: false,
-                    hasOven: false,
                     hasFurnace: false,
                     scoopPower: 1,
                     sluicePower: 1,
                     panPower: 1,
                     sluiceGear: 1,
-                    ovenGear: 1,
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
@@ -1732,15 +1675,13 @@ export const gameStore = createStore<GameState>()(
 
                     if (effectiveBankerWorkers > 0) {
                         const sellRate = (effectiveBankerWorkers * UPGRADES.bankerWorker.goldPerSec) / 60; // gold/tick
-                        // Calculate value bonus from oven workers only (furnace workers no longer give value bonus)
-                        const valueMultiplier = 1.0 + s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
 
                         if (s.hasFurnace) {
                             // With furnace: sell goldBars only (no fee)
                             const maxSellable = s.goldBars;
                             goldBarsSold = Math.min(maxSellable, sellRate);
                             if (goldBarsSold > 0) {
-                                const baseValue = goldBarsSold * valueMultiplier * s.goldPrice;
+                                const baseValue = goldBarsSold * s.goldPrice;
                                 moneyGained = baseValue * (1 + 0.1 * s.dustGoldValue);
                             }
                         } else {
@@ -1748,7 +1689,7 @@ export const gameStore = createStore<GameState>()(
                             const maxSellable = s.gold + goldGained;
                             goldSold = Math.min(maxSellable, sellRate);
                             if (goldSold > 0) {
-                                const baseValue = goldSold * valueMultiplier * s.goldPrice;
+                                const baseValue = goldSold * s.goldPrice;
                                 const fee = baseValue * SMELTING_FEE_PERCENT;
                                 moneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                             }
@@ -1871,21 +1812,20 @@ export const gameStore = createStore<GameState>()(
                     let bankerArrivalGoldSold = 0;
                     let bankerArrivalBarsSold = 0;
                     let bankerArrivalMoneyGained = 0;
-                    const valueMultiplierArrival = 1.0 + s.ovenWorkers * UPGRADES.ovenWorker.valueBonus * s.ovenGear;
 
                     if (newLocation === 'town' && s.bankerWorkers > 0 && s.goldInPocket > 0) {
                         if (s.hasFurnace) {
                             const availAfterOthers = s.goldBars - goldBarsSold - driverBarsSold;
                             if (availAfterOthers > 0) {
                                 bankerArrivalBarsSold = Math.min(s.goldInPocket, availAfterOthers);
-                                const baseValue = bankerArrivalBarsSold * valueMultiplierArrival * s.goldPrice;
+                                const baseValue = bankerArrivalBarsSold * s.goldPrice;
                                 bankerArrivalMoneyGained = baseValue * (1 + 0.1 * s.dustGoldValue);
                             }
                         } else {
                             const goldAvailableAfterOtherSells = s.gold + goldGained - goldSold - driverGoldSold;
                             if (goldAvailableAfterOtherSells > 0) {
                                 bankerArrivalGoldSold = Math.min(s.goldInPocket, goldAvailableAfterOtherSells);
-                                const baseValue = bankerArrivalGoldSold * valueMultiplierArrival * s.goldPrice;
+                                const baseValue = bankerArrivalGoldSold * s.goldPrice;
                                 const fee = baseValue * SMELTING_FEE_PERCENT;
                                 bankerArrivalMoneyGained = (baseValue - fee) * (1 + 0.1 * s.dustGoldValue);
                             }
@@ -2042,17 +1982,14 @@ export const gameStore = createStore<GameState>()(
             pans: state.pans,
             carts: state.carts,
             sluiceWorkers: state.sluiceWorkers,
-            ovenWorkers: state.ovenWorkers,
             furnaceWorkers: state.furnaceWorkers,
             bankerWorkers: state.bankerWorkers,
             hasSluiceBox: state.hasSluiceBox,
-            hasOven: state.hasOven,
             hasFurnace: state.hasFurnace,
             scoopPower: state.scoopPower,
             sluicePower: state.sluicePower,
             panPower: state.panPower,
             sluiceGear: state.sluiceGear,
-            ovenGear: state.ovenGear,
             furnaceGear: state.furnaceGear,
             unlockedPanning: state.unlockedPanning,
             unlockedTown: state.unlockedTown,
@@ -2103,7 +2040,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV25();
+                return defaultSaveV26();
             }
         },
         onRehydrateStorage: ()=> (state) => {

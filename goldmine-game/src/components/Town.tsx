@@ -17,10 +17,8 @@ export function Town() {
     const scoopPower = useGameStore((s) => s.scoopPower);
     const panPower = useGameStore((s) => s.panPower);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const hasOven = useGameStore((s) => s.hasOven);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
@@ -29,7 +27,6 @@ export function Town() {
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const ovenGear = useGameStore((s) => s.ovenGear);
     const furnaceGear = useGameStore((s) => s.furnaceGear);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
@@ -53,10 +50,8 @@ export function Town() {
     const panCapUpgradeCost = panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0;
     const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
-    const betterOvenCost = getUpgradeCost('betterOven', ovenGear - 1);
     const betterFurnaceCost = getUpgradeCost('betterFurnace', furnaceGear - 1);
     const sluiceWorkerCost = getUpgradeCost('sluiceWorker', sluiceWorkers);
-    const ovenWorkerCost = getUpgradeCost('ovenWorker', ovenWorkers);
     const furnaceWorkerCost = getUpgradeCost('furnaceWorker', furnaceWorkers);
     const bankerWorkerCost = getUpgradeCost('bankerWorker', bankerWorkers);
     const detectorWorkerCost = getUpgradeCost('detectorWorker', detectorWorkers);
@@ -65,7 +60,6 @@ export function Town() {
     const shovelTotalWage = getTotalWageForType('shovel', shovels);
     const panTotalWage = getTotalWageForType('pan', pans);
     const sluiceWorkerTotalWage = getTotalWageForType('sluiceWorker', sluiceWorkers);
-    const ovenWorkerTotalWage = getTotalWageForType('ovenWorker', ovenWorkers);
     const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
     const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
     const detectorWorkerTotalWage = getTotalWageForType('detectorWorker', detectorWorkers);
@@ -83,16 +77,14 @@ export function Town() {
     const shovelNextWage = getWorkerWage('shovel', shovels + 1);
     const panNextWage = getWorkerWage('pan', pans + 1);
     const sluiceWorkerNextWage = getWorkerWage('sluiceWorker', sluiceWorkers + 1);
-    const ovenWorkerNextWage = getWorkerWage('ovenWorker', ovenWorkers + 1);
     const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
     const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
     const detectorWorkerNextWage = getWorkerWage('detectorWorker', detectorWorkers + 1);
 
     // Estimate current auto-sell income to detect payroll overruns
-    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + ovenWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
-    const autoSellValueMult = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
+    const totalPayroll = shovelTotalWage + panTotalWage + sluiceWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
     const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * autoSellValueMult * (1 - autoSellFee);
+    const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee);
 
     return (
         <div className="space-y-6">
@@ -314,7 +306,7 @@ export function Town() {
                                 </div>
 
                                 {/* Machinery Upgrades — only shown when player owns at least one piece of equipment */}
-                                {(hasSluiceBox || hasOven || hasFurnace) && (
+                                {(hasSluiceBox || hasFurnace) && (
                                     <div className="pt-2">
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⚙️ Machinery Upgrades</h4>
                                         <div className="space-y-2">
@@ -328,18 +320,6 @@ export function Town() {
                                                     playerMoney={money}
                                                     onBuy={() => buyUpgrade('betterSluice')}
                                                     icon="🚿"
-                                                />
-                                            )}
-                                            {hasOven && (
-                                                <UpgradeButton
-                                                    name="Better Oven"
-                                                    description={`Oven value bonus: ${(UPGRADES.ovenWorker.valueBonus * ovenGear * 100).toFixed(0)}% → ${(UPGRADES.ovenWorker.valueBonus * (ovenGear + 1) * 100).toFixed(0)}% per worker`}
-                                                    cost={betterOvenCost}
-                                                    currentLevel={ovenGear - 1}
-                                                    canAfford={money >= betterOvenCost}
-                                                    playerMoney={money}
-                                                    onBuy={() => buyUpgrade('betterOven')}
-                                                    icon="🔥"
                                                 />
                                             )}
                                             {hasFurnace && (
@@ -371,17 +351,6 @@ export function Town() {
                                     playerMoney={money}
                                     onBuy={() => buyUpgrade('sluiceBox')}
                                     icon={hasSluiceBox ? '✅' : '🚿'}
-                                />
-
-                                <UpgradeButton
-                                    name="Oven"
-                                    description="Increases gold sell value. 🔗 Unlocks Oven Operators in Labor Office."
-                                    cost={EQUIPMENT.oven.cost}
-                                    locked={hasOven}
-                                    canAfford={money >= EQUIPMENT.oven.cost && !hasOven}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('oven')}
-                                    icon={hasOven ? '✅' : '🔥'}
                                 />
 
                                 <UpgradeButton
@@ -504,26 +473,6 @@ export function Town() {
                             />
                         ) : (
                             <LockedWorkerRow name="Sluice Operator" icon="🚿" requiresName="Sluice Box" requiresCost={EQUIPMENT.sluiceBox.cost} />
-                        )}
-
-                        {hasOven ? (
-                            <WorkerRow
-                                name="Oven Operator"
-                                description={`+${(UPGRADES.ovenWorker.valueBonus * 100).toFixed(0)}% gold sell value per worker`}
-                                count={ovenWorkers}
-                                hireCost={ovenWorkerCost}
-                                wage={ovenWorkerTotalWage}
-                                canHire={money >= ovenWorkerCost}
-                                canFire={ovenWorkers > 0}
-                                onHire={() => buyUpgrade('ovenWorker')}
-                                onFire={() => fireWorker('ovenWorker')}
-                                icon="🔥"
-                                playerMoney={money}
-                                nextHireWage={ovenWorkerNextWage}
-                                nextHireWouldExceedIncome={(totalPayroll + ovenWorkerNextWage) > autoSellIncome}
-                            />
-                        ) : (
-                            <LockedWorkerRow name="Oven Operator" icon="🔥" requiresName="Smelting Oven" requiresCost={EQUIPMENT.oven.cost} />
                         )}
 
                         {hasFurnace ? (

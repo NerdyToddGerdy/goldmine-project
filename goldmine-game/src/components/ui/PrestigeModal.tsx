@@ -9,11 +9,9 @@ export function PrestigeModal({
     shovels,
     pans,
     sluiceWorkers,
-    ovenWorkers,
     furnaceWorkers,
     bankerWorkers,
     hasSluiceBox,
-    hasOven,
     hasFurnace,
     vehicleTier,
     onConfirm,
@@ -26,11 +24,9 @@ export function PrestigeModal({
     shovels: number;
     pans: number;
     sluiceWorkers: number;
-    ovenWorkers: number;
     furnaceWorkers: number;
     bankerWorkers: number;
     hasSluiceBox: boolean;
-    hasOven: boolean;
     hasFurnace: boolean;
     vehicleTier: number;
     onConfirm: () => void;
@@ -42,11 +38,9 @@ export function PrestigeModal({
     if (shovels > 0) lossList.push(`👷 ${shovels} Miner${shovels !== 1 ? 's' : ''}`);
     if (pans > 0) lossList.push(`🧑‍🔬 ${pans} Prospector${pans !== 1 ? 's' : ''}`);
     if (sluiceWorkers > 0) lossList.push(`🚿 ${sluiceWorkers} Sluice Operator${sluiceWorkers !== 1 ? 's' : ''}`);
-    if (ovenWorkers > 0) lossList.push(`🔥 ${ovenWorkers} Oven Operator${ovenWorkers !== 1 ? 's' : ''}`);
     if (furnaceWorkers > 0) lossList.push(`⚗️ ${furnaceWorkers} Furnace Operator${furnaceWorkers !== 1 ? 's' : ''}`);
     if (bankerWorkers > 0) lossList.push(`🏦 ${bankerWorkers} Banker${bankerWorkers !== 1 ? 's' : ''}`);
     if (hasSluiceBox) lossList.push('🚿 Sluice Box');
-    if (hasOven) lossList.push('🔥 Smelting Oven');
     if (hasFurnace) lossList.push('⚗️ Furnace');
     if (vehicleTier > 0) lossList.push(`🚗 ${VEHICLE_TIERS[vehicleTier as 1 | 2 | 3].name}`);
 

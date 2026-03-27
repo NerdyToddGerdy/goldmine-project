@@ -7,6 +7,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.9.1',
+        date: '2026-03-27',
+        title: 'Patch — Oven Removed',
+        changes: [
+            'Smelting Oven and Oven Operators removed — the equipment and its value bonus did not fit the processing chain now that the Furnace handles smelting end-to-end',
+            'The 15% smelting fee (pre-Furnace) and Furnace fee removal remain unchanged',
+        ],
+    },
+    {
         version: 'v1.9',
         date: '2026-03-26',
         title: 'Furnace — Active Smelting Phase',

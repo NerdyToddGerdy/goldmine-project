@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 25 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 26 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -390,12 +390,15 @@ export type SaveV25 = Omit<SaveV24, 'version'> & {
     goldBars: number;         // bars in player's possession (sellable)
 };
 
-export type LatestSave = SaveV25;
+// v26: oven removed — hasOven, ovenWorkers, ovenGear stripped
+export type SaveV26 = Omit<SaveV25, 'version' | 'hasOven' | 'ovenWorkers' | 'ovenGear'> & { version: 26; };
+
+export type LatestSave = SaveV26;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV25();
+        return defaultSaveV26();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1177,10 +1180,16 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...s, version: 25, furnaceFilled: 0, furnaceRunning: false, furnaceBars: 0, goldBars: 0 }, 25);
     }
 
-    // Already v25, ensure fields exist
-    const s = raw as Partial<SaveV25>;
+    if (fromVersion < 26) {
+        const s = raw as SaveV25;
+        const { hasOven: _ho, ovenWorkers: _ow, ovenGear: _og, ...rest } = s;
+        return migrateToLatest({ ...rest, version: 26 }, 26);
+    }
+
+    // Already v26, ensure fields exist
+    const s = raw as Partial<SaveV26>;
     return {
-        version: 25,
+        version: 26,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1198,17 +1207,14 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         pans: s.pans ?? 0,
         carts: s.carts ?? 0,
         sluiceWorkers: s.sluiceWorkers ?? 0,
-        ovenWorkers: s.ovenWorkers ?? 0,
         furnaceWorkers: s.furnaceWorkers ?? 0,
         bankerWorkers: s.bankerWorkers ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
-        hasOven: s.hasOven ?? false,
         hasFurnace: s.hasFurnace ?? false,
         scoopPower: s.scoopPower ?? 1,
         sluicePower: s.sluicePower ?? 1,
         panPower: s.panPower ?? 1,
         sluiceGear: s.sluiceGear ?? 1,
-        ovenGear: s.ovenGear ?? 1,
         furnaceGear: s.furnaceGear ?? 1,
         unlockedPanning: s.unlockedPanning ?? false,
         unlockedTown: s.unlockedTown ?? false,
@@ -1661,4 +1667,9 @@ export function defaultSaveV24(): SaveV24 {
 export function defaultSaveV25(): SaveV25 {
     const { version: _v, ...rest } = defaultSaveV24();
     return { ...rest, version: 25, furnaceFilled: 0, furnaceRunning: false, furnaceBars: 0, goldBars: 0 };
+}
+
+export function defaultSaveV26(): SaveV26 {
+    const { version: _v, hasOven: _ho, ovenWorkers: _ow, ovenGear: _og, ...rest } = defaultSaveV25();
+    return { ...rest, version: 26 };
 }

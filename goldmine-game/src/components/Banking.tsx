@@ -17,10 +17,8 @@ export function Banking() {
     const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const hasOven = useGameStore((s) => s.hasOven);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const legacyDust = useGameStore((s) => s.legacyDust);
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
@@ -180,11 +178,9 @@ export function Banking() {
                     shovels={shovels}
                     pans={pans}
                     sluiceWorkers={sluiceWorkers}
-                    ovenWorkers={ovenWorkers}
                     furnaceWorkers={furnaceWorkers}
                     bankerWorkers={bankerWorkers}
                     hasSluiceBox={hasSluiceBox}
-                    hasOven={hasOven}
                     hasFurnace={hasFurnace}
                     vehicleTier={vehicleTier}
                     onConfirm={() => {

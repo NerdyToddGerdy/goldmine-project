@@ -10,10 +10,8 @@ export function ResourceBar() {
     const shovels = useGameStore((s) => s.shovels);
     const pans = useGameStore((s) => s.pans);
     const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const ovenWorkers = useGameStore((s) => s.ovenWorkers);
     const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const ovenGear = useGameStore((s) => s.ovenGear);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
 
     // Bucket/pan state for idle detection
@@ -59,13 +57,9 @@ export function ResourceBar() {
     // Calculate auto-sell income from bankers
     let autoSellIncome = 0;
     if (goldSellRate > 0) {
-        // Calculate value bonuses from oven workers (furnace workers no longer give value bonus)
-        const valueMultiplier = 1.0 + ovenWorkers * UPGRADES.ovenWorker.valueBonus * ovenGear;
         const effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-
-        const baseValue = goldSellRate * valueMultiplier;
-        const fee = baseValue * effectiveFeePercent;
-        autoSellIncome = baseValue - fee;
+        const fee = goldSellRate * effectiveFeePercent;
+        autoSellIncome = goldSellRate - fee;
     }
 
     // Money rate: auto-sell income - active payroll
