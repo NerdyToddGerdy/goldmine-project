@@ -7,6 +7,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.11',
+        date: '2026-03-28',
+        title: 'Driver — Gold Carrier & Split Bank Vault',
+        changes: [
+            'Driver (hired in Town → Transport, requires Steam Wagon) now hauls gold to the Bank Vault instead of auto-selling',
+            'Driver prioritizes gold bars over raw flakes when loading — bars are carried first up to capacity',
+            'Gold bars are worth 20% more than raw flakes (smelting premium) — applies at every sell path including vault and banker',
+            'Bank Vault is split: vault bars sell at the 1.2× bar premium; vault flakes sell with the 15% smelting fee',
+            'Manual selling still works — carry gold to Town yourself and sell from your pocket (goldInPocket cap enforced)',
+            'Driver status card in the Mine shows current phase (To Bank / Returning / Waiting) with progress bar and oz aboard (bars + flakes)',
+            'New upgrade: Larger Carrier (+5 oz capacity, up to 3×) in Transport tab after hiring the Driver',
+            'Gold in transit is returned to the mine on save reload',
+        ],
+    },
+    {
         version: 'v1.10.2',
         date: '2026-03-27',
         title: 'Patch — Pan Drains to Zero',

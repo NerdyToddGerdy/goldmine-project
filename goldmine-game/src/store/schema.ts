@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 27 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 28 as const; // bump when persist shape changes
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -396,12 +396,21 @@ export type SaveV26 = Omit<SaveV25, 'version' | 'hasOven' | 'ovenWorkers' | 'ove
 // v27: hasAutoEmpty replaced by haulers worker count
 export type SaveV27 = Omit<SaveV26, 'version' | 'hasAutoEmpty'> & { version: 27; haulers: number; };
 
-export type LatestSave = SaveV27;
+export type SaveV28 = Omit<SaveV27, 'version'> & {
+    version: 28;
+    driverCarryingFlakes: number;
+    driverCarryingBars: number;
+    driverCapUpgrades: number;
+    vaultFlakes: number;
+    vaultBars: number;
+};
+
+export type LatestSave = SaveV28;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV27();
+        return defaultSaveV28();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1197,10 +1206,23 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...rest, version: 27, haulers }, 27);
     }
 
-    // Already v27, ensure fields exist
-    const s = raw as Partial<SaveV27>;
+    if (fromVersion < 28) {
+        const s = raw as SaveV27;
+        return migrateToLatest({
+            ...s,
+            version: 28,
+            driverCarryingFlakes: 0,
+            driverCarryingBars: 0,
+            driverCapUpgrades: 0,
+            vaultFlakes: 0,
+            vaultBars: 0,
+        }, 28);
+    }
+
+    // Already v28, ensure fields exist
+    const s = raw as Partial<SaveV28>;
     return {
-        version: 27,
+        version: 28,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1272,6 +1294,12 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceRunning: s.furnaceRunning ?? false,
         furnaceBars: s.furnaceBars ?? 0,
         goldBars: s.goldBars ?? 0,
+        // Migrate old single-field carries to split fields
+        driverCarryingFlakes: (s as {driverCarryingFlakes?: number; driverCarrying?: number}).driverCarryingFlakes ?? (s as {driverCarrying?: number}).driverCarrying ?? 0,
+        driverCarryingBars: (s as {driverCarryingBars?: number}).driverCarryingBars ?? 0,
+        driverCapUpgrades: s.driverCapUpgrades ?? 0,
+        vaultFlakes: (s as {vaultFlakes?: number; bankVault?: number}).vaultFlakes ?? (s as {bankVault?: number}).bankVault ?? 0,
+        vaultBars: (s as {vaultBars?: number}).vaultBars ?? 0,
     };
 }
 
@@ -1688,4 +1716,17 @@ export function defaultSaveV26(): SaveV26 {
 export function defaultSaveV27(): SaveV27 {
     const { version: _v, hasAutoEmpty: _ha, ...rest } = defaultSaveV26();
     return { ...rest, version: 27, haulers: 0 };
+}
+
+export function defaultSaveV28(): SaveV28 {
+    const { version: _v, ...rest } = defaultSaveV27();
+    return {
+        ...rest,
+        version: 28,
+        driverCarryingFlakes: 0,
+        driverCarryingBars: 0,
+        driverCapUpgrades: 0,
+        vaultFlakes: 0,
+        vaultBars: 0,
+    };
 }

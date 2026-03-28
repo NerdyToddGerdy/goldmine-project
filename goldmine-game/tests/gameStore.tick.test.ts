@@ -238,49 +238,71 @@ describe('sluice drain and miner\'s moss', () => {
     });
 });
 
-// ─── driver round-trip sell ────────────────────────────────────────────────────
+// ─── driver round-trip vault deposit ──────────────────────────────────────────
 
-describe('driver auto-sell', () => {
-    it('driver sells all gold bars at trip duration (mule cart, with furnace)', () => {
+describe('driver vault deposit', () => {
+    it('driver loads raw flakes into vaultFlakes at trip midpoint (mule cart)', () => {
         const tripDuration = getTravelDurationTicks(1); // 8s * 60 = 480 ticks
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, goldBars: 5, gold: 0,
-            hasFurnace: true, goldPrice: 1.0, dustGoldValue: 0,
-            money: 0, driverTripTicks: 0,
-            // No workers — payroll = 0
-            shovels: 0, pans: 0, sluiceWorkers: 0,
-            furnaceWorkers: 0, bankerWorkers: 0,
-        });
-        runTicks(tripDuration);
-        expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
-        expect(gameStore.getState().money).toBeCloseTo(5, 6);
-    });
-
-    it('driver does not sell before trip duration completes', () => {
-        const tripDuration = getTravelDurationTicks(1); // 480
-        gameStore.setState({
-            hasDriver: true, vehicleTier: 1, goldBars: 5, gold: 0,
-            hasFurnace: true, goldPrice: 1.0,
-            money: 0, driverTripTicks: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0,
-            furnaceWorkers: 0, bankerWorkers: 0,
-        });
-        runTicks(tripDuration - 1); // one short
-        expect(gameStore.getState().goldBars).toBeCloseTo(5, 6); // bars not yet sold
-    });
-
-    it('driver applies smelting fee without hasFurnace', () => {
-        const tripDuration = getTravelDurationTicks(1);
-        gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 10,
+            hasDriver: true, vehicleTier: 1, gold: 10, goldBars: 0,
             hasFurnace: false, goldPrice: 1.0, dustGoldValue: 0,
             money: 0, driverTripTicks: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0,
-            furnaceWorkers: 0, bankerWorkers: 0,
+            driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
+            vaultFlakes: 0, vaultBars: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
         });
         runTicks(tripDuration);
-        // money = 10 * 1.0 * (1 - 0.15) = 8.5
-        expect(gameStore.getState().money).toBeCloseTo(8.5, 5);
+        expect(gameStore.getState().vaultFlakes).toBeCloseTo(10, 6);
+        expect(gameStore.getState().vaultBars).toBeCloseTo(0, 6);
+        expect(gameStore.getState().gold).toBeCloseTo(0, 6);
+        expect(gameStore.getState().money).toBeCloseTo(0, 6); // no auto-sell
+    });
+
+    it('driver prioritizes bars over flakes when loading (capacity=10)', () => {
+        const tripDuration = getTravelDurationTicks(1);
+        gameStore.setState({
+            hasDriver: true, vehicleTier: 1, gold: 8, goldBars: 6,
+            hasFurnace: true, goldPrice: 1.0, dustGoldValue: 0,
+            money: 0, driverTripTicks: 0,
+            driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
+            vaultFlakes: 0, vaultBars: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+        });
+        runTicks(tripDuration);
+        // capacity=10: 6 bars fill first, 4 remaining capacity loads flakes
+        expect(gameStore.getState().vaultBars).toBeCloseTo(6, 6);
+        expect(gameStore.getState().vaultFlakes).toBeCloseTo(4, 6);
+        expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
+        expect(gameStore.getState().gold).toBeCloseTo(4, 6); // 4 oz flakes remain
+    });
+
+    it('driver does not deposit before trip duration completes', () => {
+        const tripDuration = getTravelDurationTicks(1);
+        gameStore.setState({
+            hasDriver: true, vehicleTier: 1, gold: 10, goldBars: 0,
+            hasFurnace: false, goldPrice: 1.0,
+            money: 0, driverTripTicks: 0,
+            driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
+            vaultFlakes: 0, vaultBars: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+        });
+        runTicks(tripDuration - 1);
+        expect(gameStore.getState().vaultFlakes).toBeCloseTo(0, 6);
+    });
+
+    it('driver only carries up to capacity (base 10 oz)', () => {
+        const tripDuration = getTravelDurationTicks(1);
+        gameStore.setState({
+            hasDriver: true, vehicleTier: 1, gold: 25, goldBars: 0,
+            hasFurnace: false, goldPrice: 1.0, dustGoldValue: 0,
+            money: 0, driverTripTicks: 0,
+            driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
+            vaultFlakes: 0, vaultBars: 0,
+            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+        });
+        runTicks(tripDuration);
+        expect(gameStore.getState().vaultFlakes).toBeCloseTo(10, 6);
+        expect(gameStore.getState().gold).toBeCloseTo(15, 6);
     });
 });
 

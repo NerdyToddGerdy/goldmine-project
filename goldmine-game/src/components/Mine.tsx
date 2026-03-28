@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity } from "../store/gameStore";
 import { ProgressBar } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -52,6 +52,10 @@ export function Mine() {
     const furnaceRunning = useGameStore((s) => s.furnaceRunning);
     const furnaceBars = useGameStore((s) => s.furnaceBars);
     const goldBars = useGameStore((s) => s.goldBars);
+
+    const driverCarryingFlakes = useGameStore((s) => s.driverCarryingFlakes);
+    const driverCarryingBars = useGameStore((s) => s.driverCarryingBars);
+    const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
 
     const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
@@ -189,6 +193,47 @@ export function Mine() {
                     )}
                 </div>
             )}
+
+            {/* Driver Status Card */}
+            {hasDriver && (() => {
+                const tripDuration = getTravelDurationTicks(vehicleTier);
+                const capacity = getDriverCapacity(driverCapUpgrades);
+                const tripSecs = Math.round(tripDuration / 60);
+                const isOutbound = driverTripTicks > 0 && driverTripTicks <= tripDuration;
+                const isReturning = driverTripTicks > tripDuration;
+                const phaseLabel = isOutbound
+                    ? `🚗 To Bank (${Math.ceil((tripDuration - driverTripTicks) / 60)}s)`
+                    : isReturning
+                    ? `↩️ Returning (${Math.ceil((tripDuration * 2 - driverTripTicks) / 60)}s)`
+                    : '💤 Waiting for gold…';
+                const barValue = isOutbound ? driverTripTicks : isReturning ? driverTripTicks - tripDuration : 0;
+                return (
+                    <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-yellow-900">🚗 Driver</h3>
+                            <span className="text-xs text-yellow-700">{capacity} oz cap · {tripSecs}s trip</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-yellow-800">
+                            <span>{phaseLabel}</span>
+                            {isOutbound && (driverCarryingBars > 0 || driverCarryingFlakes > 0) && (
+                                <span className="font-semibold">
+                                    {driverCarryingBars > 0 && `${formatNumber(driverCarryingBars)} oz bars`}
+                                    {driverCarryingBars > 0 && driverCarryingFlakes > 0 && ' + '}
+                                    {driverCarryingFlakes > 0 && `${formatNumber(driverCarryingFlakes)} oz flakes`}
+                                </span>
+                            )}
+                        </div>
+                        {driverTripTicks > 0 && (
+                            <ProgressBar
+                                value={barValue}
+                                max={tripDuration}
+                                color="amber"
+                                isActive={true}
+                            />
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* Manual Actions */}
             <div className="space-y-3">

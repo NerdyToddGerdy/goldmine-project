@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_PRICE_MIN, GOLD_PRICE_MAX, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
+import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_BAR_PRICE_MULTIPLIER, GOLD_PRICE_MIN, GOLD_PRICE_MAX, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useRef, useEffect, useState } from "react";
 import { PrestigeModal } from "./ui";
@@ -24,6 +24,16 @@ export function Banking() {
     const runMoneyEarned = useGameStore((s) => s.runMoneyEarned);
     const prestigeCount = useGameStore((s) => s.prestigeCount);
 
+    const vaultFlakes = useGameStore((s) => s.vaultFlakes);
+    const vaultBars = useGameStore((s) => s.vaultBars);
+    const hasDriver = useGameStore((s) => s.hasDriver);
+
+    const multiplier = 1 + 0.1 * dustGoldValue;
+    const vaultBarsValue = vaultBars * goldPrice * GOLD_BAR_PRICE_MULTIPLIER * multiplier;
+    const vaultFlakesBase = vaultFlakes * goldPrice;
+    const vaultFlakesValue = (vaultFlakesBase - vaultFlakesBase * SMELTING_FEE_PERCENT) * multiplier;
+    const vaultTotalValue = vaultBarsValue + vaultFlakesValue;
+
     const [activeTab, setActiveTab] = useState<'sell' | 'legacy'>('sell');
     const [showPrestigeModal, setShowPrestigeModal] = useState(false);
     const [celebrationDust, setCelebrationDust] = useState<number | null>(null);
@@ -33,14 +43,11 @@ export function Banking() {
 
     const sellGold = () => gameStore.getState().sellGold();
 
-    // With furnace: sell goldBars; without: sell raw gold
+    // Manual sell: limited to goldInPocket (what you physically carried to Town)
     const sellable = hasFurnace ? Math.min(goldBars, goldInPocket) : Math.min(gold, goldInPocket);
-    const baseValue = sellable * goldPrice;
+    const baseValue = hasFurnace ? sellable * goldPrice * GOLD_BAR_PRICE_MULTIPLIER : sellable * goldPrice;
     const fee = hasFurnace ? 0 : baseValue * SMELTING_FEE_PERCENT;
-    const finalValue = (baseValue - fee) * (1 + 0.1 * dustGoldValue);
-
-    // Extra gold that stayed at mine (mined during travel, not in pocket)
-    const extraGold = hasFurnace ? goldBars - sellable : gold - sellable;
+    const finalValue = (baseValue - fee) * multiplier;
 
     // Price trend arrow
     const prevPriceRef = useRef(goldPrice);
@@ -144,12 +151,53 @@ export function Banking() {
                     </button>
                 )}
 
-                {extraGold >= 0.01 && (
-                    <div className="text-xs text-amber-700 dark:text-amber-400 text-center">
-                        ✨ {formatNumber(extraGold)} oz {hasFurnace ? 'bars' : 'panned en route'} — stays at the Mine
-                    </div>
-                )}
             </div>
+            {/* Bank Vault — fed by the Driver */}
+            {hasDriver && (
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-xl space-y-3">
+                    <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200">🏦 Bank Vault</h3>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                        Gold deposited here by your Driver. Bars sell at ×{GOLD_BAR_PRICE_MULTIPLIER.toFixed(1)} market price; flakes have a {(SMELTING_FEE_PERCENT * 100).toFixed(0)}% smelting fee.
+                    </p>
+                    {(vaultFlakes >= 0.01 || vaultBars >= 0.01) ? (
+                        <>
+                            <div className="p-3 bg-white/60 dark:bg-black/20 border border-yellow-200 dark:border-yellow-700 rounded-xl text-sm space-y-1">
+                                {vaultBars >= 0.01 && (
+                                    <div className="flex justify-between text-gray-700 dark:text-gray-300">
+                                        <span>🧱 {formatNumber(vaultBars)} oz bars × ${(goldPrice * GOLD_BAR_PRICE_MULTIPLIER).toFixed(2)}</span>
+                                        <span>${formatNumber(vaultBarsValue)}</span>
+                                    </div>
+                                )}
+                                {vaultFlakes >= 0.01 && (<>
+                                    <div className="flex justify-between text-gray-700 dark:text-gray-300">
+                                        <span>⚗️ {formatNumber(vaultFlakes)} oz flakes × ${goldPrice.toFixed(2)}</span>
+                                        <span>${formatNumber(vaultFlakesBase * multiplier)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-red-600 dark:text-red-400">
+                                        <span>Smelting fee ({(SMELTING_FEE_PERCENT * 100).toFixed(0)}%)</span>
+                                        <span>− ${formatNumber(vaultFlakesBase * SMELTING_FEE_PERCENT * multiplier)}</span>
+                                    </div>
+                                </>)}
+                                <div className="flex justify-between font-bold text-green-700 dark:text-green-400 border-t border-yellow-200 dark:border-yellow-700 pt-1 mt-1">
+                                    <span>You receive</span>
+                                    <span>${formatNumber(vaultTotalValue)}</span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => gameStore.getState().sellVault()}
+                                className="w-full px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold"
+                            >
+                                💰 Sell Vault ({formatNumber(vaultBars + vaultFlakes)} oz)
+                            </button>
+                        </>
+                    ) : (
+                        <div className="text-sm text-yellow-600 dark:text-yellow-400 text-center italic">
+                            Vault is empty — Driver is en route…
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Prospect New Claim */}
             {canPrestige && (
                 <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-xl space-y-3">

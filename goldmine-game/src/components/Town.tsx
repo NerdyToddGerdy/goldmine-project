@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks, DETECTOR_SPOTS_PER_SEC } from "../store/gameStore";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks, DETECTOR_SPOTS_PER_SEC, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 import { Banking } from "./Banking";
@@ -34,6 +34,7 @@ export function Town() {
     const haulers = useGameStore((s) => s.haulers);
     const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
     const hasMotherlode = useGameStore((s) => s.hasMotherlode);
+    const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
     const detectorWorkers = useGameStore((s) => s.detectorWorkers);
     const goldPrice = useGameStore((s) => s.goldPrice);
     const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
@@ -375,6 +376,7 @@ export function Town() {
                                         icon={hasMotherlode ? '✅' : '🌋'}
                                     />
                                 )}
+
                             </>
                             )}
 
@@ -401,6 +403,18 @@ export function Town() {
                                         />
                                     );
                                 })}
+                                {hasDriver && (
+                                    <UpgradeButton
+                                        name={`Larger Carrier (${driverCapUpgrades}/${MAX_DRIVER_CAP_UPGRADES})`}
+                                        description={`Driver carries +5 oz per upgrade. Current: ${getDriverCapacity(driverCapUpgrades)} oz (base ${DRIVER_BASE_CAPACITY} oz).`}
+                                        cost={getUpgradeCost('largerCarrier', driverCapUpgrades)}
+                                        locked={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES}
+                                        canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && money >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
+                                        playerMoney={money}
+                                        onBuy={() => buyUpgrade('largerCarrier')}
+                                        icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
+                                    />
+                                )}
                             </div>
                             )}
                         </div>

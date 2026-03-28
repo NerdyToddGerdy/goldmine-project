@@ -101,15 +101,14 @@ describe('panForGold', () => {
 
 describe('sellGold', () => {
     it('does nothing when goldInPocket is 0', () => {
-        gameStore.setState({ gold: 5, goldInPocket: 0 });
+        gameStore.setState({ gold: 5, goldInPocket: 0, hasFurnace: false });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBe(0);
         expect(gameStore.getState().gold).toBe(5);
     });
 
-    it('sells up to goldInPocket with smelting fee', () => {
-        // gold=10, goldInPocket=3, goldPrice=1.0, no furnace
-        // baseValue=3, fee=3*0.15=0.45, finalValue=2.55
+    it('sells up to goldInPocket with smelting fee (no furnace)', () => {
+        // gold=10, goldInPocket=3, goldPrice=1.0, fee=15% → 3*0.85=2.55
         gameStore.setState({ gold: 10, goldInPocket: 3, goldPrice: 1.0, hasFurnace: false, dustGoldValue: 0 });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(2.55, 8);
@@ -117,40 +116,35 @@ describe('sellGold', () => {
         expect(gameStore.getState().goldInPocket).toBe(0);
     });
 
-    it('sells goldBars (no fee) with hasFurnace', () => {
-        // With furnace: sell goldBars at full price
+    it('sells goldBars up to goldInPocket at bar premium (hasFurnace)', () => {
+        // goldBars=5, goldInPocket=5, goldPrice=1.0, barMultiplier=1.2 → 5*1.2=6.0
         gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0 });
         gameStore.getState().sellGold();
-        expect(gameStore.getState().money).toBeCloseTo(5.0, 8);
+        expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
         expect(gameStore.getState().goldBars).toBeCloseTo(0, 8);
     });
 
-    it('does nothing when goldBars=0 with hasFurnace', () => {
-        gameStore.setState({ goldBars: 0, goldInPocket: 5, hasFurnace: true });
+    it('does nothing when goldInPocket=0 with hasFurnace', () => {
+        gameStore.setState({ goldBars: 5, goldInPocket: 0, hasFurnace: true });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBe(0);
     });
 
     it('applies dustGoldValue sell multiplier with furnace', () => {
-        // dustGoldValue=2 → multiplier = 1 + 0.1*2 = 1.2 → finalValue = 5 * 1.2 = 6.0
+        // dustGoldValue=2 → multiplier=1.2 → finalValue = 5*1.0*1.2*1.2 = 7.2
         gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 2 });
         gameStore.getState().sellGold();
-        expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
-    });
-
-    it('applies goldPrice multiplier with furnace', () => {
-        gameStore.setState({ goldBars: 4, goldInPocket: 4, goldPrice: 1.5, hasFurnace: true, dustGoldValue: 0 });
-        gameStore.getState().sellGold();
-        expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
+        expect(gameStore.getState().money).toBeCloseTo(7.2, 8);
     });
 
     it('updates runMoneyEarned, totalMoneyEarned, and peakRunMoney', () => {
         gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0, peakRunMoney: 0 });
         gameStore.getState().sellGold();
         const { runMoneyEarned, totalMoneyEarned, peakRunMoney } = gameStore.getState();
-        expect(runMoneyEarned).toBeCloseTo(5, 8);
-        expect(totalMoneyEarned).toBeCloseTo(5, 8);
-        expect(peakRunMoney).toBeCloseTo(5, 8);
+        // 5 bars * 1.0 * 1.2 bar multiplier = 6.0
+        expect(runMoneyEarned).toBeCloseTo(6.0, 8);
+        expect(totalMoneyEarned).toBeCloseTo(6.0, 8);
+        expect(peakRunMoney).toBeCloseTo(6.0, 8);
     });
 });
 
@@ -568,7 +562,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(27);
+        expect(parsed.version).toBe(28);
     });
 
     it('exportSave round-trips through importSave', () => {
