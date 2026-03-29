@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.11.1',
+        date: '2026-03-28',
+        title: 'Patch — Sluice & Moss Fixes',
+        changes: [
+            'Market price chart is taller and easier to read',
+            'Clean Moss now yields 3 paydirt per click (sluice concentrates the dirt)',
+            'Sluice workers auto-clean moss into the pan only after the sluice finishes draining — moss bar now visibly fills while sluice is active',
+            'Clean Moss button is disabled while the sluice is actively draining',
+            'Fixed: sluice worker extraction boost no longer speeds up pan drain rate — workers boost gold yield only, keeping the pan from starving',
+        ],
+    },
+    {
         version: 'v1.11',
         date: '2026-03-28',
         title: 'Driver — Gold Carrier & Split Bank Vault',

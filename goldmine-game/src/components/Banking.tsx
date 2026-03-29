@@ -290,7 +290,7 @@ function GoldSparkline({ history }: { history: number[] }) {
     if (history.length < 2) return null;
 
     const W = 200;
-    const H = 36;
+    const H = 64;
     const pad = 3;
     const innerW = W - pad * 2;
     const innerH = H - pad * 2;
@@ -326,7 +326,7 @@ function GoldSparkline({ history }: { history: number[] }) {
                 viewBox={`0 0 ${W} ${H}`}
                 preserveAspectRatio="none"
                 className="w-full"
-                style={{ height: 36 }}
+                style={{ height: 64 }}
             >
                 <defs>
                     <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">

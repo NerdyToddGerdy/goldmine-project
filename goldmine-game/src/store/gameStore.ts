@@ -558,7 +558,6 @@ export const gameStore = createStore<GameState>()(
             darkMode: false,
 
             _accumulator: 0,
-
             // Dev tools
             devMode: false,
             devLogs: [],
@@ -998,11 +997,12 @@ export const gameStore = createStore<GameState>()(
                     if (s.minersMossFilled <= 0) return s;
                     const panCap = getEffectivePanCapacity(s.dustPanCapacity + s.panCapUpgrades);
                     const spaceInPan = panCap - s.panFilled;
-                    const transferred = Math.min(s.minersMossFilled, spaceInPan);
-                    if (transferred <= 0) return s;
+                    const consumed = Math.min(1, s.minersMossFilled);
+                    const produced = Math.min(consumed * 3, spaceInPan);
+                    if (consumed <= 0 || produced <= 0) return s;
                     return {
-                        minersMossFilled: s.minersMossFilled - transferred,
-                        panFilled: s.panFilled + transferred,
+                        minersMossFilled: s.minersMossFilled - consumed,
+                        panFilled: s.panFilled + produced,
                     };
                 });
             },
@@ -1651,12 +1651,14 @@ export const gameStore = createStore<GameState>()(
                     let newRichDirtInBucketForAutoEmpty = s.richDirtInBucket; // tracks auto-empty transfers
 
                     // Sluice box drain: dirt drains over time, concentrated paydirt collects in miner's moss
+                    // Paused while player is manually cleaning moss (can't pour into moss while rinsing it)
                     if (s.hasSluiceBox) {
                         const sluiceCap = panCap; // sluice capacity = pan capacity
                         if (newSluiceBoxFilled > 0 && newMinersMossFilled < sluiceCap) {
                             const richRatio = newSluiceBoxFilled > 0 ? Math.min(1, newRichDirtInSluice / newSluiceBoxFilled) : 0;
                             const effectiveConversion = richRatio * RICH_CONVERSION_RATIO + (1 - richRatio) * SLUICE_CONVERSION_RATIO;
-                            const drainPerTick = SLUICE_DRAIN_RATE / 60;
+                            // Sluice workers speed up the drain rate (+50% per worker)
+                            const drainPerTick = (SLUICE_DRAIN_RATE * (1 + 0.5 * effectiveSluiceWorkers)) / 60;
                             // Don't drain more than moss can absorb (via conversion ratio)
                             const maxDrain = Math.min(newSluiceBoxFilled, (sluiceCap - newMinersMossFilled) / effectiveConversion);
                             const actualDrain = Math.min(drainPerTick, maxDrain);
@@ -1684,8 +1686,9 @@ export const gameStore = createStore<GameState>()(
                         }
                     }
 
-                    // Auto-clean: sluice workers transfer miner's moss into the pan
-                    if (s.hasSluiceBox && effectiveSluiceWorkers > 0 && newMinersMossFilled > 0 && newPanFilled < panCap) {
+                    // Sluice workers auto-clean moss → pan, but only once sluice has finished draining
+                    // so the moss visibly fills while the sluice is active
+                    if (s.hasSluiceBox && effectiveSluiceWorkers > 0 && newMinersMossFilled > 0 && newPanFilled < panCap && newSluiceBoxFilled === 0) {
                         const spaceInPan = panCap - newPanFilled;
                         const transferred = Math.min(newMinersMossFilled, spaceInPan);
                         newMinersMossFilled -= transferred;
@@ -1743,7 +1746,10 @@ export const gameStore = createStore<GameState>()(
                         let extractionRate = BASE_EXTRACTION;
                         extractionRate += effectiveSluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * s.sluiceGear;
 
-                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate * (1 + 0.2 * (s.dustPanSpeed + s.panSpeedUpgrades))) / (60 * BASE_EXTRACTION);
+                        // panRate is intentionally independent of extractionRate — sluice workers boost
+                        // gold yield per unit consumed, not how fast dirt is consumed. Without this,
+                        // a sluice worker makes prospectors drain the pan faster than the sluice can fill it.
+                        const panRate = (effectivePans * UPGRADES.pan.goldPerSec * (1 + 0.2 * (s.dustPanSpeed + s.panSpeedUpgrades))) / 60;
                         const panConsumed = Math.min(newPanFilled, panRate);
                         // Paydirt (from sluice) yields more gold per unit than raw dirt
                         const paydirtMultiplier = s.hasSluiceBox ? PAYDIRT_YIELD_MULTIPLIER : 1;

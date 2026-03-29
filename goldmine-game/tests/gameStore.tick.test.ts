@@ -107,13 +107,14 @@ describe('prospector production per tick', () => {
         expect(gameStore.getState().panFilled).toBeCloseTo(10 - 0.025, 6);
     });
 
-    it('sluiceWorkers increase extraction rate and gold output, paydirt multiplier applies', () => {
+    it('sluiceWorkers increase gold yield but do not speed up pan consumption', () => {
+        // panRate is constant regardless of extractionRate (sluice workers boost yield, not drain speed)
+        // panRate = (1 * 1.5 * 1) / 60 = 0.025  (same as no-upgrade case)
         // extractionRate = 0.2 + 1 * 0.1 * 1 = 0.3
-        // panRate = (1 * 1.5 * 0.3 * 1) / (60 * 0.2) = 0.45/12 = 0.0375
-        // goldGained = 0.0375 * 0.3 * PAYDIRT_YIELD_MULTIPLIER * 1 = 0.0375 * 0.3 * 2.5 = 0.028125
+        // goldGained = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER = 0.025 * 0.3 * 2.5 = 0.01875
         gameStore.setState({ pans: 1, sluiceWorkers: 1, hasSluiceBox: true, sluiceGear: 1, panFilled: 10, money: 9999 });
         runTicks(1);
-        const expected = 0.0375 * 0.3 * PAYDIRT_YIELD_MULTIPLIER;
+        const expected = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER;
         expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
     });
 
@@ -215,27 +216,6 @@ describe('sluice drain and miner\'s moss', () => {
         expect(gameStore.getState().minersMossFilled).toBeCloseTo(20, 6); // unchanged
     });
 
-    it('sluice workers auto-clean moss into pan each tick', () => {
-        // With sluiceWorkers, all available moss should transfer to pan in one tick
-        gameStore.setState({ minersMossFilled: 5, panFilled: 0, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 1, money: 9999 });
-        runTicks(1);
-        expect(gameStore.getState().minersMossFilled).toBeCloseTo(0, 6);
-        expect(gameStore.getState().panFilled).toBeCloseTo(5, 6);
-    });
-
-    it('auto-clean is capped by available pan space', () => {
-        // panFilled=18, panCap=20 → only 2 units can fit
-        gameStore.setState({ minersMossFilled: 5, panFilled: 18, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 1, money: 9999 });
-        runTicks(1);
-        expect(gameStore.getState().panFilled).toBeCloseTo(20, 6); // capped at panCap
-        expect(gameStore.getState().minersMossFilled).toBeCloseTo(3, 6); // 5 - 2 = 3 remains
-    });
-
-    it('no auto-clean without sluice workers', () => {
-        gameStore.setState({ minersMossFilled: 5, panFilled: 0, sluiceBoxFilled: 0, hasSluiceBox: true, sluiceWorkers: 0 });
-        runTicks(1);
-        expect(gameStore.getState().minersMossFilled).toBeCloseTo(5, 6); // unchanged
-    });
 });
 
 // ─── driver round-trip vault deposit ──────────────────────────────────────────

@@ -100,7 +100,7 @@ export function Mine() {
     const sluiceHasSpace = sluiceBoxFilled + bucketFilled <= effectivePanCap;
     const mossCapacity = effectivePanCap; // same formula as pan
     const mossIsFull = minersMossFilled >= mossCapacity;
-    const mossCleanAmount = Math.min(minersMossFilled, effectivePanCap - panFilled);
+
 
     return (
         <div className="space-y-6">
@@ -334,13 +334,10 @@ export function Mine() {
                         {/* Clean Moss Button */}
                         <button
                             onClick={cleanMoss}
-                            disabled={minersMossFilled === 0 || panIsFull || isTraveling}
+                            disabled={minersMossFilled === 0 || panIsFull || isTraveling || sluiceIsDraining}
                             className="w-full px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {mossCleanAmount > 0
-                                ? `🌿 Clean Moss → Pan (+${mossCleanAmount.toFixed(1)} paydirt)`
-                                : `🌿 Clean Moss → Pan`
-                            }
+                            🌿 Clean Moss → Pan (+3 paydirt)
                         </button>
                     </div>
                 )}
