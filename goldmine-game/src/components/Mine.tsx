@@ -470,18 +470,44 @@ export function Mine() {
                     </div>
                 )}
 
-                {/* Sluice Box unlock message */}
-                {!hasSluiceBox && money < EQUIPMENT.sluiceBox.cost && unlockedPanning && (
-                    <div className="text-sm text-blue-700 italic text-center p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                        💡 Save up ${EQUIPMENT.sluiceBox.cost} in Town to unlock the Sluice Box - it converts bucket dirt to paydirt for better yields!
-                    </div>
-                )}
-
-                {!unlockedPanning && (
-                    <div className="text-sm text-amber-700 italic text-center">
-                        Fill the bucket to start panning!
-                    </div>
-                )}
+                {/* Contextual tips */}
+                {(() => {
+                    const tips = [
+                        { show: !unlockedPanning,
+                          text: '⛏️ Fill the bucket to start panning!', amber: true },
+                        { show: unlockedPanning && !hasSluiceBox && money >= EQUIPMENT.sluiceBox.cost,
+                          text: `💡 You can afford the Sluice Box! Buy it in Town → Shop → Equipment.` },
+                        { show: unlockedPanning && !hasSluiceBox,
+                          text: `💡 Save up $${EQUIPMENT.sluiceBox.cost} for the Sluice Box in Town — concentrates dirt into richer paydirt (3 paydirt per click vs 1).` },
+                        { show: hasSluiceBox && shovels === 0 && pans === 0,
+                          text: '💡 Hire Miners and Prospectors in Town → Labor Office to automate the mine.' },
+                        { show: hasSluiceBox && shovels === 0,
+                          text: '💡 Hire a Miner in Town → Labor Office to auto-fill the bucket.' },
+                        { show: hasSluiceBox && pans === 0,
+                          text: '💡 Hire a Prospector in Town → Labor Office to auto-pan gold from the pan.' },
+                        { show: hasSluiceBox && sluiceWorkers === 0 && shovels > 0 && pans > 0,
+                          text: '💡 Hire a Sluice Operator in Town → Labor Office to boost gold extraction and auto-clean the moss.' },
+                        { show: !hasMetalDetector && hasSluiceBox && money >= EQUIPMENT.metalDetector.cost,
+                          text: `💡 You can afford a Metal Detector ($${EQUIPMENT.metalDetector.cost}) — finds rich dirt patches for up to 30% better yields.` },
+                        { show: !hasFurnace && hasSluiceBox && gold > 2,
+                          text: '💡 A Furnace smelts gold flakes into bars — bars sell at 1.2× price with no smelting fee. Buy in Town → Shop → Equipment.' },
+                        { show: hasFurnace && !hasDriver && vehicleTier >= 2,
+                          text: '💡 Hire a Driver in Town → Transport to automatically haul gold to the Bank Vault.' },
+                        { show: !hasDriver && gold > 0 && unlockedTown && !isTraveling,
+                          text: '💡 You have gold — head to Town and sell it at the Bank.' },
+                    ];
+                    const tip = tips.find(t => t.show);
+                    if (!tip) return null;
+                    return (
+                        <div className={`text-sm italic text-center p-3 rounded-xl ${
+                            tip.amber
+                                ? 'text-amber-700'
+                                : 'text-blue-700 bg-blue-50 border border-blue-200'
+                        }`}>
+                            {tip.text}
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Automation Status */}

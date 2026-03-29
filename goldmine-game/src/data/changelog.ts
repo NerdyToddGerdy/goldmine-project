@@ -7,6 +7,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.11.3',
+        date: '2026-03-29',
+        title: 'Patch — Contextual Mine Tips',
+        changes: [
+            'The hint at the bottom of the Mine tab now adapts to your progress — tips cover the full journey from first bucket fill through miners, sluice operators, metal detector, furnace, driver, and sell reminders',
+            'Previously showed only the Sluice Box hint regardless of game state',
+        ],
+    },
+    {
         version: 'v1.11.2',
         date: '2026-03-28',
         title: 'Patch — Town Opens on Banking',
