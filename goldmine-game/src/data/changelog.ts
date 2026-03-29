@@ -7,6 +7,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.11.2',
+        date: '2026-03-28',
+        title: 'Patch — Town Opens on Banking',
+        changes: [
+            'Arriving in Town now lands on the Banking tab instead of the Shop — sell your gold without an extra click',
+        ],
+    },
+    {
         version: 'v1.11.1',
         date: '2026-03-28',
         title: 'Patch — Sluice & Moss Fixes',

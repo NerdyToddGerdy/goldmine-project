@@ -8,7 +8,7 @@ type TownTab = 'banking' | 'shop' | 'laborOffice';
 type ShopTab = 'gear' | 'equipment' | 'transport';
 
 export function Town() {
-    const [activeTab, setActiveTab] = useState<TownTab>('shop');
+    const [activeTab, setActiveTab] = useState<TownTab>('banking');
     const [shopTab, setShopTab] = useState<ShopTab>('gear');
 
     const money = useGameStore((s) => s.money);
