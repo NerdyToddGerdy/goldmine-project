@@ -1,16 +1,12 @@
 import { formatNumber } from '../../utils/format';
-import { VEHICLE_TIERS } from '../../store/gameStore';
+import { VEHICLE_TIERS, countAssigned, type Employee } from '../../store/gameStore';
 
 export function PrestigeModal({
     dustReward,
     legacyDust,
     money,
     gold,
-    shovels,
-    pans,
-    sluiceWorkers,
-    furnaceWorkers,
-    bankerWorkers,
+    employees,
     hasSluiceBox,
     hasFurnace,
     vehicleTier,
@@ -21,25 +17,27 @@ export function PrestigeModal({
     legacyDust: number;
     money: number;
     gold: number;
-    shovels: number;
-    pans: number;
-    sluiceWorkers: number;
-    furnaceWorkers: number;
-    bankerWorkers: number;
+    employees: Employee[];
     hasSluiceBox: boolean;
     hasFurnace: boolean;
     vehicleTier: number;
     onConfirm: () => void;
     onCancel: () => void;
 }) {
+    const miners = countAssigned(employees, 'miner');
+    const prospectors = countAssigned(employees, 'prospector');
+    const sluiceOps = countAssigned(employees, 'sluiceOperator');
+    const furnaceOps = countAssigned(employees, 'furnaceOperator');
+    const bankers = countAssigned(employees, 'banker');
+
     const lossList: string[] = [];
     if (money > 0) lossList.push(`💰 $${formatNumber(money)} in savings`);
     if (gold > 0) lossList.push(`✨ ${formatNumber(gold)} oz gold`);
-    if (shovels > 0) lossList.push(`👷 ${shovels} Miner${shovels !== 1 ? 's' : ''}`);
-    if (pans > 0) lossList.push(`🧑‍🔬 ${pans} Prospector${pans !== 1 ? 's' : ''}`);
-    if (sluiceWorkers > 0) lossList.push(`🚿 ${sluiceWorkers} Sluice Operator${sluiceWorkers !== 1 ? 's' : ''}`);
-    if (furnaceWorkers > 0) lossList.push(`⚗️ ${furnaceWorkers} Furnace Operator${furnaceWorkers !== 1 ? 's' : ''}`);
-    if (bankerWorkers > 0) lossList.push(`🏦 ${bankerWorkers} Banker${bankerWorkers !== 1 ? 's' : ''}`);
+    if (miners > 0) lossList.push(`👷 ${miners} Miner${miners !== 1 ? 's' : ''}`);
+    if (prospectors > 0) lossList.push(`🧑‍🔬 ${prospectors} Prospector${prospectors !== 1 ? 's' : ''}`);
+    if (sluiceOps > 0) lossList.push(`🚿 ${sluiceOps} Sluice Operator${sluiceOps !== 1 ? 's' : ''}`);
+    if (furnaceOps > 0) lossList.push(`⚗️ ${furnaceOps} Furnace Operator${furnaceOps !== 1 ? 's' : ''}`);
+    if (bankers > 0) lossList.push(`🏦 ${bankers} Banker${bankers !== 1 ? 's' : ''}`);
     if (hasSluiceBox) lossList.push('🚿 Sluice Box');
     if (hasFurnace) lossList.push('⚗️ Furnace');
     if (vehicleTier > 0) lossList.push(`🚗 ${VEHICLE_TIERS[vehicleTier as 1 | 2 | 3].name}`);

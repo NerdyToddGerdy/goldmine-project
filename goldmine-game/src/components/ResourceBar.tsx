@@ -1,4 +1,4 @@
-import { useGameStore, getTotalPayroll, getTotalWageForType, getEffectiveBucketCapacity, UPGRADES, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS, type FloatingNumber } from "../store/gameStore";
+import { useGameStore, getEmployeePayroll, getAssignedPower, PROSPECTOR_PAN_RATE, BANKER_SELL_RATE, SLUICE_EXTRACTION_RATE, getEffectiveBucketCapacity, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS, EMPLOYEE_WAGES, type FloatingNumber } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
@@ -6,11 +6,7 @@ export function ResourceBar() {
     const goldBars = useGameStore((s) => s.goldBars);
     const money = useGameStore((s) => s.money);
 
-    // Get worker counts and equipment
-    const shovels = useGameStore((s) => s.shovels);
-    const pans = useGameStore((s) => s.pans);
-    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const employees = useGameStore((s) => s.employees);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
 
@@ -27,42 +23,41 @@ export function ResourceBar() {
     const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
     const tickCount = useGameStore((s) => s.tickCount);
 
-    // Calculate total payroll, then subtract idle workers
-    const totalPayroll = useGameStore((s) => getTotalPayroll(s));
+    // Active payroll (simplified display — idle deduction handled in _fixedTick)
+    const totalPayroll = getEmployeePayroll(employees);
     const bucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
     const minersIdle = bucketFilled >= bucketCap;
     const prospectsIdle = panFilled < 1;
+    const assignedMinerWages = employees
+        .filter(e => e.assignedRole === 'miner')
+        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
+    const assignedProspectorWages = employees
+        .filter(e => e.assignedRole === 'prospector')
+        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
     const activePayroll = totalPayroll
-        - (minersIdle ? getTotalWageForType('shovel', shovels) : 0)
-        - (prospectsIdle ? getTotalWageForType('pan', pans) : 0);
+        - (minersIdle ? assignedMinerWages : 0)
+        - (prospectsIdle ? assignedProspectorWages : 0);
 
     // Check if workers can be paid
     const canAffordWorkers = money >= activePayroll / 60;
 
-    // Calculate effective workers (0 if can't afford payroll or blocked)
-    const effectivePans = (canAffordWorkers && !prospectsIdle) ? pans : 0;
-    const effectiveSluiceWorkers = canAffordWorkers ? sluiceWorkers : 0;
-    const effectiveBankerWorkers = canAffordWorkers ? bankerWorkers : 0;
+    // Stat-driven rates
+    const prospectorPower = (canAffordWorkers && !prospectsIdle) ? getAssignedPower(employees, 'prospector') : 0;
+    const sluiceOpPower = canAffordWorkers ? getAssignedPower(employees, 'sluiceOperator') : 0;
+    const bankerPower = canAffordWorkers ? getAssignedPower(employees, 'banker') : 0;
 
-    // Calculate extraction rate from workers
     let extractionRate = BASE_EXTRACTION;
-    extractionRate += effectiveSluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * sluiceGear;
+    extractionRate += sluiceOpPower * SLUICE_EXTRACTION_RATE * sluiceGear;
 
-    // Gold rate: prospectors produce gold - bankers sell gold
-    const goldSellRate = effectiveBankerWorkers > 0
-        ? effectiveBankerWorkers * UPGRADES.bankerWorker.goldPerSec
-        : 0;
-    const goldRate = (effectivePans * UPGRADES.pan.goldPerSec * extractionRate / BASE_EXTRACTION) - goldSellRate;
+    const goldSellRate = bankerPower * BANKER_SELL_RATE;
+    const goldRate = (prospectorPower * PROSPECTOR_PAN_RATE * extractionRate / BASE_EXTRACTION) - goldSellRate;
 
-    // Calculate auto-sell income from bankers
     let autoSellIncome = 0;
     if (goldSellRate > 0) {
         const effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-        const fee = goldSellRate * effectiveFeePercent;
-        autoSellIncome = goldSellRate - fee;
+        autoSellIncome = goldSellRate * goldPrice * (1 - effectiveFeePercent);
     }
 
-    // Money rate: auto-sell income - active payroll
     const moneyRate = autoSellIncome - activePayroll;
 
     const goldPriceProgress = unlockedTown

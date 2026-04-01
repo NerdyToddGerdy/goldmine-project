@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.12',
+        date: '2026-03-31',
+        title: 'Employee Schema Foundation (v29)',
+        changes: [
+            'Internal: save schema bumped to v29 — 7 raw worker-count fields replaced by a typed Employee[] array with rarity, stats, XP, and role assignment',
+            'Existing saves auto-migrate: each hired worker converts to a Common employee with equivalent output',
+            'Worker rates are now stat-driven — Common employees at all stats=5 produce identical output to the old 1-worker system',
+            'Labor Office tab shows a Coming Soon placeholder while the Hiring Hall (v2 Frontier Town) is built',
+            'Mine and Banking screens updated to show employee counts and use new rate helpers',
+        ],
+    },
+    {
         version: 'v1.11.3',
         date: '2026-03-29',
         title: 'Patch — Contextual Mine Tips',

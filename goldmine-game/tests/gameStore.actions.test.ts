@@ -9,7 +9,6 @@ import {
     BASE_EXTRACTION,
     SMELTING_FEE_PERCENT,
     DUST_HEAD_START_AMOUNTS,
-    getUpgradeCost,
     getEffectivePanClickAmount,
     MAX_GEAR_UPGRADE_LEVEL,
     BUCKET_UPGRADE_COSTS,
@@ -20,6 +19,7 @@ import {
     PATCH_CAPACITY_MIN,
     PATCH_CAPACITY_MAX,
     FURNACE_CAPACITY,
+    makeCommonEmployee,
 } from '../src/store/gameStore';
 
 // Stub browser globals so actions that call window/document don't throw
@@ -238,15 +238,14 @@ describe('collectBars', () => {
 // ─── reset (soft) ─────────────────────────────────────────────────────────────
 
 describe('reset', () => {
-    it('clears run resources and workers', () => {
-        gameStore.setState({ gold: 5, money: 100, shovels: 3, hasSluiceBox: true, sluiceWorkers: 2 });
+    it('clears run resources and employees', () => {
+        gameStore.setState({ gold: 5, money: 100, employees: [makeCommonEmployee('miner', 'M1')], hasSluiceBox: true });
         gameStore.getState().reset();
         const s = gameStore.getState();
         expect(s.gold).toBe(0);
         expect(s.money).toBe(0); // dustHeadStart=0 → $0 head start
-        expect(s.shovels).toBe(0);
+        expect(s.employees).toEqual([]);
         expect(s.hasSluiceBox).toBe(false);
-        expect(s.sluiceWorkers).toBe(0);
     });
 
     it('seeds money from dustHeadStart', () => {
@@ -321,12 +320,12 @@ describe('prestige', () => {
     });
 
     it('resets run fields to zero', () => {
-        gameStore.setState({ gold: 5, money: 100, shovels: 3, hasSluiceBox: true });
+        gameStore.setState({ gold: 5, money: 100, employees: [makeCommonEmployee('miner', 'M1')], hasSluiceBox: true });
         gameStore.getState().prestige();
         const s = gameStore.getState();
         expect(s.gold).toBe(0);
         expect(s.money).toBe(0); // dustHeadStart=0
-        expect(s.shovels).toBe(0);
+        expect(s.employees).toEqual([]);
         expect(s.hasSluiceBox).toBe(false);
     });
 
@@ -424,50 +423,8 @@ describe('investments', () => {
     });
 });
 
-// ─── buyUpgrade — workers ─────────────────────────────────────────────────────
-
-describe('buyUpgrade workers', () => {
-    it('shovel deducts cost and increments shovels', () => {
-        const cost = getUpgradeCost('shovel', 0); // Math.floor(10 * 1.15^0) = 10
-        gameStore.setState({ money: 100 });
-        const result = gameStore.getState().buyUpgrade('shovel');
-        expect(result).toBe(true);
-        expect(gameStore.getState().shovels).toBe(1);
-        expect(gameStore.getState().money).toBeCloseTo(100 - cost, 8);
-    });
-
-    it('shovel cost scales exponentially', () => {
-        gameStore.setState({ money: 9999 });
-        const c0 = getUpgradeCost('shovel', 0);
-        const c1 = getUpgradeCost('shovel', 1);
-        const c2 = getUpgradeCost('shovel', 2);
-        expect(c0).toBe(10);
-        expect(c1).toBe(11); // floor(10 * 1.15) = 11
-        expect(c2).toBe(13); // floor(10 * 1.15^2) = floor(13.225) = 13
-        gameStore.getState().buyUpgrade('shovel');
-        gameStore.getState().buyUpgrade('shovel');
-        gameStore.getState().buyUpgrade('shovel');
-        expect(gameStore.getState().shovels).toBe(3);
-        expect(gameStore.getState().money).toBeCloseTo(9999 - c0 - c1 - c2, 8);
-    });
-
-    it('sluiceWorker requires hasSluiceBox', () => {
-        gameStore.setState({ money: 1000, hasSluiceBox: false });
-        expect(gameStore.getState().buyUpgrade('sluiceWorker')).toBe(false);
-        expect(gameStore.getState().sluiceWorkers).toBe(0);
-    });
-
-    it('sluiceWorker succeeds when hasSluiceBox', () => {
-        gameStore.setState({ money: 1000, hasSluiceBox: true });
-        expect(gameStore.getState().buyUpgrade('sluiceWorker')).toBe(true);
-        expect(gameStore.getState().sluiceWorkers).toBe(1);
-    });
-
-    it('furnaceWorker requires hasFurnace', () => {
-        gameStore.setState({ money: 9999, hasFurnace: false });
-        expect(gameStore.getState().buyUpgrade('furnaceWorker')).toBe(false);
-    });
-});
+// Worker hiring (shovel, pan, sluiceWorker, furnaceWorker, etc.) was moved to
+// Hiring Hall (#113). Those buyUpgrade branches are removed — no tests needed here.
 
 // ─── buyUpgrade — equipment ───────────────────────────────────────────────────
 
@@ -485,14 +442,6 @@ describe('buyUpgrade equipment', () => {
         expect(gameStore.getState().money).toBe(9999);
     });
 
-    it('haulerWorker hire increments haulers and deducts cost', () => {
-        const cost = getUpgradeCost('haulerWorker', 0);
-        gameStore.setState({ money: 500 });
-        expect(gameStore.getState().buyUpgrade('haulerWorker')).toBe(true);
-        expect(gameStore.getState().haulers).toBe(1);
-        expect(gameStore.getState().money).toBeCloseTo(500 - cost, 8);
-    });
-
     it('bucketUpgrade is capped at MAX_GEAR_UPGRADE_LEVEL', () => {
         gameStore.setState({ money: 9999, bucketUpgrades: MAX_GEAR_UPGRADE_LEVEL });
         expect(gameStore.getState().buyUpgrade('bucketUpgrade')).toBe(false);
@@ -504,27 +453,7 @@ describe('buyUpgrade equipment', () => {
     });
 });
 
-// ─── fireWorker ───────────────────────────────────────────────────────────────
-
-describe('fireWorker', () => {
-    it('decrements shovel count and returns true', () => {
-        gameStore.setState({ shovels: 3 });
-        expect(gameStore.getState().fireWorker('shovel')).toBe(true);
-        expect(gameStore.getState().shovels).toBe(2);
-    });
-
-    it('returns false when count is already 0', () => {
-        gameStore.setState({ shovels: 0 });
-        expect(gameStore.getState().fireWorker('shovel')).toBe(false);
-    });
-
-    it('works for all worker types', () => {
-        gameStore.setState({ pans: 2, haulers: 1, sluiceWorkers: 1, furnaceWorkers: 1, bankerWorkers: 1 });
-        for (const type of ['pan', 'haulerWorker', 'sluiceWorker', 'furnaceWorker', 'bankerWorker']) {
-            expect(gameStore.getState().fireWorker(type)).toBe(true);
-        }
-    });
-});
+// fireWorker removed — role assignment handled by #114.
 
 // ─── buyVehicle / buyDriver ───────────────────────────────────────────────────
 
@@ -562,7 +491,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(28);
+        expect(parsed.version).toBe(29);
     });
 
     it('exportSave round-trips through importSave', () => {

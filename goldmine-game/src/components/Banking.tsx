@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_BAR_PRICE_MULTIPLIER, GOLD_PRICE_MIN, GOLD_PRICE_MAX, PRESTIGE_MONEY_THRESHOLD } from "../store/gameStore";
+import { gameStore, useGameStore, SMELTING_FEE_PERCENT, GOLD_BAR_PRICE_MULTIPLIER, GOLD_PRICE_MIN, GOLD_PRICE_MAX, PRESTIGE_MONEY_THRESHOLD, countAssigned } from "../store/gameStore";
 import { formatNumber } from "../utils/format";
 import { useRef, useEffect, useState } from "react";
 import { PrestigeModal } from "./ui";
@@ -11,13 +11,9 @@ export function Banking() {
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const goldPrice = useGameStore((s) => s.goldPrice);
     const dustGoldValue = useGameStore((s) => s.dustGoldValue);
-    const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const employees = useGameStore((s) => s.employees);
     const goldPriceHistory = useGameStore((s) => s.goldPriceHistory);
     const money = useGameStore((s) => s.money);
-    const shovels = useGameStore((s) => s.shovels);
-    const pans = useGameStore((s) => s.pans);
-    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const legacyDust = useGameStore((s) => s.legacyDust);
@@ -135,7 +131,7 @@ export function Banking() {
                     </div>
                 )}
 
-                {bankerWorkers > 0 ? (
+                {countAssigned(employees, 'banker') > 0 ? (
                     <div className="w-full px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl text-center">
                         <span className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
                             🏦 Banker is handling sales automatically
@@ -223,11 +219,7 @@ export function Banking() {
                     legacyDust={legacyDust}
                     money={money}
                     gold={gold}
-                    shovels={shovels}
-                    pans={pans}
-                    sluiceWorkers={sluiceWorkers}
-                    furnaceWorkers={furnaceWorkers}
-                    bankerWorkers={bankerWorkers}
+                    employees={employees}
                     hasSluiceBox={hasSluiceBox}
                     hasFurnace={hasFurnace}
                     vehicleTier={vehicleTier}

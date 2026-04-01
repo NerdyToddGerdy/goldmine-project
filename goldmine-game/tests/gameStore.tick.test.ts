@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     gameStore,
     FIXED_DT_MS,
-    UPGRADES,
     BASE_EXTRACTION,
     GOLD_PRICE_UPDATE_TICKS,
     INVESTMENTS,
@@ -11,6 +10,7 @@ import {
     SLUICE_CONVERSION_RATIO,
     PAYDIRT_YIELD_MULTIPLIER,
     SLUICE_DRAIN_RATE,
+    makeCommonEmployee,
 } from '../src/store/gameStore';
 
 beforeEach(() => {
@@ -71,23 +71,23 @@ describe('stepSimulation accumulator', () => {
 
 describe('miner fill rate per tick', () => {
     it('1 shovel fills bucket at correct rate', () => {
-        // dirtPerTick = (1 * 3.0 * 1) / 60 = 0.05
-        gameStore.setState({ shovels: 1, money: 9999, bucketFilled: 0 });
+        // dirtPerTick = (miningPower * MINER_DIRT_RATE) / 60 = (3.75 * 0.8) / 60 = 0.05
+        gameStore.setState({ employees: [makeCommonEmployee('miner', 'Miner')], money: 9999, bucketFilled: 0 });
         runTicks(1);
         // Allow for floating point; bucket should be very close to 0.05
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0.05, 8);
     });
 
     it('dustScoopBoost multiplies miner fill rate', () => {
-        // dirtPerTick = (1 * 3.0 * (1 + 0.1*2)) / 60 = 3.6/60 = 0.06
-        gameStore.setState({ shovels: 1, dustScoopBoost: 2, money: 9999, bucketFilled: 0 });
+        // dirtPerTick = (3.75 * 0.8 * (1 + 0.1*2)) / 60 = 3.6/60 = 0.06
+        gameStore.setState({ employees: [makeCommonEmployee('miner', 'Miner')], dustScoopBoost: 2, money: 9999, bucketFilled: 0 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0.06, 8);
     });
 
     it('miners stop filling when bucket is at capacity', () => {
         // bucketFilled = 10 (default bucketCap with no upgrades)
-        gameStore.setState({ shovels: 2, money: 9999, bucketFilled: 10 });
+        gameStore.setState({ employees: [makeCommonEmployee('miner', 'M1'), makeCommonEmployee('miner', 'M2')], money: 9999, bucketFilled: 10 });
         runTicks(1);
         // bucketFilled should still be 10 (not overflow); auto-empty won't fire because hasAutoEmpty=false and shovels are "idle" (bucket full)
         expect(gameStore.getState().bucketFilled).toBe(10);
@@ -98,35 +98,31 @@ describe('miner fill rate per tick', () => {
 
 describe('prospector production per tick', () => {
     it('1 pan produces correct gold with no upgrades', () => {
-        // extractionRate = 0.2
-        // panRate = (1 * 1.5 * 0.2 * 1) / (60 * 0.2) = 0.3/12 = 0.025
-        // goldGained = 0.025 * 0.2 * 1 = 0.005
-        gameStore.setState({ pans: 1, panFilled: 10, money: 9999, gold: 0 });
+        // panRate = (3.75 * 0.4) / 60 = 0.025; goldGained = 0.025 * 0.2 * 1 = 0.005
+        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector')], panFilled: 10, money: 9999, gold: 0 });
         runTicks(1);
         expect(gameStore.getState().gold).toBeCloseTo(0.005, 8);
         expect(gameStore.getState().panFilled).toBeCloseTo(10 - 0.025, 6);
     });
 
     it('sluiceWorkers increase gold yield but do not speed up pan consumption', () => {
-        // panRate is constant regardless of extractionRate (sluice workers boost yield, not drain speed)
-        // panRate = (1 * 1.5 * 1) / 60 = 0.025  (same as no-upgrade case)
-        // extractionRate = 0.2 + 1 * 0.1 * 1 = 0.3
+        // panRate = 0.025; extractionRate = 0.2 + 3.75*(4/150)*1 = 0.3
         // goldGained = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER = 0.025 * 0.3 * 2.5 = 0.01875
-        gameStore.setState({ pans: 1, sluiceWorkers: 1, hasSluiceBox: true, sluiceGear: 1, panFilled: 10, money: 9999 });
+        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector'), makeCommonEmployee('sluiceOperator', 'Sluice')], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, money: 9999 });
         runTicks(1);
         const expected = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER;
         expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
     });
 
     it('prospectors go idle when panFilled is 0', () => {
-        gameStore.setState({ pans: 1, panFilled: 0, money: 9999 });
+        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector')], panFilled: 0, money: 9999 });
         runTicks(1);
         // prospectsIdle = panFilled <= 0 = true → effectivePans = 0 → no gold
         expect(gameStore.getState().gold).toBe(0);
     });
 
     it('prospectors work on partial panFilled (< 1)', () => {
-        gameStore.setState({ pans: 1, panFilled: 0.5, money: 9999 });
+        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector')], panFilled: 0.5, money: 9999 });
         runTicks(1);
         // pan has dirt → prospectors produce gold
         expect(gameStore.getState().gold).toBeGreaterThan(0);
@@ -137,17 +133,16 @@ describe('prospector production per tick', () => {
 
 describe('auto-empty bucket', () => {
     it('does NOT auto-empty without haulers when no miners', () => {
-        // No miners (dirtPerTick = 0), no haulers → condition fails
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, haulers: 0, shovels: 0 });
+        // No miners, no haulers → condition fails
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, employees: [] });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBe(0);
         expect(gameStore.getState().bucketFilled).toBe(10);
     });
 
     it('auto-empties bucket when haulers > 0 even without miners', () => {
-        // bucketFilled=10, panFilled=0, haulers=1, no sluiceBox → sluicePower=1
-        // amountToAdd = 10 * 1 = 10, newPanFilled = min(0+10, 20) = 10
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, haulers: 1, shovels: 0, hasSluiceBox: false, money: 1 });
+        // bucketFilled=10, panFilled=0, 1 hauler, no sluiceBox → empties to pan
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: false, money: 1 });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(10, 8);
         expect(gameStore.getState().bucketFilled).toBe(0);
@@ -155,7 +150,7 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox routes bucket into sluiceBoxFilled (not panFilled) on auto-empty', () => {
         // With sluice box, auto-empty fills sluiceBoxFilled, not panFilled
-        gameStore.setState({ bucketFilled: 10, panFilled: 0, sluiceBoxFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0, money: 1 });
+        gameStore.setState({ bucketFilled: 10, panFilled: 0, sluiceBoxFilled: 0, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: true, money: 1 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 8);
         expect(gameStore.getState().sluiceBoxFilled).toBeCloseTo(10, 8);
@@ -165,7 +160,7 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox auto-empty adds to sluice when bucket fits in remaining space', () => {
         // sluiceBoxFilled=5, bucketFilled=10, panCap=20 → 5+10=15 ≤ 20 → empties
-        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0, money: 1 });
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 5, panFilled: 0, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: true, money: 1 });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0, 5);
         // drain fires first (−0.05), then bucket adds: (5 − 0.05) + 10 = 14.95
@@ -174,14 +169,14 @@ describe('auto-empty bucket', () => {
 
     it('sluiceBox auto-empty is blocked when bucket would overflow the sluice', () => {
         // sluiceBoxFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked
-        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 15, panFilled: 0, haulers: 1, hasSluiceBox: true, shovels: 0 });
+        gameStore.setState({ bucketFilled: 10, sluiceBoxFilled: 15, panFilled: 0, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: true });
         runTicks(1);
         expect(gameStore.getState().bucketFilled).toBeCloseTo(10, 5); // unchanged
     });
 
     it('auto-empty is blocked when bucket would overflow pan (pan full, no sluice)', () => {
         // panFilled=20 (at panCap with no upgrades), bucket=10 → 20+10=30 > 20 → blocked
-        gameStore.setState({ bucketFilled: 10, panFilled: 20, haulers: 1, shovels: 0, hasSluiceBox: false });
+        gameStore.setState({ bucketFilled: 10, panFilled: 20, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(20, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);
@@ -189,7 +184,7 @@ describe('auto-empty bucket', () => {
 
     it('auto-empty is blocked when bucket partially overflows pan (no sluice)', () => {
         // panFilled=15, bucketFilled=10, panCap=20 → 15+10=25 > 20 → blocked even though pan has space
-        gameStore.setState({ bucketFilled: 10, panFilled: 15, haulers: 1, shovels: 0, hasSluiceBox: false });
+        gameStore.setState({ bucketFilled: 10, panFilled: 15, employees: [makeCommonEmployee('hauler', 'Hauler')], hasSluiceBox: false });
         runTicks(1);
         expect(gameStore.getState().panFilled).toBeCloseTo(15, 8);
         expect(gameStore.getState().bucketFilled).toBe(10);
@@ -229,7 +224,7 @@ describe('driver vault deposit', () => {
             money: 0, driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             vaultFlakes: 0, vaultBars: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            employees: [],
         });
         runTicks(tripDuration);
         expect(gameStore.getState().vaultFlakes).toBeCloseTo(10, 6);
@@ -246,7 +241,7 @@ describe('driver vault deposit', () => {
             money: 0, driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             vaultFlakes: 0, vaultBars: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            employees: [],
         });
         runTicks(tripDuration);
         // capacity=10: 6 bars fill first, 4 remaining capacity loads flakes
@@ -264,7 +259,7 @@ describe('driver vault deposit', () => {
             money: 0, driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             vaultFlakes: 0, vaultBars: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            employees: [],
         });
         runTicks(tripDuration - 1);
         expect(gameStore.getState().vaultFlakes).toBeCloseTo(0, 6);
@@ -278,7 +273,7 @@ describe('driver vault deposit', () => {
             money: 0, driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             vaultFlakes: 0, vaultBars: 0,
-            shovels: 0, pans: 0, sluiceWorkers: 0, furnaceWorkers: 0, bankerWorkers: 0,
+            employees: [],
         });
         runTicks(tripDuration);
         expect(gameStore.getState().vaultFlakes).toBeCloseTo(10, 6);

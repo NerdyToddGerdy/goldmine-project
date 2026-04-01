@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, UPGRADES, getUpgradeCost, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, getTotalPayroll, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getEmployeePayroll, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, BANKER_SELL_RATE } from "../store/gameStore";
 import { ProgressBar } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
@@ -15,14 +15,10 @@ export function Mine() {
     const unlockedPanning = useGameStore((s) => s.unlockedPanning);
     const unlockedTown = useGameStore((s) => s.unlockedTown);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const shovels = useGameStore((s) => s.shovels);
-    const pans = useGameStore((s) => s.pans);
-    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
 
     const hasFurnace = useGameStore((s) => s.hasFurnace);
-    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
-    const bankerWorkers = useGameStore((s) => s.bankerWorkers);
+    const employees = useGameStore((s) => s.employees);
     const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
@@ -41,7 +37,6 @@ export function Mine() {
     const isPaused = useGameStore((s) => s.isPaused);
     const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
     const richDirtInBucket = useGameStore((s) => s.richDirtInBucket);
-    const detectorWorkers = useGameStore((s) => s.detectorWorkers);
     const detectProgress = useGameStore((s) => s.detectProgress);
     const detectTarget = useGameStore((s) => s.detectTarget);
     const patchActive = useGameStore((s) => s.patchActive);
@@ -67,10 +62,9 @@ export function Mine() {
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
     // Payroll widget calculations (per minute)
-    const haulers = useGameStore((s) => s.haulers);
-    const payrollPerMin = getTotalPayroll({ shovels, pans, haulers, sluiceWorkers, furnaceWorkers, bankerWorkers, detectorWorkers }) * 60;
+    const payrollPerMin = getEmployeePayroll(employees) * 60;
     const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    const bankerIncomePerMin = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee) * 60;
+    const bankerIncomePerMin = getAssignedPower(employees, 'banker') * BANKER_SELL_RATE * goldPrice * (1 - autoSellFee) * 60;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
@@ -80,16 +74,11 @@ export function Mine() {
     const loadFurnace = () => gameStore.getState().loadFurnace();
     const toggleFurnace = () => gameStore.getState().toggleFurnace();
     const collectBars = () => gameStore.getState().collectBars();
-    const hireMiner = () => gameStore.getState().buyUpgrade('shovel');
-    const hireProspector = () => gameStore.getState().buyUpgrade('pan');
     const travelToTown = () => gameStore.getState().startTravel('town');
-
-    const minerCost = getUpgradeCost('shovel', shovels);
-    const prospectorCost = getUpgradeCost('pan', pans);
 
     // Manual actions now benefit from gear upgrades
     let extractionRate = BASE_EXTRACTION;
-    extractionRate += sluiceWorkers * UPGRADES.sluiceWorker.extractionBonus * sluiceGear;
+    extractionRate += getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear;
 
     const goldPerPan = panPower * extractionRate;
 
@@ -180,7 +169,7 @@ export function Mine() {
                                 value={detectTarget > 0 ? detectProgress : 0}
                                 max={detectTarget > 0 ? detectTarget : 1}
                                 color="violet"
-                                isActive={detectorWorkers > 0 && !isTraveling}
+                                isActive={countAssigned(employees, 'detectorOperator') > 0 && !isTraveling}
                             />
                             <button
                                 onClick={detectPatch}
@@ -249,7 +238,7 @@ export function Mine() {
                                 {bucketFilled.toFixed(1)} / {effectiveBucketCap}
                             </span>
                         </div>
-                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" isActive={shovels > 0 && !bucketIsFull} isFull={bucketIsFull} />
+                        <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" isActive={countAssigned(employees, 'miner') > 0 && !bucketIsFull} isFull={bucketIsFull} />
                         <div className="h-5 mt-1 flex items-center justify-center">
                             {isTraveling
                                 ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
@@ -285,18 +274,12 @@ export function Mine() {
                         </button>
                     )}
 
-                    {/* Helper: Hire Miner */}
+                    {/* Miner count */}
                     <div className="flex items-center justify-between pt-1 border-t border-amber-100">
                         <span className="text-sm text-amber-700">
-                            👷 Miners: <span className="font-semibold">{shovels}</span>
+                            👷 Miners: <span className="font-semibold">{countAssigned(employees, 'miner')}</span>
                         </span>
-                        <button
-                            onClick={hireMiner}
-                            disabled={money < minerCost || isTraveling}
-                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                        >
-                            Hire ${minerCost}
-                        </button>
+                        <span className="text-xs text-amber-500">Hire in Town → Labor Office</span>
                     </div>
                 </div>
 
@@ -355,7 +338,7 @@ export function Mine() {
                                     {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
-                            <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" isActive={pans > 0 && !panIsFull} isFull={panIsFull} />
+                            <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" isActive={countAssigned(employees, 'prospector') > 0 && !panIsFull} isFull={panIsFull} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {isTraveling
                                     ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
@@ -377,18 +360,12 @@ export function Mine() {
                             ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
                         </button>
 
-                        {/* Helper: Hire Prospector */}
+                        {/* Prospector count */}
                         <div className="flex items-center justify-between pt-1 border-t border-yellow-100">
                             <span className="text-sm text-yellow-700">
-                                🧑‍🔬 Prospectors: <span className="font-semibold">{pans}</span>
+                                🧑‍🔬 Prospectors: <span className="font-semibold">{countAssigned(employees, 'prospector')}</span>
                             </span>
-                            <button
-                                onClick={hireProspector}
-                                disabled={money < prospectorCost || isTraveling}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                            >
-                                Hire ${prospectorCost}
-                            </button>
+                            <span className="text-xs text-yellow-500">Hire in Town → Labor Office</span>
                         </div>
                     </div>
                 )}
@@ -462,7 +439,7 @@ export function Mine() {
                             </p>
                         )}
 
-                        {furnaceWorkers > 0 && (
+                        {countAssigned(employees, 'furnaceOperator') > 0 && (
                             <p className="text-xs text-orange-500 text-center">
                                 Furnace Operators are auto-loading, smelting &amp; collecting
                             </p>
@@ -479,13 +456,13 @@ export function Mine() {
                           text: `💡 You can afford the Sluice Box! Buy it in Town → Shop → Equipment.` },
                         { show: unlockedPanning && !hasSluiceBox,
                           text: `💡 Save up $${EQUIPMENT.sluiceBox.cost} for the Sluice Box in Town — concentrates dirt into richer paydirt (3 paydirt per click vs 1).` },
-                        { show: hasSluiceBox && shovels === 0 && pans === 0,
+                        { show: hasSluiceBox && countAssigned(employees, 'miner') === 0 && countAssigned(employees, 'prospector') === 0,
                           text: '💡 Hire Miners and Prospectors in Town → Labor Office to automate the mine.' },
-                        { show: hasSluiceBox && shovels === 0,
+                        { show: hasSluiceBox && countAssigned(employees, 'miner') === 0,
                           text: '💡 Hire a Miner in Town → Labor Office to auto-fill the bucket.' },
-                        { show: hasSluiceBox && pans === 0,
+                        { show: hasSluiceBox && countAssigned(employees, 'prospector') === 0,
                           text: '💡 Hire a Prospector in Town → Labor Office to auto-pan gold from the pan.' },
-                        { show: hasSluiceBox && sluiceWorkers === 0 && shovels > 0 && pans > 0,
+                        { show: hasSluiceBox && countAssigned(employees, 'sluiceOperator') === 0 && countAssigned(employees, 'miner') > 0 && countAssigned(employees, 'prospector') > 0,
                           text: '💡 Hire a Sluice Operator in Town → Labor Office to boost gold extraction and auto-clean the moss.' },
                         { show: !hasMetalDetector && hasSluiceBox && money >= EQUIPMENT.metalDetector.cost,
                           text: `💡 You can afford a Metal Detector ($${EQUIPMENT.metalDetector.cost}) — finds rich dirt patches for up to 30% better yields.` },
@@ -511,12 +488,12 @@ export function Mine() {
             </div>
 
             {/* Automation Status */}
-            {(shovels > 0 || pans > 0) && (
+            {(countAssigned(employees, 'miner') > 0 || countAssigned(employees, 'prospector') > 0) && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
                     <h3 className="text-sm font-semibold text-amber-800 mb-2">Automation</h3>
                     <div className="text-sm space-y-1 text-amber-700">
-                        {shovels > 0 && <div>🪨 {shovels} Miners (auto-digging)</div>}
-                        {pans > 0 && <div>✨ {pans} Prospectors (auto-panning)</div>}
+                        {countAssigned(employees, 'miner') > 0 && <div>🪨 {countAssigned(employees, 'miner')} Miners (auto-digging)</div>}
+                        {countAssigned(employees, 'prospector') > 0 && <div>✨ {countAssigned(employees, 'prospector')} Prospectors (auto-panning)</div>}
                     </div>
                 </div>
             )}

@@ -1,8 +1,7 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, getTotalWageForType, getWorkerWage, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, SMELTING_FEE_PERCENT, getTravelDurationTicks, DETECTOR_SPOTS_PER_SEC, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
-import { formatNumber } from "../utils/format";
+import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
 import { useState } from "react";
 import { Banking } from "./Banking";
-import { UpgradeButton, WorkerRow } from "./ui";
+import { UpgradeButton } from "./ui";
 
 type TownTab = 'banking' | 'shop' | 'laborOffice';
 type ShopTab = 'gear' | 'equipment' | 'transport';
@@ -12,15 +11,10 @@ export function Town() {
     const [shopTab, setShopTab] = useState<ShopTab>('gear');
 
     const money = useGameStore((s) => s.money);
-    const shovels = useGameStore((s) => s.shovels);
-    const pans = useGameStore((s) => s.pans);
     const scoopPower = useGameStore((s) => s.scoopPower);
     const panPower = useGameStore((s) => s.panPower);
     const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
-    const sluiceWorkers = useGameStore((s) => s.sluiceWorkers);
-    const furnaceWorkers = useGameStore((s) => s.furnaceWorkers);
-    const bankerWorkers = useGameStore((s) => s.bankerWorkers);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
     const isTraveling = useGameStore((s) => s.isTraveling);
@@ -31,17 +25,12 @@ export function Town() {
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
     const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
-    const haulers = useGameStore((s) => s.haulers);
     const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
     const hasMotherlode = useGameStore((s) => s.hasMotherlode);
     const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
-    const detectorWorkers = useGameStore((s) => s.detectorWorkers);
     const goldPrice = useGameStore((s) => s.goldPrice);
     const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
-    const fireWorker = (workerType: string) => gameStore.getState().fireWorker(workerType);
 
-    const shovelCost = getUpgradeCost('shovel', shovels);
-    const panCost = getUpgradeCost('pan', pans);
     const shovelTier = scoopPower - 1; // 0 = base, 5 = max
     const panTier = panPower - 1;
     const betterShovelCost = shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0;
@@ -51,20 +40,6 @@ export function Town() {
     const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
     const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
     const betterFurnaceCost = getUpgradeCost('betterFurnace', furnaceGear - 1);
-    const haulerWorkerCost = getUpgradeCost('haulerWorker', haulers);
-    const sluiceWorkerCost = getUpgradeCost('sluiceWorker', sluiceWorkers);
-    const furnaceWorkerCost = getUpgradeCost('furnaceWorker', furnaceWorkers);
-    const bankerWorkerCost = getUpgradeCost('bankerWorker', bankerWorkers);
-    const detectorWorkerCost = getUpgradeCost('detectorWorker', detectorWorkers);
-
-    // Calculate wages for each worker type
-    const shovelTotalWage = getTotalWageForType('shovel', shovels);
-    const panTotalWage = getTotalWageForType('pan', pans);
-    const haulerWorkerTotalWage = getTotalWageForType('haulerWorker', haulers);
-    const sluiceWorkerTotalWage = getTotalWageForType('sluiceWorker', sluiceWorkers);
-    const furnaceWorkerTotalWage = getTotalWageForType('furnaceWorker', furnaceWorkers);
-    const bankerWorkerTotalWage = getTotalWageForType('bankerWorker', bankerWorkers);
-    const detectorWorkerTotalWage = getTotalWageForType('detectorWorker', detectorWorkers);
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
@@ -74,20 +49,6 @@ export function Town() {
     const travelPct = totalTravelTicks > 0 ? Math.min(100, (travelProgress / totalTravelTicks) * 100) : 0;
     const secsRemaining = Math.ceil((totalTravelTicks - travelProgress) / 60);
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
-
-    // Next-hire wage cost per worker type
-    const shovelNextWage = getWorkerWage('shovel', shovels + 1);
-    const panNextWage = getWorkerWage('pan', pans + 1);
-    const sluiceWorkerNextWage = getWorkerWage('sluiceWorker', sluiceWorkers + 1);
-    const haulerWorkerNextWage = getWorkerWage('haulerWorker', haulers + 1);
-    const furnaceWorkerNextWage = getWorkerWage('furnaceWorker', furnaceWorkers + 1);
-    const bankerWorkerNextWage = getWorkerWage('bankerWorker', bankerWorkers + 1);
-    const detectorWorkerNextWage = getWorkerWage('detectorWorker', detectorWorkers + 1);
-
-    // Estimate current auto-sell income to detect payroll overruns
-    const totalPayroll = shovelTotalWage + panTotalWage + haulerWorkerTotalWage + sluiceWorkerTotalWage + furnaceWorkerTotalWage + bankerWorkerTotalWage + detectorWorkerTotalWage;
-    const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    const autoSellIncome = bankerWorkers * UPGRADES.bankerWorker.goldPerSec * goldPrice * (1 - autoSellFee);
 
     return (
         <div className="space-y-6">
@@ -423,131 +384,15 @@ export function Town() {
 
                 {activeTab === 'laborOffice' && (
                     <div className={`space-y-3${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
-                        <h3 className="text-lg font-semibold text-green-800">👷 Hire Workers</h3>
-
-                        <WorkerRow
-                            name="Miner"
-                            description={`Digs ${UPGRADES.shovel.dirtPerSec} dirt/sec automatically`}
-                            count={shovels}
-                            hireCost={shovelCost}
-                            wage={shovelTotalWage}
-                            canHire={money >= shovelCost}
-                            canFire={shovels > 0}
-                            onHire={() => buyUpgrade('shovel')}
-                            onFire={() => fireWorker('shovel')}
-                            icon="👷"
-                            playerMoney={money}
-                            nextHireWage={shovelNextWage}
-                            nextHireWouldExceedIncome={(totalPayroll + shovelNextWage) > autoSellIncome}
-                        />
-
-                        <WorkerRow
-                            name="Prospector"
-                            description={`Pans ${UPGRADES.pan.goldPerSec} gold/sec automatically`}
-                            count={pans}
-                            hireCost={panCost}
-                            wage={panTotalWage}
-                            canHire={money >= panCost}
-                            canFire={pans > 0}
-                            onHire={() => buyUpgrade('pan')}
-                            onFire={() => fireWorker('pan')}
-                            icon="🧑‍🔬"
-                            playerMoney={money}
-                            nextHireWage={panNextWage}
-                            nextHireWouldExceedIncome={(totalPayroll + panNextWage) > autoSellIncome}
-                        />
-
-                        <WorkerRow
-                            name="Hauler"
-                            description="Empties the bucket into the sluice (or pan) automatically when full"
-                            count={haulers}
-                            hireCost={haulerWorkerCost}
-                            wage={haulerWorkerTotalWage}
-                            canHire={money >= haulerWorkerCost}
-                            canFire={haulers > 0}
-                            onHire={() => buyUpgrade('haulerWorker')}
-                            onFire={() => fireWorker('haulerWorker')}
-                            icon="🪣"
-                            playerMoney={money}
-                            nextHireWage={haulerWorkerNextWage}
-                            nextHireWouldExceedIncome={(totalPayroll + haulerWorkerNextWage) > autoSellIncome}
-                        />
-
-                        {hasSluiceBox ? (
-                            <WorkerRow
-                                name="Sluice Operator"
-                                description={`+${(UPGRADES.sluiceWorker.extractionBonus * 100).toFixed(0)}% gold extraction per worker`}
-                                count={sluiceWorkers}
-                                hireCost={sluiceWorkerCost}
-                                wage={sluiceWorkerTotalWage}
-                                canHire={money >= sluiceWorkerCost}
-                                canFire={sluiceWorkers > 0}
-                                onHire={() => buyUpgrade('sluiceWorker')}
-                                onFire={() => fireWorker('sluiceWorker')}
-                                icon="🚿"
-                                playerMoney={money}
-                                nextHireWage={sluiceWorkerNextWage}
-                                nextHireWouldExceedIncome={(totalPayroll + sluiceWorkerNextWage) > autoSellIncome}
-                            />
-                        ) : (
-                            <LockedWorkerRow name="Sluice Operator" icon="🚿" requiresName="Sluice Box" requiresCost={EQUIPMENT.sluiceBox.cost} />
-                        )}
-
-                        {hasFurnace ? (
-                            <WorkerRow
-                                name="Furnace Operator"
-                                description="Auto-loads, smelts, and collects gold bars"
-                                count={furnaceWorkers}
-                                hireCost={furnaceWorkerCost}
-                                wage={furnaceWorkerTotalWage}
-                                canHire={money >= furnaceWorkerCost}
-                                canFire={furnaceWorkers > 0}
-                                onHire={() => buyUpgrade('furnaceWorker')}
-                                onFire={() => fireWorker('furnaceWorker')}
-                                icon="⚗️"
-                                playerMoney={money}
-                                nextHireWage={furnaceWorkerNextWage}
-                                nextHireWouldExceedIncome={(totalPayroll + furnaceWorkerNextWage) > autoSellIncome}
-                            />
-                        ) : (
-                            <LockedWorkerRow name="Furnace Operator" icon="⚗️" requiresName="Furnace" requiresCost={EQUIPMENT.furnace.cost} />
-                        )}
-
-                        {hasMetalDetector ? (
-                            <WorkerRow
-                                name="Detector Operator"
-                                description={`Auto-detects ${DETECTOR_SPOTS_PER_SEC} high-gold spot/sec per worker`}
-                                count={detectorWorkers}
-                                hireCost={detectorWorkerCost}
-                                wage={detectorWorkerTotalWage}
-                                canHire={money >= detectorWorkerCost}
-                                canFire={detectorWorkers > 0}
-                                onHire={() => buyUpgrade('detectorWorker')}
-                                onFire={() => fireWorker('detectorWorker')}
-                                icon="🔍"
-                                playerMoney={money}
-                                nextHireWage={detectorWorkerNextWage}
-                                nextHireWouldExceedIncome={(totalPayroll + detectorWorkerNextWage) > autoSellIncome}
-                            />
-                        ) : (
-                            <LockedWorkerRow name="Detector Operator" icon="🔍" requiresName="Metal Detector" requiresCost={EQUIPMENT.metalDetector.cost} />
-                        )}
-
-                        <WorkerRow
-                            name="Banker"
-                            description={`Auto-sells ${UPGRADES.bankerWorker.goldPerSec} gold/sec (applies value bonuses)`}
-                            count={bankerWorkers}
-                            hireCost={bankerWorkerCost}
-                            wage={bankerWorkerTotalWage}
-                            canHire={money >= bankerWorkerCost}
-                            canFire={bankerWorkers > 0}
-                            onHire={() => buyUpgrade('bankerWorker')}
-                            onFire={() => fireWorker('bankerWorker')}
-                            icon="🏦"
-                            playerMoney={money}
-                            nextHireWage={bankerWorkerNextWage}
-                            nextHireWouldExceedIncome={(totalPayroll + bankerWorkerNextWage) > autoSellIncome}
-                        />
+                        <h3 className="text-lg font-semibold text-green-800">👷 Labor Office</h3>
+                        <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-xl text-center space-y-2">
+                            <div className="text-2xl">🏗️</div>
+                            <p className="text-sm font-semibold text-amber-800">Hiring Hall — Coming Soon</p>
+                            <p className="text-xs text-amber-600">
+                                Worker hiring is being rebuilt with the new Frontier Town employee system.
+                                Check back in an upcoming update!
+                            </p>
+                        </div>
 
                         <UpgradeButton
                             name="Hire Driver"
@@ -565,26 +410,6 @@ export function Town() {
                         />
                     </div>
                 )}
-            </div>
-        </div>
-    );
-}
-
-function LockedWorkerRow({ name, icon, requiresName, requiresCost }: {
-    name: string;
-    icon: string;
-    requiresName: string;
-    requiresCost: number;
-}) {
-    return (
-        <div className="w-full p-4 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl opacity-50">
-            <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <span>{icon}</span>
-                <span>{name}</span>
-                <span className="text-xs text-gray-400 font-semibold">🔒 LOCKED</span>
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Requires: {requiresName} (${formatNumber(requiresCost)}) — buy in Shop → Equipment
             </div>
         </div>
     );

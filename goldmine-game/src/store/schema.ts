@@ -3,7 +3,49 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 28 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 29 as const; // bump when persist shape changes
+
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'banker' | 'detectorOperator';
+
+export interface Employee {
+    id: string;
+    name: string;
+    rarity: Rarity;
+    stats: { brawn: number; dexterity: number; technical: number; hustle: number; };
+    xpByRole: Partial<Record<Role, number>>;
+    assignedRole: Role | null;
+}
+
+export interface RoleSlots {
+    miner: number;
+    hauler: number;
+    prospector: number;
+    sluiceOperator: number;
+    furnaceOperator: number;
+    banker: number;
+detectorOperator: number;
+}
+
+export interface StoryNPCState {
+    traderArrived: boolean;
+    bankerArrived: boolean;
+    tavernBuilt: boolean;
+    assayerArrived: boolean;
+    blacksmithArrived: boolean;
+}
+
+let _empIdCounter = 0;
+export function makeCommonEmployee(role: Role, name: string): Employee {
+    return {
+        id: `migrated-${role}-${++_empIdCounter}`,
+        name,
+        rarity: 'common',
+        stats: { brawn: 5, dexterity: 5, technical: 5, hustle: 5 },
+        xpByRole: {},
+        assignedRole: role,
+    };
+}
 
 // v1: before you renamed dirtyGold -> paydirt
 export type SaveV1 = {
@@ -405,12 +447,24 @@ export type SaveV28 = Omit<SaveV27, 'version'> & {
     vaultBars: number;
 };
 
-export type LatestSave = SaveV28;
+// v29: Employee-based workforce — replaces raw worker counts with Employee objects
+export type SaveV29 = Omit<SaveV28, 'version' | 'shovels' | 'pans' | 'haulers' | 'sluiceWorkers' | 'furnaceWorkers' | 'bankerWorkers' | 'detectorWorkers'> & {
+    version: 29;
+    employees: Employee[];
+    roleSlots: RoleSlots;
+    storyNPCs: StoryNPCState;
+    seasonNumber: number;
+    npcsRetained: number;
+    draftPool: Employee[];
+    draftPoolRefreshCost: number;
+};
+
+export type LatestSave = SaveV29;
 
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV28();
+        return defaultSaveV29();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1219,10 +1273,66 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 28);
     }
 
-    // Already v28, ensure fields exist
-    const s = raw as Partial<SaveV28>;
+    if (fromVersion < 29) {
+        const s = raw as SaveV28;
+        _empIdCounter = 0; // reset counter for deterministic migration
+        const MIGRATED_NAMES: Record<Role, string[]> = {
+            miner: ['Zeb','Clem','Huck','Walt','Roy','Ned','Ike','Cal','Otis','Silas'],
+            prospector: ['Mae','Fern','Ora','Nell','Ida','Ada','Bea','Cora','Flo','Hattie'],
+            hauler: ['Buck','Gus','Abe','Dan','Eli','Finn','Hans','Jed','Kurt','Lars'],
+            sluiceOperator: ['Tom','Jim','Sam','Bob','Pat','Al','Fred','Vern','Wes','Yul'],
+            furnaceOperator: ['Bruno','Felix','Otto','Hugo','Arno','Ernst','Fritz','Hans2','Klaus','Lutz'],
+            banker: ['Chester','Edgar','Floyd','Grover','Homer','Irving','Julius','Lester','Melvin','Norbert'],
+            detectorOperator: ['Arlo','Boyd','Clyde','Dewey','Ezra','Grant','Heath','Ivan','Jesse','Knox'],
+        };
+        const getNames = (role: Role) => MIGRATED_NAMES[role] || [];
+
+        const makeEmployees = (role: Role, count: number): Employee[] =>
+            Array.from({ length: count }, (_, i) => makeCommonEmployee(role, getNames(role)[i] ?? `Worker ${i + 1}`));
+
+        const employees: Employee[] = [
+            ...makeEmployees('miner', s.shovels ?? 0),
+            ...makeEmployees('prospector', s.pans ?? 0),
+            ...makeEmployees('hauler', s.haulers ?? 0),
+            ...makeEmployees('sluiceOperator', s.sluiceWorkers ?? 0),
+            ...makeEmployees('furnaceOperator', s.furnaceWorkers ?? 0),
+            ...makeEmployees('banker', s.bankerWorkers ?? 0),
+            ...makeEmployees('detectorOperator', s.detectorWorkers ?? 0),
+        ];
+
+        const totalWorkers = (s.shovels ?? 0) + (s.pans ?? 0) + (s.haulers ?? 0) +
+            (s.sluiceWorkers ?? 0) + (s.furnaceWorkers ?? 0) + (s.bankerWorkers ?? 0) + (s.detectorWorkers ?? 0);
+
+        const { shovels: _sh, pans: _pa, haulers: _ha, sluiceWorkers: _sw,
+                furnaceWorkers: _fw, bankerWorkers: _bw, detectorWorkers: _dw, ...rest } = s;
+
+        return migrateToLatest({
+            ...rest,
+            version: 29,
+            employees,
+            roleSlots: {
+                miner: Math.max(5, s.shovels ?? 0),
+                hauler: Math.max(3, s.haulers ?? 0),
+                prospector: Math.max(5, s.pans ?? 0),
+                sluiceOperator: Math.max(3, s.sluiceWorkers ?? 0),
+                furnaceOperator: Math.max(2, s.furnaceWorkers ?? 0),
+                banker: Math.max(2, s.bankerWorkers ?? 0),
+                detectorOperator: Math.max(2, s.detectorWorkers ?? 0),
+            },
+            storyNPCs: totalWorkers > 0
+                ? { traderArrived: true, bankerArrived: true, tavernBuilt: true, assayerArrived: true, blacksmithArrived: true }
+                : { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+            seasonNumber: (s as { prestigeCount?: number }).prestigeCount ?? 1,
+            npcsRetained: 0,
+            draftPool: [],
+            draftPoolRefreshCost: 10,
+        }, 29);
+    }
+
+    // Already v29, ensure fields exist
+    const s = raw as Partial<SaveV29>;
     return {
-        version: 28,
+        version: 29,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1236,13 +1346,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         investmentStocks: s.investmentStocks ?? 0,
         investmentHighRisk: s.investmentHighRisk ?? 0,
         lastRiskCheck: s.lastRiskCheck ?? 0,
-        shovels: s.shovels ?? 0,
-        pans: s.pans ?? 0,
         carts: s.carts ?? 0,
-        haulers: s.haulers ?? 0,
-        sluiceWorkers: s.sluiceWorkers ?? 0,
-        furnaceWorkers: s.furnaceWorkers ?? 0,
-        bankerWorkers: s.bankerWorkers ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
         hasFurnace: s.hasFurnace ?? false,
         scoopPower: s.scoopPower ?? 1,
@@ -1281,7 +1385,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         richDirtInBucket: s.richDirtInBucket ?? 0,
         richDirtInSluice: s.richDirtInSluice ?? 0,
         hasMetalDetector: s.hasMetalDetector ?? false,
-        detectorWorkers: s.detectorWorkers ?? 0,
         hasMotherlode: s.hasMotherlode ?? false,
         dustDetectRate: s.dustDetectRate ?? 0,
         dustSpotCap: s.dustSpotCap ?? 0,
@@ -1294,12 +1397,18 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceRunning: s.furnaceRunning ?? false,
         furnaceBars: s.furnaceBars ?? 0,
         goldBars: s.goldBars ?? 0,
-        // Migrate old single-field carries to split fields
-        driverCarryingFlakes: (s as {driverCarryingFlakes?: number; driverCarrying?: number}).driverCarryingFlakes ?? (s as {driverCarrying?: number}).driverCarrying ?? 0,
-        driverCarryingBars: (s as {driverCarryingBars?: number}).driverCarryingBars ?? 0,
+        driverCarryingFlakes: s.driverCarryingFlakes ?? 0,
+        driverCarryingBars: s.driverCarryingBars ?? 0,
         driverCapUpgrades: s.driverCapUpgrades ?? 0,
-        vaultFlakes: (s as {vaultFlakes?: number; bankVault?: number}).vaultFlakes ?? (s as {bankVault?: number}).bankVault ?? 0,
-        vaultBars: (s as {vaultBars?: number}).vaultBars ?? 0,
+        vaultFlakes: s.vaultFlakes ?? 0,
+        vaultBars: s.vaultBars ?? 0,
+        employees: s.employees ?? [],
+        roleSlots: s.roleSlots ?? { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, banker: 2, detectorOperator: 2 },
+        storyNPCs: s.storyNPCs ?? { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+        seasonNumber: s.seasonNumber ?? 1,
+        npcsRetained: s.npcsRetained ?? 0,
+        draftPool: s.draftPool ?? [],
+        draftPoolRefreshCost: s.draftPoolRefreshCost ?? 10,
     };
 }
 
@@ -1728,5 +1837,22 @@ export function defaultSaveV28(): SaveV28 {
         driverCapUpgrades: 0,
         vaultFlakes: 0,
         vaultBars: 0,
+    };
+}
+
+export function defaultSaveV29(): SaveV29 {
+    const { version: _v, shovels: _sh, pans: _pa, haulers: _ha,
+            sluiceWorkers: _sw, furnaceWorkers: _fw, bankerWorkers: _bw,
+            detectorWorkers: _dw, ...rest } = defaultSaveV28();
+    return {
+        ...rest,
+        version: 29,
+        employees: [],
+        roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, banker: 2, detectorOperator: 2 },
+        storyNPCs: { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+        seasonNumber: 1,
+        npcsRetained: 0,
+        draftPool: [],
+        draftPoolRefreshCost: 10,
     };
 }
