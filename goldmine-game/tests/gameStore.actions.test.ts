@@ -1,24 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     gameStore,
-    FIXED_DT_MS,
-    UPGRADES,
     EQUIPMENT,
     VEHICLE_TIERS,
     DRIVER_COST,
-    BASE_EXTRACTION,
-    SMELTING_FEE_PERCENT,
-    DUST_HEAD_START_AMOUNTS,
-    getEffectivePanClickAmount,
     MAX_GEAR_UPGRADE_LEVEL,
-    BUCKET_UPGRADE_COSTS,
-    WITHDRAWAL_PENALTY,
     DETECT_PROGRESS_PER_CLICK,
     DETECT_TARGET_MIN,
     DETECT_TARGET_MAX,
     PATCH_CAPACITY_MIN,
     PATCH_CAPACITY_MAX,
-    FURNACE_CAPACITY,
     makeCommonEmployee,
 } from '../src/store/gameStore';
 
@@ -65,13 +56,6 @@ describe('panForGold', () => {
         expect(panFilled).toBeCloseTo(9, 10);
     });
 
-    it('dustPanYield increases gold output', () => {
-        // dustPanYield=2 → multiplier = 1 + 0.1*2 = 1.2 → gold = 0.2 * 1.2 = 0.24
-        gameStore.setState({ panFilled: 10, dustPanYield: 2 });
-        gameStore.getState().panForGold();
-        expect(gameStore.getState().gold).toBeCloseTo(0.24, 10);
-    });
-
     it('panSpeedUpgrades increases material consumed per click', () => {
         // panSpeedUpgrades=2 → clickAmount = 1 + 0.5*2 = 2 → gold = 2*0.2 = 0.4
         gameStore.setState({ panFilled: 10, panSpeedUpgrades: 2 });
@@ -109,18 +93,26 @@ describe('sellGold', () => {
 
     it('sells up to goldInPocket with smelting fee (no furnace)', () => {
         // gold=10, goldInPocket=3, goldPrice=1.0, fee=15% → 3*0.85=2.55
-        gameStore.setState({ gold: 10, goldInPocket: 3, goldPrice: 1.0, hasFurnace: false, dustGoldValue: 0 });
+        gameStore.setState({ gold: 10, goldInPocket: 3, goldPrice: 1.0, hasFurnace: false });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(2.55, 8);
         expect(gameStore.getState().gold).toBeCloseTo(7, 8);
         expect(gameStore.getState().goldInPocket).toBe(0);
     });
 
-    it('sells goldBars up to goldInPocket at bar premium (hasFurnace)', () => {
-        // goldBars=5, goldInPocket=5, goldPrice=1.0, barMultiplier=1.2 → 5*1.2=6.0
-        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0 });
+    it('sells certified goldBars up to goldInPocket at full bar premium (hasFurnace)', () => {
+        // goldBarsCertified=5, goldInPocket=5, goldPrice=1.0, barMultiplier=1.2 → 5*1.2=6.0
+        gameStore.setState({ goldBarsCertified: 5, goldBars: 0, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true });
         gameStore.getState().sellGold();
         expect(gameStore.getState().money).toBeCloseTo(6.0, 8);
+        expect(gameStore.getState().goldBarsCertified).toBeCloseTo(0, 8);
+    });
+
+    it('sells uncertified goldBars with 10% penalty (hasFurnace)', () => {
+        // goldBars=5 (uncertified), goldInPocket=5, goldPrice=1.0 → 5*1.2*0.9=5.4
+        gameStore.setState({ goldBars: 5, goldBarsCertified: 0, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true });
+        gameStore.getState().sellGold();
+        expect(gameStore.getState().money).toBeCloseTo(5.4, 8);
         expect(gameStore.getState().goldBars).toBeCloseTo(0, 8);
     });
 
@@ -130,18 +122,11 @@ describe('sellGold', () => {
         expect(gameStore.getState().money).toBe(0);
     });
 
-    it('applies dustGoldValue sell multiplier with furnace', () => {
-        // dustGoldValue=2 → multiplier=1.2 → finalValue = 5*1.0*1.2*1.2 = 7.2
-        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 2 });
-        gameStore.getState().sellGold();
-        expect(gameStore.getState().money).toBeCloseTo(7.2, 8);
-    });
-
     it('updates runMoneyEarned, totalMoneyEarned, and peakRunMoney', () => {
-        gameStore.setState({ goldBars: 5, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, dustGoldValue: 0, peakRunMoney: 0 });
+        gameStore.setState({ goldBarsCertified: 5, goldBars: 0, goldInPocket: 5, goldPrice: 1.0, hasFurnace: true, peakRunMoney: 0 });
         gameStore.getState().sellGold();
         const { runMoneyEarned, totalMoneyEarned, peakRunMoney } = gameStore.getState();
-        // 5 bars * 1.0 * 1.2 bar multiplier = 6.0
+        // 5 certified bars * 1.0 * 1.2 bar multiplier = 6.0
         expect(runMoneyEarned).toBeCloseTo(6.0, 8);
         expect(totalMoneyEarned).toBeCloseTo(6.0, 8);
         expect(peakRunMoney).toBeCloseTo(6.0, 8);
@@ -243,16 +228,9 @@ describe('reset', () => {
         gameStore.getState().reset();
         const s = gameStore.getState();
         expect(s.gold).toBe(0);
-        expect(s.money).toBe(0); // dustHeadStart=0 → $0 head start
+        expect(s.money).toBe(0);
         expect(s.employees).toEqual([]);
         expect(s.hasSluiceBox).toBe(false);
-    });
-
-    it('seeds money from dustHeadStart', () => {
-        // dustHeadStart=2 → DUST_HEAD_START_AMOUNTS[2] = $75
-        gameStore.setState({ dustHeadStart: 2 });
-        gameStore.getState().reset();
-        expect(gameStore.getState().money).toBe(DUST_HEAD_START_AMOUNTS[2]);
     });
 
     it('preserves timePlayed and darkMode', () => {
@@ -262,14 +240,10 @@ describe('reset', () => {
         expect(gameStore.getState().darkMode).toBe(true);
     });
 
-    it('preserves legacyDust, prestigeCount, and dust upgrades', () => {
-        gameStore.setState({ legacyDust: 50, prestigeCount: 3, dustScoopBoost: 2, dustPanYield: 1 });
+    it('preserves npcLevels and storyNPCs', () => {
+        gameStore.setState({ npcLevels: { trader: 2, tavernKeeper: 1, assayer: 1, blacksmith: 1 } });
         gameStore.getState().reset();
-        const s = gameStore.getState();
-        expect(s.legacyDust).toBe(50);
-        expect(s.prestigeCount).toBe(3);
-        expect(s.dustScoopBoost).toBe(2);
-        expect(s.dustPanYield).toBe(1);
+        expect(gameStore.getState().npcLevels.trader).toBe(2);
     });
 
     it('resets vehicleTier and hasDriver', () => {
@@ -283,14 +257,11 @@ describe('reset', () => {
 // ─── hardResetSave ────────────────────────────────────────────────────────────
 
 describe('hardResetSave', () => {
-    it('wipes all run, prestige, and dust state', () => {
-        gameStore.setState({ legacyDust: 50, prestigeCount: 2, gold: 5, dustScoopBoost: 3, money: 100 });
+    it('wipes all run state', () => {
+        gameStore.setState({ gold: 5, money: 100 });
         gameStore.getState().hardResetSave();
         const s = gameStore.getState();
-        expect(s.legacyDust).toBe(0);
-        expect(s.prestigeCount).toBe(0);
         expect(s.gold).toBe(0);
-        expect(s.dustScoopBoost).toBe(0);
         expect(s.money).toBe(0);
     });
 
@@ -309,59 +280,86 @@ describe('hardResetSave', () => {
     });
 });
 
-// ─── prestige ─────────────────────────────────────────────────────────────────
+// ─── selectCommission ─────────────────────────────────────────────────────────
 
-describe('prestige', () => {
-    it('awards floor(sqrt(runMoneyEarned)) legacy dust', () => {
-        gameStore.setState({ runMoneyEarned: 100, legacyDust: 5 });
-        gameStore.getState().prestige();
-        // sqrt(100) = 10, floor = 10, total = 5 + 10 = 15
-        expect(gameStore.getState().legacyDust).toBe(15);
+describe('selectCommission', () => {
+    it('increments npcLevel for the commissioned NPC', () => {
+        gameStore.setState({
+            money: 9999,
+            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
+        });
+        const result = gameStore.getState().selectCommission('trader');
+        expect(result).toBe(true);
+        expect(gameStore.getState().npcLevels.trader).toBe(2);
     });
 
-    it('resets run fields to zero', () => {
-        gameStore.setState({ gold: 5, money: 100, employees: [makeCommonEmployee('miner', 'M1')], hasSluiceBox: true });
-        gameStore.getState().prestige();
+    it('deducts commission cost from money', async () => {
+        const { getCommissionCost } = await import('../src/store/gameStore');
+        const cost = getCommissionCost('blacksmith', 1);
+        gameStore.setState({
+            money: cost + 100,
+            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
+        });
+        gameStore.getState().selectCommission('blacksmith');
+        expect(gameStore.getState().money).toBe(100);
+    });
+
+    it('returns false when NPC has not arrived (level 0)', () => {
+        gameStore.setState({
+            money: 9999,
+            npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+        });
+        expect(gameStore.getState().selectCommission('trader')).toBe(false);
+    });
+
+    it('returns false when insufficient funds', () => {
+        gameStore.setState({
+            money: 0,
+            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
+        });
+        expect(gameStore.getState().selectCommission('trader')).toBe(false);
+    });
+
+    it('resets run fields and increments seasonNumber', () => {
+        gameStore.setState({
+            gold: 5, money: 9999, hasSluiceBox: true,
+            npcLevels: { trader: 1, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+            seasonNumber: 1,
+        });
+        gameStore.getState().selectCommission('trader');
         const s = gameStore.getState();
         expect(s.gold).toBe(0);
-        expect(s.money).toBe(0); // dustHeadStart=0
-        expect(s.employees).toEqual([]);
         expect(s.hasSluiceBox).toBe(false);
+        expect(s.seasonNumber).toBe(2);
     });
 
-    it('sets unlockedBanking to true', () => {
-        gameStore.getState().prestige();
-        expect(gameStore.getState().unlockedBanking).toBe(true);
-    });
-
-    it('increments prestigeCount', () => {
-        gameStore.setState({ prestigeCount: 1 });
-        gameStore.getState().prestige();
-        expect(gameStore.getState().prestigeCount).toBe(2);
-    });
-
-    it('preserves dust upgrades', () => {
-        gameStore.setState({ dustScoopBoost: 2, dustPanYield: 1, dustBucketSize: 3 });
-        gameStore.getState().prestige();
-        const s = gameStore.getState();
-        expect(s.dustScoopBoost).toBe(2);
-        expect(s.dustPanYield).toBe(1);
-        expect(s.dustBucketSize).toBe(3);
-    });
-
-    it('updates peakRunMoney if run money exceeds it', () => {
-        gameStore.setState({ runMoneyEarned: 500, peakRunMoney: 200 });
-        gameStore.getState().prestige();
+    it('updates peakRunMoney', () => {
+        gameStore.setState({
+            runMoneyEarned: 500, peakRunMoney: 200, money: 9999,
+            npcLevels: { trader: 1, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+        });
+        gameStore.getState().selectCommission('trader');
         expect(gameStore.getState().peakRunMoney).toBe(500);
     });
 
     it('resets money gear upgrades', () => {
-        gameStore.setState({ bucketUpgrades: 2, panCapUpgrades: 1, panSpeedUpgrades: 3 });
-        gameStore.getState().prestige();
+        gameStore.setState({
+            bucketUpgrades: 2, panCapUpgrades: 1, panSpeedUpgrades: 3, money: 9999,
+            npcLevels: { trader: 1, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+        });
+        gameStore.getState().selectCommission('trader');
         const s = gameStore.getState();
         expect(s.bucketUpgrades).toBe(0);
         expect(s.panCapUpgrades).toBe(0);
         expect(s.panSpeedUpgrades).toBe(0);
+    });
+
+    it('null commission resets season without deducting money or leveling NPC', () => {
+        gameStore.setState({ money: 500, seasonNumber: 1 });
+        const result = gameStore.getState().selectCommission(null);
+        expect(result).toBe(true);
+        expect(gameStore.getState().seasonNumber).toBe(2);
+        expect(gameStore.getState().money).toBe(0); // money resets on season end
     });
 });
 
@@ -383,43 +381,6 @@ describe('addFloatingNumber', () => {
         vi.advanceTimersByTime(1200);
         expect(gameStore.getState().floatingNumbers).toHaveLength(0);
         vi.useRealTimers();
-    });
-});
-
-// ─── depositInvestment / withdrawInvestment ───────────────────────────────────
-
-describe('investments', () => {
-    it('depositInvestment deducts money and increases investment', () => {
-        gameStore.setState({ money: 100 });
-        const result = gameStore.getState().depositInvestment('safeBonds', 40);
-        expect(result).toBe(true);
-        expect(gameStore.getState().money).toBeCloseTo(60, 8);
-        expect(gameStore.getState().investmentSafeBonds).toBe(40);
-    });
-
-    it('depositInvestment returns false when insufficient money', () => {
-        gameStore.setState({ money: 10 });
-        const result = gameStore.getState().depositInvestment('stocks', 50);
-        expect(result).toBe(false);
-        expect(gameStore.getState().money).toBe(10);
-    });
-
-    it('depositInvestment returns false for amount <= 0', () => {
-        gameStore.setState({ money: 100 });
-        expect(gameStore.getState().depositInvestment('highRisk', 0)).toBe(false);
-    });
-
-    it('withdrawInvestment returns money minus 5% penalty', () => {
-        gameStore.setState({ investmentStocks: 100, money: 0 });
-        const result = gameStore.getState().withdrawInvestment('stocks', 100);
-        expect(result).toBe(true);
-        expect(gameStore.getState().money).toBeCloseTo(100 * (1 - WITHDRAWAL_PENALTY), 8);
-        expect(gameStore.getState().investmentStocks).toBe(0);
-    });
-
-    it('withdrawInvestment returns false when investment < amount', () => {
-        gameStore.setState({ investmentSafeBonds: 10 });
-        expect(gameStore.getState().withdrawInvestment('safeBonds', 50)).toBe(false);
     });
 });
 
@@ -491,18 +452,18 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(29);
+        expect(parsed.version).toBe(33);
     });
 
     it('exportSave round-trips through importSave', () => {
-        gameStore.setState({ money: 42, gold: 7, prestigeCount: 3 });
+        gameStore.setState({ money: 42, gold: 7, seasonNumber: 3 });
         const json = gameStore.getState().exportSave();
         gameStore.getState().reset();
         gameStore.getState().importSave(json);
         const s = gameStore.getState();
         expect(s.money).toBe(42);
         expect(s.gold).toBe(7);
-        expect(s.prestigeCount).toBe(3);
+        expect(s.seasonNumber).toBe(3);
     });
 
     it('importSave with v1 payload migrates correctly', () => {
@@ -587,7 +548,7 @@ describe('detectPatch', () => {
     });
 
     it('rolls a random detectTarget on first click and advances progress', () => {
-        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 0, dustDetectRate: 0, hasMotherlode: false });
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 0, hasMotherlode: false });
         gameStore.getState().detectPatch();
         const { detectTarget, detectProgress } = gameStore.getState();
         expect(detectTarget).toBeGreaterThanOrEqual(DETECT_TARGET_MIN);
@@ -595,15 +556,15 @@ describe('detectPatch', () => {
         expect(detectProgress).toBeCloseTo(DETECT_PROGRESS_PER_CLICK, 5);
     });
 
-    it('dustDetectRate increases progress per click', () => {
-        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 100, dustDetectRate: 2, hasMotherlode: false });
+    it('each click advances progress by DETECT_PROGRESS_PER_CLICK', () => {
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 100, hasMotherlode: false });
         gameStore.getState().detectPatch();
-        expect(gameStore.getState().detectProgress).toBeCloseTo(DETECT_PROGRESS_PER_CLICK + 2, 5);
+        expect(gameStore.getState().detectProgress).toBeCloseTo(DETECT_PROGRESS_PER_CLICK, 5);
     });
 
     it('discovers a patch when progress reaches target', () => {
         // Set target to 1 so a single click completes the search
-        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 1, dustDetectRate: 0, dustSpotCap: 0, hasMotherlode: false });
+        gameStore.setState({ hasMetalDetector: true, patchActive: false, detectProgress: 0, detectTarget: 1, hasMotherlode: false });
         gameStore.getState().detectPatch();
         const { patchActive, patchRemaining, patchCapacity, detectProgress, detectTarget } = gameStore.getState();
         expect(patchActive).toBe(true);

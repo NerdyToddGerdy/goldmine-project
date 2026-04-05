@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { migrateToLatest, defaultSaveV28, defaultSaveV29 } from "../../../src/store/schema";
+import { migrateToLatest, defaultSaveV28, defaultSaveV33 } from "../../../src/store/schema";
 
 describe("migrateToLatest", () => {
     it("migrates v1 dirtyGold -> paydirt", () => {
@@ -11,7 +11,7 @@ describe("migrateToLatest", () => {
             dirtyGold: 9,
         };
         const out = migrateToLatest(v1, 1);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.tickCount).toBe(7);
         expect(out.timeScale).toBe(2);
         expect(out.gold).toBe(3);
@@ -20,7 +20,7 @@ describe("migrateToLatest", () => {
 
     it("handles empty input with defaults", () => {
         const out = migrateToLatest(undefined, undefined);
-        expect(out).toEqual(defaultSaveV29());
+        expect(out).toEqual(defaultSaveV33());
     });
 
     it("passes through v2 shape filling defaults", () => {
@@ -77,25 +77,22 @@ describe("migrateToLatest", () => {
             darkMode: false,
         };
         const out = migrateToLatest(v12, 12);
-        expect(out.version).toBe(29);
-        expect(out.legacyDust).toBe(0);
+        expect(out.version).toBe(33);
         expect(out.runMoneyEarned).toBe(0);
-        expect(out.prestigeCount).toBe(0);
-        expect(out.dustScoopBoost).toBe(0);
-        expect(out.dustPanYield).toBe(0);
-        expect(out.dustGoldValue).toBe(0);
-        expect(out.dustHeadStart).toBe(0);
-        expect(out.dustBucketSize).toBe(0);
-        expect(out.dustPanSpeed).toBe(0);
-        expect(out.dustPanCapacity).toBe(0);
-        expect(out.unlockedBanking).toBe(true);
+        expect('legacyDust' in out).toBe(false);
+        expect('prestigeCount' in out).toBe(false);
+        expect('dustScoopBoost' in out).toBe(false);
+        expect('dustPanYield' in out).toBe(false);
+        expect('unlockedBanking' in out).toBe(false);
         expect(out.timePlayed).toBe(100);
         expect(out.totalGoldExtracted).toBe(0);
         expect(out.totalMoneyEarned).toBe(0);
         expect(out.peakRunMoney).toBe(0);
+        expect(out.npcLevels).toBeDefined();
+        expect(out.pendingCommission).toBeNull();
     });
 
-    it("migrates v14 adding bucketSize, panSpeed, panCapacity dust upgrades", () => {
+    it("migrates v14 — dust fields stripped in v32", () => {
         const v14 = { version: 14, tickCount: 0, timeScale: 1, location: 'mine',
             bucketFilled: 0, panFilled: 0, dirt: 0, paydirt: 0, gold: 0, money: 0,
             investmentSafeBonds: 0, investmentStocks: 0, investmentHighRisk: 0, lastRiskCheck: 0,
@@ -110,13 +107,11 @@ describe("migrateToLatest", () => {
             dustScoopBoost: 2, dustPanYield: 1, dustGoldValue: 0, dustHeadStart: 1,
         };
         const out = migrateToLatest(v14, 14);
-        expect(out.version).toBe(29);
-        expect(out.dustScoopBoost).toBe(2); // preserved
-        expect(out.dustPanYield).toBe(1);   // preserved
-        expect(out.dustBucketSize).toBe(0); // new field defaults to 0
-        expect(out.dustPanSpeed).toBe(0);
-        expect(out.dustPanCapacity).toBe(0);
-        expect(out.legacyDust).toBe(10);    // preserved
+        expect(out.version).toBe(33);
+        expect('dustScoopBoost' in out).toBe(false);
+        expect('legacyDust' in out).toBe(false);
+        expect(out.npcLevels).toBeDefined();
+        expect(out.pendingCommission).toBeNull();
     });
 
     it("migrates v11 dropping hasBankCounter and unlockedShop, adding unlockedBanking", () => {
@@ -162,8 +157,8 @@ describe("migrateToLatest", () => {
             darkMode: true,
         };
         const out = migrateToLatest(v11, 11);
-        expect(out.version).toBe(29);
-        expect(out.unlockedBanking).toBe(false);
+        expect(out.version).toBe(33);
+        expect('unlockedBanking' in out).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
         expect('unlockedShop' in out).toBe(false);
         expect(out.timePlayed).toBe(42);
@@ -187,13 +182,13 @@ describe("migrateToLatest", () => {
             dustBucketSize: 1, dustPanSpeed: 0, dustPanCapacity: 2,
         };
         const out = migrateToLatest(v15, 15);
-        expect(out.version).toBe(29);
-        expect(out.vehicleTier).toBe(0);       // new field defaults to 0
-        expect(out.hasDriver).toBe(false);     // new field defaults to false
-        expect(out.dustBucketSize).toBe(1);    // preserved
-        expect(out.dustPanCapacity).toBe(2);   // preserved
-        expect(out.legacyDust).toBe(5);        // preserved
-        expect(out.bucketUpgrades).toBe(0);    // v17 field defaults to 0
+        expect(out.version).toBe(33);
+        expect(out.vehicleTier).toBe(0);              // new field defaults to 0
+        expect(out.hasDriver).toBe(false);            // new field defaults to false
+        expect('dustBucketSize' in out).toBe(false);  // stripped in v32
+        expect('dustPanCapacity' in out).toBe(false); // stripped in v32
+        expect('legacyDust' in out).toBe(false);      // stripped in v32
+        expect(out.bucketUpgrades).toBe(0);           // v17 field defaults to 0
         expect(out.panCapUpgrades).toBe(0);
         expect(out.panSpeedUpgrades).toBe(0);
     });
@@ -216,7 +211,7 @@ describe("migrateToLatest", () => {
             vehicleTier: 1, hasDriver: false,
         };
         const out = migrateToLatest(v16, 16);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.bucketUpgrades).toBe(0);    // new field defaults to 0
         expect(out.panCapUpgrades).toBe(0);
         expect(out.panSpeedUpgrades).toBe(0);
@@ -244,7 +239,7 @@ describe("migrateToLatest", () => {
             vehicleTier: 0, hasDriver: false,
         };
         const out = migrateToLatest(v17, 17);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.goldPrice).toBe(1.0);           // new field defaults to 1.0
         expect(out.lastGoldPriceUpdate).toBe(0);   // new field defaults to 0
         expect(out.bucketUpgrades).toBe(1);        // preserved
@@ -272,11 +267,11 @@ describe("migrateToLatest", () => {
             goldPrice: 1.2, lastGoldPriceUpdate: 100,
         };
         const out = migrateToLatest(v18, 18);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'hauler').length).toBe(0); // haulers→employees
         expect(out.lastSeenChangelogVersion).toBe('v0.18');          // existing players see new popup
         expect(out.money).toBe(200);                                 // preserved
-        expect(out.legacyDust).toBe(3);                             // preserved
+        expect('legacyDust' in out).toBe(false);                     // stripped in v32
         expect(out.goldPrice).toBe(1.2);                            // preserved
         expect(out.totalGoldExtracted).toBe(0);                     // new v20 field
         expect(out.totalMoneyEarned).toBe(0);                       // new v20 field
@@ -293,7 +288,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v3, 3);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.location).toBe('town');
         expect(out.dirt).toBe(3);
         expect(out.paydirt).toBe(7);
@@ -306,9 +301,9 @@ describe("migrateToLatest", () => {
         expect(out.sluiceGear).toBe(1);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(0);
         expect(out.panFilled).toBe(0);
-        expect(out.investmentSafeBonds).toBe(0);
-        expect(out.unlockedBanking).toBe(false);
-        expect(out.legacyDust).toBe(0);
+        expect('investmentSafeBonds' in out).toBe(false);
+        expect('unlockedBanking' in out).toBe(false);
+        expect('legacyDust' in out).toBe(false);
         expect('unlockedShop' in out).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
     });
@@ -324,7 +319,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: false, unlockedShop: true,
         };
         const out = migrateToLatest(v4, 4);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.hasSluiceBox).toBe(true);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'sluiceOperator').length).toBe(0);
         expect(out.sluicePower).toBe(1);
@@ -332,7 +327,7 @@ describe("migrateToLatest", () => {
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(0);
         expect(out.bucketFilled).toBe(0);
         expect(out.panFilled).toBe(0);
-        expect(out.investmentHighRisk).toBe(0);
+        expect('investmentHighRisk' in out).toBe(false);
         expect('unlockedShop' in out).toBe(false);
     });
 
@@ -348,7 +343,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v5, 5);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'sluiceOperator').length).toBe(2);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(0);
         expect(out.sluicePower).toBe(1);
@@ -357,7 +352,7 @@ describe("migrateToLatest", () => {
         expect(out.panFilled).toBe(0);
     });
 
-    it("migrates v6 preserving gear levels and adding banker/bucket", () => {
+    it("migrates v6 preserving gear levels (banker workers dropped in v31)", () => {
         const v6 = {
             version: 6,
             tickCount: 10, timeScale: 1, location: 'mine',
@@ -370,7 +365,7 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v6, 6);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.sluicePower).toBe(2);
         expect(out.sluiceGear).toBe(3);
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(0);
@@ -378,7 +373,7 @@ describe("migrateToLatest", () => {
         expect(out.panFilled).toBe(0);
     });
 
-    it("migrates v7 preserving bankerWorkers and adding bucket/investments", () => {
+    it("migrates v7 with bankerWorkers (bankers stripped in v31)", () => {
         const v7 = {
             version: 7,
             tickCount: 0, timeScale: 1, location: 'mine',
@@ -393,11 +388,11 @@ describe("migrateToLatest", () => {
             unlockedPanning: true, unlockedTown: true, unlockedShop: false,
         };
         const out = migrateToLatest(v7, 7);
-        expect(out.version).toBe(29);
-        expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(3);
+        expect(out.version).toBe(33);
+        expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'banker').length).toBe(0);
         expect(out.bucketFilled).toBe(0);
         expect(out.panFilled).toBe(0);
-        expect(out.investmentSafeBonds).toBe(0);
+        expect('investmentSafeBonds' in out).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
     });
 
@@ -417,13 +412,13 @@ describe("migrateToLatest", () => {
             unlockedPanning: false, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v8, 8);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.bucketFilled).toBe(5);
         expect(out.panFilled).toBe(0);
-        expect(out.investmentSafeBonds).toBe(0);
-        expect(out.investmentStocks).toBe(0);
-        expect(out.investmentHighRisk).toBe(0);
-        expect(out.lastRiskCheck).toBe(0);
+        expect('investmentSafeBonds' in out).toBe(false);
+        expect('investmentStocks' in out).toBe(false);
+        expect('investmentHighRisk' in out).toBe(false);
+        expect('lastRiskCheck' in out).toBe(false);
         expect(out.timePlayed).toBe(0);
         expect(out.darkMode).toBe(false);
     });
@@ -444,17 +439,17 @@ describe("migrateToLatest", () => {
             unlockedPanning: false, unlockedTown: false, unlockedShop: false,
         };
         const out = migrateToLatest(v9, 9);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.panFilled).toBe(8);
         expect(out.bucketFilled).toBe(3);
         expect(out.money).toBe(75);
-        expect(out.investmentSafeBonds).toBe(0);
-        expect(out.investmentStocks).toBe(0);
-        expect(out.investmentHighRisk).toBe(0);
+        expect('investmentSafeBonds' in out).toBe(false);
+        expect('investmentStocks' in out).toBe(false);
+        expect('investmentHighRisk' in out).toBe(false);
         expect('hasBankCounter' in out).toBe(false);
     });
 
-    it("migrates v13 preserving prestige fields and zeroing dust upgrade fields", () => {
+    it("migrates v13 — dust/prestige fields stripped in v32", () => {
         const v13 = {
             version: 13,
             tickCount: 0, timeScale: 1, location: 'mine',
@@ -470,19 +465,21 @@ describe("migrateToLatest", () => {
             legacyDust: 8, runMoneyEarned: 300, prestigeCount: 2,
         };
         const out = migrateToLatest(v13, 13);
-        expect(out.version).toBe(29);
-        expect(out.legacyDust).toBe(8);
-        expect(out.runMoneyEarned).toBe(300);
-        expect(out.prestigeCount).toBe(2);
-        expect(out.dustScoopBoost).toBe(0);
-        expect(out.dustPanYield).toBe(0);
-        expect(out.dustGoldValue).toBe(0);
-        expect(out.dustHeadStart).toBe(0);
-        expect(out.dustBucketSize).toBe(0);
-        expect(out.dustPanSpeed).toBe(0);
-        expect(out.dustPanCapacity).toBe(0);
-        expect(out.vehicleTier).toBe(0);
-        expect(out.hasDriver).toBe(false);
+        expect(out.version).toBe(33);
+        expect(out.runMoneyEarned).toBe(300);       // preserved
+        expect('legacyDust' in out).toBe(false);    // stripped in v32
+        expect('prestigeCount' in out).toBe(false); // stripped in v32
+        expect('dustScoopBoost' in out).toBe(false);
+        expect('dustPanYield' in out).toBe(false);
+        expect('dustGoldValue' in out).toBe(false);
+        expect('dustHeadStart' in out).toBe(false);
+        expect('dustBucketSize' in out).toBe(false);
+        expect('dustPanSpeed' in out).toBe(false);
+        expect('dustPanCapacity' in out).toBe(false);
+        expect(out.vehicleTier).toBe(0);            // new field defaults to 0
+        expect(out.hasDriver).toBe(false);          // new field defaults to false
+        expect(out.npcLevels).toBeDefined();
+        expect(out.pendingCommission).toBeNull();
     });
 
     it("migrates v27 → v28 adding split driver carrier and vault fields defaulted to zero", () => {
@@ -491,7 +488,7 @@ describe("migrateToLatest", () => {
         const { driverCarryingFlakes: _dcf, driverCarryingBars: _dcb,
                 driverCapUpgrades: _dca, vaultFlakes: _vf, vaultBars: _vb, ...v27clean } = v27 as ReturnType<typeof defaultSaveV28>;
         const out = migrateToLatest({ ...v27clean, version: 27 }, 27);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.driverCarryingFlakes).toBe(0);
         expect(out.driverCarryingBars).toBe(0);
         expect(out.driverCapUpgrades).toBe(0);
@@ -500,14 +497,14 @@ describe("migrateToLatest", () => {
         expect(out.employees.filter((e: {assignedRole: string}) => e.assignedRole === 'hauler').length).toBe(2); // haulers→employees
     });
 
-    it("migrates v28 → v29 converting worker counts to employees array", () => {
+    it("migrates v28 → v29 → v30 → v31 converting worker counts to employees (bankers stripped)", () => {
         const v28 = { ...defaultSaveV28(), shovels: 2, pans: 1, sluiceWorkers: 1, furnaceWorkers: 0, bankerWorkers: 1, haulers: 1, detectorWorkers: 0 };
         const out = migrateToLatest(v28, 28);
-        expect(out.version).toBe(29);
+        expect(out.version).toBe(33);
         expect(out.employees).toBeDefined();
         expect(Array.isArray(out.employees)).toBe(true);
-        // 2 miners + 1 prospector + 1 sluice op + 1 banker + 1 hauler = 6 employees
-        expect(out.employees.length).toBe(6);
+        // 2 miners + 1 prospector + 1 sluice op + 1 hauler = 5 employees (banker stripped in v31)
+        expect(out.employees.length).toBe(5);
         const minerCount = out.employees.filter((e) => e.assignedRole === 'miner').length;
         const prospectorCount = out.employees.filter((e) => e.assignedRole === 'prospector').length;
         expect(minerCount).toBe(2);

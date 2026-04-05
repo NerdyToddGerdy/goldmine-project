@@ -2,11 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     gameStore,
     FIXED_DT_MS,
-    BASE_EXTRACTION,
     GOLD_PRICE_UPDATE_TICKS,
-    INVESTMENTS,
     getTravelDurationTicks,
-    SMELTING_FEE_PERCENT,
     SLUICE_CONVERSION_RATIO,
     PAYDIRT_YIELD_MULTIPLIER,
     SLUICE_DRAIN_RATE,
@@ -78,11 +75,10 @@ describe('miner fill rate per tick', () => {
         expect(gameStore.getState().bucketFilled).toBeCloseTo(0.05, 8);
     });
 
-    it('dustScoopBoost multiplies miner fill rate', () => {
-        // dirtPerTick = (3.75 * 0.8 * (1 + 0.1*2)) / 60 = 3.6/60 = 0.06
-        gameStore.setState({ employees: [makeCommonEmployee('miner', 'Miner')], dustScoopBoost: 2, money: 9999, bucketFilled: 0 });
+    it('two miners double the fill rate', () => {
+        gameStore.setState({ employees: [makeCommonEmployee('miner', 'M1'), makeCommonEmployee('miner', 'M2')], money: 9999, bucketFilled: 0 });
         runTicks(1);
-        expect(gameStore.getState().bucketFilled).toBeCloseTo(0.06, 8);
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(0.10, 8);
     });
 
     it('miners stop filling when bucket is at capacity', () => {
@@ -311,57 +307,3 @@ describe('gold price fluctuation', () => {
     });
 });
 
-// ─── investment interest accumulation ────────────────────────────────────────
-
-describe('investment interest per tick', () => {
-    const TICKS_PER_MINUTE = 3600; // 60 ticks/s * 60s
-
-    it('safe bonds accrue ~2% after 1 minute', () => {
-        // Force random to 0 to suppress any risk events (safeBonds has no risk but just in case)
-        vi.spyOn(Math, 'random').mockReturnValue(0);
-        gameStore.setState({ investmentSafeBonds: 100 });
-        runTicks(TICKS_PER_MINUTE);
-        // Expected: 100 * (1 + 0.02/3600)^3600 ≈ 100 * e^0.02 ≈ 102.020
-        expect(gameStore.getState().investmentSafeBonds).toBeCloseTo(102.02, 0);
-        vi.restoreAllMocks();
-    });
-
-    it('stocks accrue ~5% after 1 minute (no risk event)', () => {
-        vi.spyOn(Math, 'random').mockReturnValue(0); // below riskChance → no event
-        gameStore.setState({ investmentStocks: 100 });
-        runTicks(TICKS_PER_MINUTE);
-        // Expected: 100 * e^0.05 ≈ 105.127
-        expect(gameStore.getState().investmentStocks).toBeCloseTo(105.13, 0);
-        vi.restoreAllMocks();
-    });
-
-    it('risk check lastRiskCheck updates to tickCount at check interval', () => {
-        vi.spyOn(Math, 'random').mockReturnValue(0);
-        gameStore.setState({ investmentStocks: 100, lastRiskCheck: 0, tickCount: 0 });
-        // Check fires at the (TICKS_PER_MINUTE + 1)th tick call when s.tickCount = TICKS_PER_MINUTE.
-        // lastRiskCheck is set to s.tickCount (pre-increment value) = TICKS_PER_MINUTE.
-        runTicks(TICKS_PER_MINUTE + 1);
-        expect(gameStore.getState().lastRiskCheck).toBe(TICKS_PER_MINUTE);
-        vi.restoreAllMocks();
-    });
-
-    it('risk event fires for stocks when random is below riskChance', () => {
-        // risk check: Math.random() < riskChance (0.05) → 0.01 < 0.05 → event fires
-        vi.spyOn(Math, 'random').mockReturnValue(0.01);
-        gameStore.setState({ investmentStocks: 100, lastRiskCheck: 0 });
-        runTicks(TICKS_PER_MINUTE + 1);
-        // After event: investmentStocks should be less than initial 100 * growth
-        // (growth ≈ 105, then loss of 15-40%)
-        expect(gameStore.getState().investmentStocks).toBeLessThan(105.13);
-        vi.restoreAllMocks();
-    });
-
-    it('safe bonds never take a risk event', () => {
-        vi.spyOn(Math, 'random').mockReturnValue(0.99); // would trigger risk if riskChance > 0
-        gameStore.setState({ investmentSafeBonds: 100, lastRiskCheck: 0 });
-        runTicks(TICKS_PER_MINUTE * 2); // two check intervals
-        // safeBonds should only have grown (no losses)
-        expect(gameStore.getState().investmentSafeBonds).toBeGreaterThan(100);
-        vi.restoreAllMocks();
-    });
-});

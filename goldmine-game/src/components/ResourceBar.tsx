@@ -1,5 +1,6 @@
-import { useGameStore, getEmployeePayroll, getAssignedPower, PROSPECTOR_PAN_RATE, BANKER_SELL_RATE, SLUICE_EXTRACTION_RATE, getEffectiveBucketCapacity, BASE_EXTRACTION, SMELTING_FEE_PERCENT, GOLD_PRICE_UPDATE_TICKS, EMPLOYEE_WAGES, type FloatingNumber } from "../store/gameStore";
+import { useGameStore, getEmployeePayroll, getAssignedPower, PROSPECTOR_PAN_RATE, SLUICE_EXTRACTION_RATE, getEffectiveBucketCapacity, BASE_EXTRACTION, GOLD_PRICE_UPDATE_TICKS, EMPLOYEE_WAGES, type FloatingNumber } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
+import { Tooltip } from "./ui";
 
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
@@ -13,11 +14,8 @@ export function ResourceBar() {
     // Bucket/pan state for idle detection
     const bucketFilled = useGameStore((s) => s.bucketFilled);
     const panFilled = useGameStore((s) => s.panFilled);
-    const dustBucketSize = useGameStore((s) => s.dustBucketSize);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
 
-    const legacyDust = useGameStore((s) => s.legacyDust);
-    const prestigeCount = useGameStore((s) => s.prestigeCount);
     const unlockedTown = useGameStore((s) => s.unlockedTown);
     const goldPrice = useGameStore((s) => s.goldPrice);
     const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
@@ -25,7 +23,7 @@ export function ResourceBar() {
 
     // Active payroll (simplified display — idle deduction handled in _fixedTick)
     const totalPayroll = getEmployeePayroll(employees);
-    const bucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
+    const bucketCap = getEffectiveBucketCapacity(bucketUpgrades);
     const minersIdle = bucketFilled >= bucketCap;
     const prospectsIdle = panFilled < 1;
     const assignedMinerWages = employees
@@ -44,21 +42,13 @@ export function ResourceBar() {
     // Stat-driven rates
     const prospectorPower = (canAffordWorkers && !prospectsIdle) ? getAssignedPower(employees, 'prospector') : 0;
     const sluiceOpPower = canAffordWorkers ? getAssignedPower(employees, 'sluiceOperator') : 0;
-    const bankerPower = canAffordWorkers ? getAssignedPower(employees, 'banker') : 0;
 
     let extractionRate = BASE_EXTRACTION;
     extractionRate += sluiceOpPower * SLUICE_EXTRACTION_RATE * sluiceGear;
 
-    const goldSellRate = bankerPower * BANKER_SELL_RATE;
-    const goldRate = (prospectorPower * PROSPECTOR_PAN_RATE * extractionRate / BASE_EXTRACTION) - goldSellRate;
+    const goldRate = prospectorPower * PROSPECTOR_PAN_RATE * extractionRate / BASE_EXTRACTION;
 
-    let autoSellIncome = 0;
-    if (goldSellRate > 0) {
-        const effectiveFeePercent = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-        autoSellIncome = goldSellRate * goldPrice * (1 - effectiveFeePercent);
-    }
-
-    const moneyRate = autoSellIncome - activePayroll;
+    const moneyRate = -activePayroll;
 
     const goldPriceProgress = unlockedTown
         ? Math.min(1, (tickCount - lastGoldPriceUpdate) / GOLD_PRICE_UPDATE_TICKS)
@@ -70,7 +60,7 @@ export function ResourceBar() {
 
     return (
         <div className="space-y-1.5">
-            <div className={`grid gap-2 ${prestigeCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="grid gap-2 grid-cols-2">
                 <div className="relative">
                     <ResourceCard
                         label={hasFurnace ? "Gold Bars" : "Gold"}
@@ -94,9 +84,6 @@ export function ResourceBar() {
                         </span>
                     ))}
                 </div>
-                {prestigeCount > 0 && (
-                    <ResourceCard label="Legacy Dust" value={legacyDust} rate={0} icon="✨" color="amber" />
-                )}
             </div>
             {totalPayroll > 0 && (
                 <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
@@ -172,7 +159,9 @@ function ResourceCard({
                 </div>
                 {priceInfo && (
                     <div className="text-xs tabular-nums text-gray-500 dark:text-gray-400 mt-0.5">
-                        📈 ${priceInfo.price.toFixed(2)}/oz
+                        <Tooltip content={`Price updates every ~${Math.round(GOLD_PRICE_UPDATE_TICKS / 3600)} min. Bar below shows time until next update.`}>
+                            <span className="underline decoration-dotted cursor-help">📈 ${priceInfo.price.toFixed(2)}/oz</span>
+                        </Tooltip>
                     </div>
                 )}
             </div>

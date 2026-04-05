@@ -28,7 +28,6 @@ export function PrestigeModal({
     const prospectors = countAssigned(employees, 'prospector');
     const sluiceOps = countAssigned(employees, 'sluiceOperator');
     const furnaceOps = countAssigned(employees, 'furnaceOperator');
-    const bankers = countAssigned(employees, 'banker');
 
     const lossList: string[] = [];
     if (money > 0) lossList.push(`💰 $${formatNumber(money)} in savings`);
@@ -37,7 +36,6 @@ export function PrestigeModal({
     if (prospectors > 0) lossList.push(`🧑‍🔬 ${prospectors} Prospector${prospectors !== 1 ? 's' : ''}`);
     if (sluiceOps > 0) lossList.push(`🚿 ${sluiceOps} Sluice Operator${sluiceOps !== 1 ? 's' : ''}`);
     if (furnaceOps > 0) lossList.push(`⚗️ ${furnaceOps} Furnace Operator${furnaceOps !== 1 ? 's' : ''}`);
-    if (bankers > 0) lossList.push(`🏦 ${bankers} Banker${bankers !== 1 ? 's' : ''}`);
     if (hasSluiceBox) lossList.push('🚿 Sluice Box');
     if (hasFurnace) lossList.push('⚗️ Furnace');
     if (vehicleTier > 0) lossList.push(`🚗 ${VEHICLE_TIERS[vehicleTier as 1 | 2 | 3].name}`);

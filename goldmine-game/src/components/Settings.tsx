@@ -58,7 +58,7 @@ export function Settings() {
     const darkMode = useGameStore((s) => s.darkMode);
     const devMode = useGameStore((s) => s.devMode);
     const timePlayed = useGameStore((s) => s.timePlayed);
-    const prestigeCount = useGameStore((s) => s.prestigeCount);
+    const seasonNumber = useGameStore((s) => s.seasonNumber);
     const totalGoldExtracted = useGameStore((s) => s.totalGoldExtracted);
     const totalMoneyEarned = useGameStore((s) => s.totalMoneyEarned);
     const peakRunMoney = useGameStore((s) => s.peakRunMoney);
@@ -150,8 +150,8 @@ export function Settings() {
                     <span className="font-semibold tabular-nums text-green-700 dark:text-green-400">💰 ${formatNumber(totalMoneyEarned)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Prestige Runs</span>
-                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">⭐ {prestigeCount}</span>
+                    <span className="text-gray-600 dark:text-gray-400">Season</span>
+                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">❄️ {seasonNumber}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Peak Run Earnings</span>
