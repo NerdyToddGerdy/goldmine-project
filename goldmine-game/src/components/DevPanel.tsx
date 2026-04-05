@@ -7,7 +7,6 @@ const SPEEDS = [1, 2, 5, 10, 50];
 const FLAGS = [
     { key: 'unlockedPanning',        label: '⛏️ Panning' },
     { key: 'unlockedTown',           label: '🏘️ Town' },
-    { key: 'unlockedBanking',        label: '🏦 Banking' },
     { key: 'hasSluiceBox',           label: '💧 Sluice Box' },
     { key: 'hasFurnace',             label: '⚒️ Furnace' },
     { key: 'hasDriver',              label: '🚗 Driver' },
@@ -35,16 +34,13 @@ export function DevPanel() {
     const timeScale = useGameStore(s => s.timeScale);
     const gold = useGameStore(s => s.gold);
     const money = useGameStore(s => s.money);
-    const dustBucketSize = useGameStore(s => s.dustBucketSize);
     const bucketUpgrades = useGameStore(s => s.bucketUpgrades);
-    const dustPanCapacity = useGameStore(s => s.dustPanCapacity);
     const panCapUpgrades = useGameStore(s => s.panCapUpgrades);
     const devLogs = useGameStore(s => s.devLogs);
 
     const flags = useGameStore(s => ({
         unlockedPanning: s.unlockedPanning,
         unlockedTown: s.unlockedTown,
-        unlockedBanking: s.unlockedBanking,
         hasSluiceBox: s.hasSluiceBox,
         hasFurnace: s.hasFurnace,
         hasDriver: s.hasDriver,
@@ -64,14 +60,12 @@ export function DevPanel() {
         goldPrice: s.goldPrice,
         lastGoldPriceUpdate: s.lastGoldPriceUpdate,
         driverTripTicks: s.driverTripTicks,
-        lastRiskCheck: s.lastRiskCheck,
         runMoneyEarned: s.runMoneyEarned,
-        legacyDust: s.legacyDust,
-        prestigeCount: s.prestigeCount,
+        seasonNumber: s.seasonNumber,
     }));
 
-    const bucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
-    const panCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
+    const bucketCap = getEffectiveBucketCapacity(bucketUpgrades);
+    const panCap = getEffectivePanCapacity(panCapUpgrades);
 
     const [goldAmount, setGoldAmount] = useState('100');
     const [moneyAmount, setMoneyAmount] = useState('1000');
@@ -92,10 +86,8 @@ export function DevPanel() {
         ['goldPrice',           `$${snap.goldPrice.toFixed(3)}`],
         ['priceAge (ticks)',    String(snap.tickCount - snap.lastGoldPriceUpdate)],
         ['driverTripTicks',     String(snap.driverTripTicks)],
-        ['lastRiskCheck',       String(snap.lastRiskCheck)],
         ['runMoneyEarned',      `$${formatNumber(snap.runMoneyEarned)}`],
-        ['legacyDust',          String(snap.legacyDust)],
-        ['prestigeCount',       String(snap.prestigeCount)],
+        ['seasonNumber',        String(snap.seasonNumber)],
     ];
 
     return (
@@ -205,7 +197,7 @@ export function DevPanel() {
                         <SectionHeader>🔓 Unlock Flags</SectionHeader>
                         <button
                             onClick={() => gameStore.setState({
-                                unlockedPanning: true, unlockedTown: true, unlockedBanking: true,
+                                unlockedPanning: true, unlockedTown: true,
                                 hasSluiceBox: true,
                                 hasFurnace: true, hasDriver: true,
                             })}

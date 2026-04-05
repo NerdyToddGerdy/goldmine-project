@@ -1,5 +1,5 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, SMELTING_FEE_PERCENT, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getEmployeePayroll, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, BANKER_SELL_RATE } from "../store/gameStore";
-import { ProgressBar } from "./ui";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getEmployeePayroll, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE } from "../store/gameStore";
+import { ProgressBar, Tooltip } from "./ui";
 import { formatNumber } from "../utils/format";
 import { useState } from "react";
 
@@ -19,8 +19,6 @@ export function Mine() {
 
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const employees = useGameStore((s) => s.employees);
-    const dustBucketSize = useGameStore((s) => s.dustBucketSize);
-    const dustPanCapacity = useGameStore((s) => s.dustPanCapacity);
     const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
     const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
@@ -52,8 +50,8 @@ export function Mine() {
     const driverCarryingBars = useGameStore((s) => s.driverCarryingBars);
     const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
 
-    const effectiveBucketCap = getEffectiveBucketCapacity(dustBucketSize + bucketUpgrades);
-    const effectivePanCap = getEffectivePanCapacity(dustPanCapacity + panCapUpgrades);
+    const effectiveBucketCap = getEffectiveBucketCapacity(bucketUpgrades);
+    const effectivePanCap = getEffectivePanCapacity(panCapUpgrades);
     // Travel progress bar calculations
     const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
     const totalTravelTicks = getTravelDurationTicks(vehicleTier);
@@ -63,8 +61,6 @@ export function Mine() {
 
     // Payroll widget calculations (per minute)
     const payrollPerMin = getEmployeePayroll(employees) * 60;
-    const autoSellFee = !hasFurnace ? SMELTING_FEE_PERCENT : 0;
-    const bankerIncomePerMin = getAssignedPower(employees, 'banker') * BANKER_SELL_RATE * goldPrice * (1 - autoSellFee) * 60;
 
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
@@ -73,7 +69,9 @@ export function Mine() {
     const panForGold = () => gameStore.getState().panForGold();
     const loadFurnace = () => gameStore.getState().loadFurnace();
     const toggleFurnace = () => gameStore.getState().toggleFurnace();
+    const goldInPocket = useGameStore((s) => s.goldInPocket);
     const collectBars = () => gameStore.getState().collectBars();
+    const collectGold = () => gameStore.getState().collectGold();
     const travelToTown = () => gameStore.getState().startTravel('town');
 
     // Manual actions now benefit from gear upgrades
@@ -89,6 +87,19 @@ export function Mine() {
     const sluiceHasSpace = sluiceBoxFilled + bucketFilled <= effectivePanCap;
     const mossCapacity = effectivePanCap; // same formula as pan
     const mossIsFull = minersMossFilled >= mossCapacity;
+
+    // Pulse ring — single most-actionable button at any progression stage (#86)
+    const miners = countAssigned(employees, 'miner');
+    type PulseTarget = 'scoop' | 'empty' | 'pan' | 'travel' | null;
+    let pulseTarget: PulseTarget = null;
+    if (!isTraveling) {
+        if (bucketFilled === 0 && miners === 0) pulseTarget = 'scoop';
+        else if (bucketIsFull && unlockedPanning) pulseTarget = 'empty';
+        else if (panFilled >= 1 && unlockedPanning) pulseTarget = 'pan';
+        else if (gold > 0.5 && !unlockedTown) pulseTarget = 'travel';
+    }
+    const pulse = (t: PulseTarget) =>
+        pulseTarget === t ? ' ring-2 ring-amber-400 ring-offset-2 motion-safe:animate-pulse' : '';
 
 
     return (
@@ -130,13 +141,31 @@ export function Mine() {
                             </div>
                         </div>
                     ) : (
-                        <button
-                            onClick={travelToTown}
-                            disabled={isTraveling}
-                            className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            🏘️ Travel to Town ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
-                        </button>
+                        <div className="space-y-2">
+                            {/* Collect Gold — packs pocket before departure */}
+                            {(hasFurnace ? (goldBars + furnaceBars) : gold) > 0.001 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={collectGold}
+                                        className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all"
+                                    >
+                                        🎒 Collect Gold
+                                    </button>
+                                    <span className="text-xs text-gray-500 shrink-0">
+                                        {goldInPocket > 0
+                                            ? `${hasFurnace ? goldInPocket.toFixed(2) + ' bars' : goldInPocket.toFixed(2) + ' oz'} packed`
+                                            : 'Not packed'}
+                                    </span>
+                                </div>
+                            )}
+                            <button
+                                onClick={travelToTown}
+                                disabled={isTraveling}
+                                className={`w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed${pulse('travel')}`}
+                            >
+                                🏘️ Travel to Town ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -255,7 +284,7 @@ export function Mine() {
                     <button
                         onClick={scoopDirt}
                         disabled={bucketIsFull || isTraveling}
-                        className="w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('scoop')}`}
                     >
                         🪨 Scoop Dirt (+{scoopPower.toFixed(1)}){patchActive ? ' ✨ Rich' : ''}
                     </button>
@@ -265,7 +294,7 @@ export function Mine() {
                         <button
                             onClick={emptyBucket}
                             disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? !sluiceHasSpace : !panHasRoomForBucket)}
-                            className="w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('empty')}`}
                         >
                             {hasSluiceBox
                                 ? `🪣 Empty Bucket → Sluice (+${bucketFilled.toFixed(1)})`
@@ -289,7 +318,9 @@ export function Mine() {
                         {/* Sluice Drain Bar */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-cyan-900">🚿 Sluice Box</span>
+                                <Tooltip content={<>Sluice gear ×{sluiceGear} — adds {(getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear).toFixed(4)} to extraction rate per sluice operator power</>}>
+                                    <span className="text-sm font-semibold text-cyan-900 underline decoration-dotted cursor-help">🚿 Sluice Box</span>
+                                </Tooltip>
                                 <span className="text-sm font-semibold text-cyan-700">
                                     {sluiceBoxFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
@@ -331,9 +362,11 @@ export function Mine() {
                         {/* Pan Progress Bar */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-yellow-900">
-                                    🥘 Pan
-                                </span>
+                                <Tooltip content={<>Pan power ×{panPower.toFixed(2)} — scales gold per pan click. Base extract: {BASE_EXTRACTION.toFixed(3)}</>}>
+                                    <span className="text-sm font-semibold text-yellow-900 underline decoration-dotted cursor-help">
+                                        🥘 Pan
+                                    </span>
+                                </Tooltip>
                                 <span className="text-sm font-semibold text-yellow-700">
                                     {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
@@ -355,9 +388,13 @@ export function Mine() {
                         <button
                             onClick={panForGold}
                             disabled={panFilled <= 0 || isTraveling}
-                            className="w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('pan')}`}
                         >
-                            ✨ Pan for Gold (-1, +{goldPerPan.toFixed(2)} gold)
+                            ✨ Pan for Gold (-1,{' '}
+                            <Tooltip content={<>Pan power ×{panPower.toFixed(2)} · base extract {BASE_EXTRACTION.toFixed(3)}{extractionRate > BASE_EXTRACTION ? ` + sluice ${(extractionRate - BASE_EXTRACTION).toFixed(3)}` : ''}</>}>
+                                <span className="underline decoration-dotted decoration-white/60 cursor-help">+{goldPerPan.toFixed(2)} gold</span>
+                            </Tooltip>
+                            )
                         </button>
 
                         {/* Prospector count */}
@@ -375,9 +412,11 @@ export function Mine() {
                     <div className="p-4 bg-white border-2 border-orange-300 rounded-xl space-y-3">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-semibold text-orange-900">🔥 Furnace</h3>
-                            <span className="text-xs text-orange-600">
-                                {SMELT_RATE_BASE * furnaceGear} oz/sec
-                            </span>
+                            <Tooltip content={<>Smelt rate: {SMELT_RATE_BASE} base × {furnaceGear} gear = {SMELT_RATE_BASE * furnaceGear} oz/sec</>}>
+                                <span className="text-xs text-orange-600 underline decoration-dotted cursor-help">
+                                    {SMELT_RATE_BASE * furnaceGear} oz/sec
+                                </span>
+                            </Tooltip>
                         </div>
 
                         {/* Furnace fill progress bar */}
@@ -502,7 +541,6 @@ export function Mine() {
             {payrollPerMin > 0 && (
                 <PayrollWidget
                     payrollPerMin={payrollPerMin}
-                    bankerIncomePerMin={bankerIncomePerMin}
                 />
             )}
 
@@ -545,9 +583,9 @@ export function Mine() {
     );
 }
 
-function PayrollWidget({ payrollPerMin, bankerIncomePerMin }: { payrollPerMin: number; bankerIncomePerMin: number }) {
+function PayrollWidget({ payrollPerMin }: { payrollPerMin: number }) {
     const [open, setOpen] = useState(false);
-    const netPerMin = bankerIncomePerMin - payrollPerMin;
+    const netPerMin = -payrollPerMin;
     const netColor = netPerMin >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
 
     return (
@@ -566,14 +604,10 @@ function PayrollWidget({ payrollPerMin, bankerIncomePerMin }: { payrollPerMin: n
             </button>
             {open && (
                 <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
-                    {bankerIncomePerMin > 0 && (
-                        <div className="flex justify-between text-green-700 dark:text-green-400">
-                            <span>🏦 Banker sales</span>
-                            <span className="tabular-nums font-semibold">+${formatNumber(bankerIncomePerMin)}/min</span>
-                        </div>
-                    )}
                     <div className="flex justify-between text-red-600 dark:text-red-400">
-                        <span>👷 Payroll</span>
+                        <Tooltip content="Wages/sec by rarity: Common $0.15 · Uncommon $0.30 · Rare $0.55 · Epic $1.00 · Legendary $1.80">
+                            <span className="underline decoration-dotted cursor-help">👷 Payroll</span>
+                        </Tooltip>
                         <span className="tabular-nums font-semibold">−${formatNumber(payrollPerMin)}/min</span>
                     </div>
                     <div className={`flex justify-between font-bold border-t border-gray-100 dark:border-gray-700 pt-1 ${netColor}`}>
