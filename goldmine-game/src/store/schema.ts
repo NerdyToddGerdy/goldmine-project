@@ -3,10 +3,11 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 29 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 33 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'banker' | 'detectorOperator';
+export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
+export type NPCId = 'trader' | 'tavernKeeper' | 'assayer' | 'blacksmith';
 
 export interface Employee {
     id: string;
@@ -23,13 +24,12 @@ export interface RoleSlots {
     prospector: number;
     sluiceOperator: number;
     furnaceOperator: number;
-    banker: number;
-detectorOperator: number;
+    detectorOperator: number;
+    certifier: number;
 }
 
 export interface StoryNPCState {
     traderArrived: boolean;
-    bankerArrived: boolean;
     tavernBuilt: boolean;
     assayerArrived: boolean;
     blacksmithArrived: boolean;
@@ -459,12 +459,37 @@ export type SaveV29 = Omit<SaveV28, 'version' | 'shovels' | 'pans' | 'haulers' |
     draftPoolRefreshCost: number;
 };
 
-export type LatestSave = SaveV29;
+// v30: Assayer certification — adds goldBarsCertified
+export type SaveV30 = Omit<SaveV29, 'version'> & {
+    version: 30;
+    goldBarsCertified: number;
+};
 
+// v31: Removed banking system (Banker NPC, investments, unlockedBanking, banker role)
+export type SaveV31 = Omit<SaveV30,
+    'version' | 'investmentSafeBonds' | 'investmentStocks' | 'investmentHighRisk' | 'lastRiskCheck' | 'unlockedBanking'
+> & { version: 31 };
+
+// v32: Commission system replaces Legacy Dust / prestige system
+export type SaveV32 = Omit<SaveV31,
+    'version' | 'legacyDust' | 'prestigeCount' | 'dustScoopBoost' | 'dustPanYield' | 'dustGoldValue' |
+    'dustHeadStart' | 'dustBucketSize' | 'dustPanSpeed' | 'dustPanCapacity' | 'dustDetectRate' | 'dustSpotCap'
+> & {
+    version: 32;
+    npcLevels: Record<NPCId, number>;
+    pendingCommission: NPCId | null;
+};
+
+// v33: certifier role added to RoleSlots
+export type SaveV33 = Omit<SaveV32, 'version'> & { version: 33 };
+
+export type LatestSave = SaveV33;
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV29();
+        return defaultSaveV33();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1276,16 +1301,15 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
     if (fromVersion < 29) {
         const s = raw as SaveV28;
         _empIdCounter = 0; // reset counter for deterministic migration
-        const MIGRATED_NAMES: Record<Role, string[]> = {
+        const MIGRATED_NAMES: Partial<Record<string, string[]>> = {
             miner: ['Zeb','Clem','Huck','Walt','Roy','Ned','Ike','Cal','Otis','Silas'],
             prospector: ['Mae','Fern','Ora','Nell','Ida','Ada','Bea','Cora','Flo','Hattie'],
             hauler: ['Buck','Gus','Abe','Dan','Eli','Finn','Hans','Jed','Kurt','Lars'],
             sluiceOperator: ['Tom','Jim','Sam','Bob','Pat','Al','Fred','Vern','Wes','Yul'],
             furnaceOperator: ['Bruno','Felix','Otto','Hugo','Arno','Ernst','Fritz','Hans2','Klaus','Lutz'],
-            banker: ['Chester','Edgar','Floyd','Grover','Homer','Irving','Julius','Lester','Melvin','Norbert'],
             detectorOperator: ['Arlo','Boyd','Clyde','Dewey','Ezra','Grant','Heath','Ivan','Jesse','Knox'],
         };
-        const getNames = (role: Role) => MIGRATED_NAMES[role] || [];
+        const getNames = (role: Role) => MIGRATED_NAMES[role] ?? [];
 
         const makeEmployees = (role: Role, count: number): Employee[] =>
             Array.from({ length: count }, (_, i) => makeCommonEmployee(role, getNames(role)[i] ?? `Worker ${i + 1}`));
@@ -1296,12 +1320,11 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
             ...makeEmployees('hauler', s.haulers ?? 0),
             ...makeEmployees('sluiceOperator', s.sluiceWorkers ?? 0),
             ...makeEmployees('furnaceOperator', s.furnaceWorkers ?? 0),
-            ...makeEmployees('banker', s.bankerWorkers ?? 0),
             ...makeEmployees('detectorOperator', s.detectorWorkers ?? 0),
         ];
 
         const totalWorkers = (s.shovels ?? 0) + (s.pans ?? 0) + (s.haulers ?? 0) +
-            (s.sluiceWorkers ?? 0) + (s.furnaceWorkers ?? 0) + (s.bankerWorkers ?? 0) + (s.detectorWorkers ?? 0);
+            (s.sluiceWorkers ?? 0) + (s.furnaceWorkers ?? 0) + (s.detectorWorkers ?? 0);
 
         const { shovels: _sh, pans: _pa, haulers: _ha, sluiceWorkers: _sw,
                 furnaceWorkers: _fw, bankerWorkers: _bw, detectorWorkers: _dw, ...rest } = s;
@@ -1316,12 +1339,12 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
                 prospector: Math.max(5, s.pans ?? 0),
                 sluiceOperator: Math.max(3, s.sluiceWorkers ?? 0),
                 furnaceOperator: Math.max(2, s.furnaceWorkers ?? 0),
-                banker: Math.max(2, s.bankerWorkers ?? 0),
                 detectorOperator: Math.max(2, s.detectorWorkers ?? 0),
+                certifier: 1,
             },
             storyNPCs: totalWorkers > 0
-                ? { traderArrived: true, bankerArrived: true, tavernBuilt: true, assayerArrived: true, blacksmithArrived: true }
-                : { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+                ? { traderArrived: true, tavernBuilt: true, assayerArrived: true, blacksmithArrived: true }
+                : { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
             seasonNumber: (s as { prestigeCount?: number }).prestigeCount ?? 1,
             npcsRetained: 0,
             draftPool: [],
@@ -1329,10 +1352,89 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 29);
     }
 
-    // Already v29, ensure fields exist
-    const s = raw as Partial<SaveV29>;
+    if (fromVersion < 30) {
+        const s = raw as SaveV29;
+        // Backfill assayer/blacksmith for saves predating the NPC trigger fixes:
+        // assayer unlocks when you have a furnace; blacksmith when trader has arrived.
+        const { bankerArrived: _ba, ...npcsWithoutBanker } = s.storyNPCs as typeof s.storyNPCs & { bankerArrived?: boolean };
+        const fixedNPCs = {
+            ...npcsWithoutBanker,
+            assayerArrived: (s.storyNPCs as any).assayerArrived || s.hasFurnace,
+            blacksmithArrived: (s.storyNPCs as any).blacksmithArrived || (s.storyNPCs as any).traderArrived,
+        };
+        return migrateToLatest({ ...s, version: 30, goldBarsCertified: 0, storyNPCs: fixedNPCs }, 30);
+    }
+
+    if (fromVersion < 31) {
+        const s = raw as SaveV30;
+        const { bankerArrived: _ba, ...npcsWithoutBanker } = (s.storyNPCs as any);
+        const { banker: _br, ...roleSlots } = (s.roleSlots as any);
+        // Strip investment fields
+        const { investmentSafeBonds: _isb, investmentStocks: _is, investmentHighRisk: _ihr, lastRiskCheck: _lrc,
+                unlockedBanking: _ub, ...rest } = s as any;
+        // Strip banker employees
+        const employees = ((s as any).employees ?? []).filter((e: any) => e.assignedRole !== 'banker').map((e: any) => {
+            if (e.xpByRole && 'banker' in e.xpByRole) {
+                const { banker: _bxp, ...xpByRole } = e.xpByRole;
+                return { ...e, xpByRole };
+            }
+            return e;
+        });
+        return migrateToLatest({
+            ...rest,
+            version: 31,
+            storyNPCs: npcsWithoutBanker,
+            roleSlots,
+            employees,
+        }, 31);
+    }
+
+    if (fromVersion < 32) {
+        // v31 → v32: replace Legacy Dust / prestige system with NPC commission system
+        const s = raw as Partial<SaveV31>;
+        const {
+            legacyDust: _ld, prestigeCount: _pc, dustScoopBoost: _dsb, dustPanYield: _dpy,
+            dustGoldValue: _dgv, dustHeadStart: _dhs, dustBucketSize: _dbs, dustPanSpeed: _dps,
+            dustPanCapacity: _dpc, dustDetectRate: _ddr, dustSpotCap: _dsc,
+            ...rest
+        } = s as any;
+        const npcs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
+        const npcLevels: Record<NPCId, number> = {
+            trader: npcs.traderArrived ? 1 : 0,
+            tavernKeeper: npcs.tavernBuilt ? 1 : 0,
+            assayer: npcs.assayerArrived ? 1 : 0,
+            blacksmith: npcs.blacksmithArrived ? 1 : 0,
+        };
+        return migrateToLatest({
+            ...rest,
+            version: 32,
+            npcLevels,
+            pendingCommission: null,
+        }, 32);
+    }
+
+    if (fromVersion < 33) {
+        // v32 → v33: certifier role added to roleSlots
+        const s = raw as Partial<SaveV32>;
+        const existingSlots = s.roleSlots ?? {};
+        return migrateToLatest({
+            ...s,
+            version: 33,
+            roleSlots: { ...existingSlots, certifier: (existingSlots as any).certifier ?? 1 },
+        }, 33);
+    }
+
+    // Already v33, ensure fields exist
+    const s = raw as Partial<SaveV33>;
+    const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
+    const defaultNpcLevels: Record<NPCId, number> = {
+        trader: storyNPCs.traderArrived ? 1 : 0,
+        tavernKeeper: storyNPCs.tavernBuilt ? 1 : 0,
+        assayer: storyNPCs.assayerArrived ? 1 : 0,
+        blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
+    };
     return {
-        version: 29,
+        version: 33,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1342,10 +1444,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         paydirt: s.paydirt ?? 0,
         gold: s.gold ?? 0,
         money: s.money ?? 0,
-        investmentSafeBonds: s.investmentSafeBonds ?? 0,
-        investmentStocks: s.investmentStocks ?? 0,
-        investmentHighRisk: s.investmentHighRisk ?? 0,
-        lastRiskCheck: s.lastRiskCheck ?? 0,
         carts: s.carts ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
         hasFurnace: s.hasFurnace ?? false,
@@ -1356,19 +1454,9 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceGear: s.furnaceGear ?? 1,
         unlockedPanning: s.unlockedPanning ?? false,
         unlockedTown: s.unlockedTown ?? false,
-        unlockedBanking: s.unlockedBanking ?? false,
         timePlayed: s.timePlayed ?? 0,
         darkMode: s.darkMode ?? false,
-        legacyDust: s.legacyDust ?? 0,
         runMoneyEarned: s.runMoneyEarned ?? 0,
-        prestigeCount: s.prestigeCount ?? 0,
-        dustScoopBoost: s.dustScoopBoost ?? 0,
-        dustPanYield: s.dustPanYield ?? 0,
-        dustGoldValue: s.dustGoldValue ?? 0,
-        dustHeadStart: s.dustHeadStart ?? 0,
-        dustBucketSize: s.dustBucketSize ?? 0,
-        dustPanSpeed: s.dustPanSpeed ?? 0,
-        dustPanCapacity: s.dustPanCapacity ?? 0,
         vehicleTier: s.vehicleTier ?? 0,
         hasDriver: s.hasDriver ?? false,
         bucketUpgrades: s.bucketUpgrades ?? 0,
@@ -1386,8 +1474,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         richDirtInSluice: s.richDirtInSluice ?? 0,
         hasMetalDetector: s.hasMetalDetector ?? false,
         hasMotherlode: s.hasMotherlode ?? false,
-        dustDetectRate: s.dustDetectRate ?? 0,
-        dustSpotCap: s.dustSpotCap ?? 0,
         detectProgress: s.detectProgress ?? 0,
         detectTarget: s.detectTarget ?? 0,
         patchActive: s.patchActive ?? false,
@@ -1403,13 +1489,175 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         vaultFlakes: s.vaultFlakes ?? 0,
         vaultBars: s.vaultBars ?? 0,
         employees: s.employees ?? [],
-        roleSlots: s.roleSlots ?? { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, banker: 2, detectorOperator: 2 },
-        storyNPCs: s.storyNPCs ?? { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+        roleSlots: {
+            miner: s.roleSlots?.miner ?? 5,
+            hauler: s.roleSlots?.hauler ?? 3,
+            prospector: s.roleSlots?.prospector ?? 5,
+            sluiceOperator: s.roleSlots?.sluiceOperator ?? 3,
+            furnaceOperator: s.roleSlots?.furnaceOperator ?? 2,
+            detectorOperator: s.roleSlots?.detectorOperator ?? 2,
+            certifier: (s.roleSlots as any)?.certifier ?? 1,
+        },
+        storyNPCs,
         seasonNumber: s.seasonNumber ?? 1,
         npcsRetained: s.npcsRetained ?? 0,
         draftPool: s.draftPool ?? [],
         draftPoolRefreshCost: s.draftPoolRefreshCost ?? 10,
+        goldBarsCertified: s.goldBarsCertified ?? 0,
+        npcLevels: s.npcLevels ?? defaultNpcLevels,
+        pendingCommission: s.pendingCommission ?? null,
     };
+}
+
+export function defaultSaveV31(): SaveV31 {
+    return {
+        version: 31,
+        tickCount: 0,
+        timeScale: 1,
+        location: 'mine',
+        bucketFilled: 0,
+        panFilled: 0,
+        sluiceBoxFilled: 0,
+        minersMossFilled: 0,
+        dirt: 0,
+        paydirt: 0,
+        gold: 0,
+        money: 0,
+        carts: 0,
+        hasSluiceBox: false,
+        hasFurnace: false,
+        scoopPower: 1,
+        sluicePower: 1,
+        panPower: 1,
+        sluiceGear: 1,
+        furnaceGear: 1,
+        unlockedPanning: false,
+        unlockedTown: false,
+        timePlayed: 0,
+        darkMode: false,
+        legacyDust: 0,
+        runMoneyEarned: 0,
+        prestigeCount: 0,
+        dustScoopBoost: 0,
+        dustPanYield: 0,
+        dustGoldValue: 0,
+        dustHeadStart: 0,
+        dustBucketSize: 0,
+        dustPanSpeed: 0,
+        dustPanCapacity: 0,
+        dustDetectRate: 0,
+        dustSpotCap: 0,
+        vehicleTier: 0,
+        hasDriver: false,
+        bucketUpgrades: 0,
+        panCapUpgrades: 0,
+        panSpeedUpgrades: 0,
+        goldPrice: 1.0,
+        lastGoldPriceUpdate: 0,
+        lastSeenChangelogVersion: 'v1.16',
+        totalGoldExtracted: 0,
+        totalMoneyEarned: 0,
+        peakRunMoney: 0,
+        richDirtInBucket: 0,
+        richDirtInSluice: 0,
+        hasMetalDetector: false,
+        hasMotherlode: false,
+        detectProgress: 0,
+        detectTarget: 0,
+        patchActive: false,
+        patchRemaining: 0,
+        patchCapacity: 0,
+        furnaceFilled: 0,
+        furnaceRunning: false,
+        furnaceBars: 0,
+        goldBars: 0,
+        driverCarryingFlakes: 0,
+        driverCarryingBars: 0,
+        driverCapUpgrades: 0,
+        vaultFlakes: 0,
+        vaultBars: 0,
+        goldBarsCertified: 0,
+        employees: [],
+        roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+        storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+        seasonNumber: 1,
+        npcsRetained: 0,
+        draftPool: [],
+        draftPoolRefreshCost: 10,
+    };
+}
+
+export function defaultSaveV32(): SaveV32 {
+    return {
+        version: 32,
+        tickCount: 0,
+        timeScale: 1,
+        location: 'mine',
+        bucketFilled: 0,
+        panFilled: 0,
+        sluiceBoxFilled: 0,
+        minersMossFilled: 0,
+        dirt: 0,
+        paydirt: 0,
+        gold: 0,
+        money: 0,
+        carts: 0,
+        hasSluiceBox: false,
+        hasFurnace: false,
+        scoopPower: 1,
+        sluicePower: 1,
+        panPower: 1,
+        sluiceGear: 1,
+        furnaceGear: 1,
+        unlockedPanning: false,
+        unlockedTown: false,
+        timePlayed: 0,
+        darkMode: false,
+        runMoneyEarned: 0,
+        vehicleTier: 0,
+        hasDriver: false,
+        bucketUpgrades: 0,
+        panCapUpgrades: 0,
+        panSpeedUpgrades: 0,
+        goldPrice: 1.0,
+        lastGoldPriceUpdate: 0,
+        lastSeenChangelogVersion: 'v1.18',
+        totalGoldExtracted: 0,
+        totalMoneyEarned: 0,
+        peakRunMoney: 0,
+        richDirtInBucket: 0,
+        richDirtInSluice: 0,
+        hasMetalDetector: false,
+        hasMotherlode: false,
+        detectProgress: 0,
+        detectTarget: 0,
+        patchActive: false,
+        patchRemaining: 0,
+        patchCapacity: 0,
+        furnaceFilled: 0,
+        furnaceRunning: false,
+        furnaceBars: 0,
+        goldBars: 0,
+        driverCarryingFlakes: 0,
+        driverCarryingBars: 0,
+        driverCapUpgrades: 0,
+        vaultFlakes: 0,
+        vaultBars: 0,
+        goldBarsCertified: 0,
+        employees: [],
+        roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+        storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
+        seasonNumber: 1,
+        npcsRetained: 0,
+        draftPool: [],
+        draftPoolRefreshCost: 10,
+        npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+        pendingCommission: null,
+    };
+}
+
+export function defaultSaveV33(): SaveV33 {
+    return { ...defaultSaveV32(), version: 33 };
 }
 
 export function defaultSaveV2(): SaveV2 {
@@ -1840,19 +2088,28 @@ export function defaultSaveV28(): SaveV28 {
     };
 }
 
-export function defaultSaveV29(): SaveV29 {
-    const { version: _v, shovels: _sh, pans: _pa, haulers: _ha,
-            sluiceWorkers: _sw, furnaceWorkers: _fw, bankerWorkers: _bw,
-            detectorWorkers: _dw, ...rest } = defaultSaveV28();
-    return {
-        ...rest,
-        version: 29,
-        employees: [],
-        roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, banker: 2, detectorOperator: 2 },
-        storyNPCs: { traderArrived: false, bankerArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
-        seasonNumber: 1,
-        npcsRetained: 0,
-        draftPool: [],
-        draftPoolRefreshCost: 10,
-    };
+// ─── NPC Commission System ────────────────────────────────────────────────────
+
+export const NPC_COMMISSION_BASE: Record<NPCId, number> = {
+    trader: 500,
+    tavernKeeper: 750,
+    assayer: 1000,
+    blacksmith: 600,
+};
+
+export function getCommissionCost(npcId: NPCId, currentLevel: number): number {
+    return Math.floor(NPC_COMMISSION_BASE[npcId] * Math.pow(1.5, Math.max(0, currentLevel - 1)));
 }
+
+export function getCommissionOptions(storyNPCs: StoryNPCState, npcLevels: Record<NPCId, number>): NPCId[] {
+    const arrived: NPCId[] = [];
+    if (storyNPCs.traderArrived) arrived.push('trader');
+    if (storyNPCs.tavernBuilt) arrived.push('tavernKeeper');
+    if (storyNPCs.assayerArrived) arrived.push('assayer');
+    if (storyNPCs.blacksmithArrived) arrived.push('blacksmith');
+    // Sort by current level ascending, take up to 3
+    return arrived
+        .sort((a, b) => (npcLevels[a] ?? 0) - (npcLevels[b] ?? 0))
+        .slice(0, 3);
+}
+

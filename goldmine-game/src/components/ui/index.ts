@@ -1,4 +1,6 @@
+export { Building } from './Building';
 export { ProgressBar } from './ProgressBar';
+export { Tooltip } from './Tooltip';
 export { UpgradeButton } from './UpgradeButton';
 export { WorkerRow } from './WorkerRow';
 export { MachineCard } from './MachineCard';

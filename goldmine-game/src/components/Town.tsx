@@ -1,49 +1,32 @@
-import { gameStore, getUpgradeCost, UPGRADES, EQUIPMENT, useGameStore, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, VEHICLE_TIERS, DRIVER_COST, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
+import { gameStore, getUpgradeCost, useGameStore, VEHICLE_TIERS, DRIVER_COST, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
 import { useState } from "react";
-import { Banking } from "./Banking";
+import { HiringHall } from "./HiringHall";
+import { TownMap, type TownPanel } from "./TownMap";
+import { Assayer } from "./Assayer";
+import { Blacksmith } from "./Blacksmith";
 import { UpgradeButton } from "./ui";
 
-type TownTab = 'banking' | 'shop' | 'laborOffice';
-type ShopTab = 'gear' | 'equipment' | 'transport';
+const PANEL_LABELS: Record<TownPanel, string> = {
+    shop:        '🏪 Trading Post',
+    tavern:      '🍺 Tavern',
+    assayer:     '⚖️ Assayer',
+    blacksmith:  '🔨 Blacksmith',
+};
 
 export function Town() {
-    const [activeTab, setActiveTab] = useState<TownTab>('banking');
-    const [shopTab, setShopTab] = useState<ShopTab>('gear');
+    const [openPanel, setOpenPanel] = useState<TownPanel | null>(null);
 
     const money = useGameStore((s) => s.money);
-    const scoopPower = useGameStore((s) => s.scoopPower);
-    const panPower = useGameStore((s) => s.panPower);
-    const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const hasFurnace = useGameStore((s) => s.hasFurnace);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
+    const traderLevel = useGameStore((s) => s.npcLevels.trader);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
-    const sluiceGear = useGameStore((s) => s.sluiceGear);
-    const furnaceGear = useGameStore((s) => s.furnaceGear);
-    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
-    const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
-    const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
-    const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
-    const hasMotherlode = useGameStore((s) => s.hasMotherlode);
     const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
-    const goldPrice = useGameStore((s) => s.goldPrice);
-    const buyUpgrade = (upgrade: string) => gameStore.getState().buyUpgrade(upgrade);
-
-    const shovelTier = scoopPower - 1; // 0 = base, 5 = max
-    const panTier = panPower - 1;
-    const betterShovelCost = shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0;
-    const betterPanCost = panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0;
-    const bucketUpgradeCost = bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL ? BUCKET_UPGRADE_COSTS[bucketUpgrades] : 0;
-    const panCapUpgradeCost = panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0;
-    const panSpeedUpgradeCost = panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0;
-    const betterSluiceCost = getUpgradeCost('betterSluice', sluiceGear - 1);
-    const betterFurnaceCost = getUpgradeCost('betterFurnace', furnaceGear - 1);
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
-    // Travel progress bar calculations
     const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
     const totalTravelTicks = getTravelDurationTicks(vehicleTier);
     const travelPct = totalTravelTicks > 0 ? Math.min(100, (travelProgress / totalTravelTicks) * 100) : 0;
@@ -54,362 +37,135 @@ export function Town() {
         <div className="space-y-6">
             <h2 className="font-arcade text-sm text-green-900">🏘️ Town</h2>
 
-            {/* Travel back to Mine — transforms into progress bar while traveling */}
-            <div className="p-3 bg-white border border-amber-200 rounded-xl">
-                {isTraveling && travelDestination === 'mine' ? (
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-amber-900 text-sm">
-                                {vehicleEmoji} To Mine… ({tierData.name})
-                            </span>
-                            <button
-                                onClick={() => gameStore.getState().cancelTravel()}
-                                className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                        <div className="relative h-7">
-                            <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
-                                <div
-                                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100 ml-auto"
-                                    style={{ width: `${travelPct}%` }}
-                                />
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
-                            </div>
+            {/* Travel progress bar — only shown while traveling to mine */}
+            {isTraveling && travelDestination === 'mine' && (
+                <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="font-semibold text-amber-900 text-sm">
+                            {vehicleEmoji} To Mine… ({tierData.name})
+                        </span>
+                        <button
+                            onClick={() => gameStore.getState().cancelTravel()}
+                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                    <div className="relative h-7">
+                        <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
                             <div
-                                className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
-                                style={{ left: `${100 - travelPct}%`, transform: 'translateX(-50%) translateY(-50%)' }}
-                            >
-                                {vehicleEmoji}
-                            </div>
+                                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100 ml-auto"
+                                style={{ width: `${travelPct}%` }}
+                            />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
+                        </div>
+                        <div
+                            className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
+                            style={{ left: `${100 - travelPct}%`, transform: 'translateX(-50%) translateY(-50%)' }}
+                        >
+                            {vehicleEmoji}
                         </div>
                     </div>
-                ) : (
+                </div>
+            )}
+
+            {/* Panel header with back button */}
+            {openPanel && (
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => gameStore.getState().startTravel('mine')}
-                        disabled={isTraveling}
-                        className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => setOpenPanel(null)}
+                        className="text-xs px-2 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 border border-green-300 font-semibold transition-all"
                     >
-                        ⛏️ Travel to Mine ({tierData.travelSecs}s)
+                        ← Town
                     </button>
-                )}
-            </div>
+                    <span className="font-semibold text-green-800 text-sm">{PANEL_LABELS[openPanel]}</span>
+                </div>
+            )}
 
-            {/* Main Tabs */}
-            <div className="flex gap-2 border-b-2 border-green-200">
-                <button
-                    onClick={() => setActiveTab('banking')}
-                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
-                        activeTab === 'banking'
-                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
-                    }`}
-                >
-                    🏦 Banking
-                </button>
-                <button
-                    onClick={() => setActiveTab('shop')}
-                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
-                        activeTab === 'shop'
-                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
-                    }`}
-                >
-                    🛒 Shop
-                </button>
-                <button
-                    onClick={() => setActiveTab('laborOffice')}
-                    className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all border-2 ${
-                        activeTab === 'laborOffice'
-                            ? 'bg-green-100 text-green-900 border-green-200 border-b-0'
-                            : 'bg-white/50 text-green-700 hover:bg-white/80 border-transparent'
-                    }`}
-                >
-                    👷 Labor Office
-                </button>
-            </div>
-
-            {/* Tab Content */}
+            {/* Main content */}
             <div>
-                {activeTab === 'banking' && <Banking />}
+                {/* Town Map — default view */}
+                {!openPanel && (
+                    <TownMap onOpenPanel={setOpenPanel} />
+                )}
 
-                {activeTab === 'shop' && (
-                    <div className={`space-y-4${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
-                        {/* Shop Sub-tabs */}
-                        <div className="flex gap-2 border-b-2 border-gray-200">
-                            <button
-                                onClick={() => setShopTab('gear')}
-                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
-                                    shopTab === 'gear'
-                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
-                                }`}
-                            >
-                                ⛏️ Gear
-                            </button>
-                            <button
-                                onClick={() => setShopTab('equipment')}
-                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
-                                    shopTab === 'equipment'
-                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
-                                }`}
-                            >
-                                🔧 Equipment
-                            </button>
-                            <button
-                                onClick={() => setShopTab('transport')}
-                                className={`flex-1 px-4 py-2 font-semibold rounded-t-lg transition-all text-sm border-2 ${
-                                    shopTab === 'transport'
-                                        ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
-                                        : 'bg-white/50 text-gray-700 hover:bg-white/80 border-transparent'
-                                }`}
-                            >
-                                🚗 Transport
-                            </button>
+                {/* Trading Post panel — Transport only (Gear & Equipment moved to Blacksmith) */}
+                {openPanel === 'shop' && (
+                    <div className={`space-y-3${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800">
+                            Current: <span className="font-semibold">{VEHICLE_TIERS[vehicleTier as 0|1|2|3].name}</span> — {VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s travel time
                         </div>
-
-                        {/* Shop Tab Content */}
-                        <div className="space-y-2">
-                            {shopTab === 'gear' && (
-                            <div className="space-y-4">
-                                {/* Tools */}
-                                <div className="pt-2">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⛏️ Tools</h4>
-                                    <div className="space-y-2">
-                                        <UpgradeButton
-                                            name="Shovel Upgrade"
-                                            description={shovelTier < MAX_TOOL_TIER
-                                                ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click`
-                                                : 'Maximum shovel tier reached'}
-                                            cost={betterShovelCost}
-                                            currentLevel={shovelTier}
-                                            maxLevel={MAX_TOOL_TIER}
-                                            canAfford={money >= betterShovelCost && shovelTier < MAX_TOOL_TIER}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('betterShovel')}
-                                            icon="⛏️"
-                                        />
-                                        <UpgradeButton
-                                            name="Pan Upgrade"
-                                            description={panTier < MAX_TOOL_TIER
-                                                ? `Pan power: ${panPower} → ${panPower + 1} gold/pan`
-                                                : 'Maximum pan tier reached'}
-                                            cost={betterPanCost}
-                                            currentLevel={panTier}
-                                            maxLevel={MAX_TOOL_TIER}
-                                            canAfford={money >= betterPanCost && panTier < MAX_TOOL_TIER}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('betterPan')}
-                                            icon="🥘"
-                                        />
+                        {(VEHICLE_TIERS.slice(1) as readonly { name: string; travelSecs: number; cost: number }[]).map((tier, i) => {
+                            const tierIndex = i + 1;
+                            const owned = vehicleTier >= tierIndex;
+                            const isNext = tierIndex === vehicleTier + 1;
+                            // Trader level required: tier 1 = lvl 3, tier 2 = lvl 5, tier 3 = lvl 7
+                            const requiredTraderLevel = tierIndex === 1 ? 3 : tierIndex === 2 ? 5 : 7;
+                            const traderUnlocked = traderLevel >= requiredTraderLevel;
+                            if (!owned && !traderUnlocked) {
+                                return (
+                                    <div key={tierIndex} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-dashed border-gray-200 opacity-60">
+                                        <span className="text-base">🔒</span>
+                                        <span className="text-xs text-gray-400">{tier.name} — requires Trader Level {requiredTraderLevel}</span>
                                     </div>
-                                </div>
-
-                                {/* Capacity & Speed */}
-                                <div className="pt-2">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">📦 Capacity & Speed</h4>
-                                    <div className="space-y-2">
-                                        <UpgradeButton
-                                            name="Larger Bucket"
-                                            description={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                                ? `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}`
-                                                : `Bucket capacity: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`}
-                                            cost={bucketUpgradeCost}
-                                            currentLevel={bucketUpgrades}
-                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                            canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= bucketUpgradeCost}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('bucketUpgrade')}
-                                            icon="🪣"
-                                        />
-                                        <UpgradeButton
-                                            name="Larger Pan"
-                                            description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                                ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}`
-                                                : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
-                                            cost={panCapUpgradeCost}
-                                            currentLevel={panCapUpgrades}
-                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                            canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panCapUpgradeCost}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('panCapUpgrade')}
-                                            icon="🍳"
-                                        />
-                                        <UpgradeButton
-                                            name="Faster Panning"
-                                            description={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL
-                                                ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click`
-                                                : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`}
-                                            cost={panSpeedUpgradeCost}
-                                            currentLevel={panSpeedUpgrades}
-                                            maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                            canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= panSpeedUpgradeCost}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('panSpeedUpgrade')}
-                                            icon="⚡"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Machinery Upgrades — only shown when player owns at least one piece of equipment */}
-                                {(hasSluiceBox || hasFurnace) && (
-                                    <div className="pt-2">
-                                        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-1">⚙️ Machinery Upgrades</h4>
-                                        <div className="space-y-2">
-                                            {hasSluiceBox && (
-                                                <UpgradeButton
-                                                    name="Better Sluice Box"
-                                                    description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
-                                                    cost={betterSluiceCost}
-                                                    currentLevel={sluiceGear - 1}
-                                                    canAfford={money >= betterSluiceCost}
-                                                    playerMoney={money}
-                                                    onBuy={() => buyUpgrade('betterSluice')}
-                                                    icon="🚿"
-                                                />
-                                            )}
-                                            {hasFurnace && (
-                                                <UpgradeButton
-                                                    name="Better Furnace"
-                                                    description={`Smelt rate: ${furnaceGear}× oz/sec → ${furnaceGear + 1}× oz/sec`}
-                                                    cost={betterFurnaceCost}
-                                                    currentLevel={furnaceGear - 1}
-                                                    canAfford={money >= betterFurnaceCost}
-                                                    playerMoney={money}
-                                                    onBuy={() => buyUpgrade('betterFurnace')}
-                                                    icon="⚗️"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            )}
-
-                            {shopTab === 'equipment' && (
-                            <>
+                                );
+                            }
+                            return (
                                 <UpgradeButton
-                                    name="Sluice Box"
-                                    description="Converts bucket dirt into paydirt for better yields. 🔗 Unlocks Sluice Operators in Labor Office."
-                                    cost={EQUIPMENT.sluiceBox.cost}
-                                    locked={hasSluiceBox}
-                                    canAfford={money >= EQUIPMENT.sluiceBox.cost && !hasSluiceBox}
+                                    key={tierIndex}
+                                    name={tier.name}
+                                    description={`Reduces travel time to ${tier.travelSecs}s`}
+                                    cost={tier.cost}
+                                    locked={owned}
+                                    canAfford={isNext && money >= tier.cost && traderUnlocked}
                                     playerMoney={money}
-                                    onBuy={() => buyUpgrade('sluiceBox')}
-                                    icon={hasSluiceBox ? '✅' : '🚿'}
+                                    onBuy={() => gameStore.getState().buyVehicle(tierIndex)}
+                                    icon={owned ? '✅' : tierIndex === 1 ? '🐴' : tierIndex === 2 ? '🚂' : '🚛'}
                                 />
-
-                                <UpgradeButton
-                                    name="Furnace"
-                                    description="Removes smelting fee entirely. 🔗 Unlocks Furnace Operators in Labor Office."
-                                    cost={EQUIPMENT.furnace.cost}
-                                    locked={hasFurnace}
-                                    canAfford={money >= EQUIPMENT.furnace.cost && !hasFurnace}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('furnace')}
-                                    icon={hasFurnace ? '✅' : '⚗️'}
-                                />
-
-                                <UpgradeButton
-                                    name="Metal Detector"
-                                    description={`Unlocks 🔍 Detect action in the Mine — high-gold patches make next scoop produce rich dirt (85% vs 65% conversion). 🔗 Unlocks Detector Operators.`}
-                                    cost={EQUIPMENT.metalDetector.cost}
-                                    locked={hasMetalDetector}
-                                    canAfford={money >= EQUIPMENT.metalDetector.cost && !hasMetalDetector}
-                                    playerMoney={money}
-                                    onBuy={() => buyUpgrade('metalDetector')}
-                                    icon={hasMetalDetector ? '✅' : '🔍'}
-                                />
-
-                                {hasMetalDetector && (
-                                    <UpgradeButton
-                                        name="Motherlode Sensor"
-                                        description="20% chance each detected patch has 3× rich dirt capacity (motherlode!)"
-                                        cost={EQUIPMENT.motherlode.cost}
-                                        locked={hasMotherlode}
-                                        canAfford={money >= EQUIPMENT.motherlode.cost && !hasMotherlode}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('motherlode')}
-                                        icon={hasMotherlode ? '✅' : '🌋'}
-                                    />
-                                )}
-
-                            </>
-                            )}
-
-                            {shopTab === 'transport' && (
-                            <div className="space-y-3">
-                                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800">
-                                    Current: <span className="font-semibold">{tierData.name}</span> — {tierData.travelSecs}s travel time
-                                </div>
-                                {(VEHICLE_TIERS.slice(1) as readonly {name: string; travelSecs: number; cost: number}[]).map((tier, i) => {
-                                    const tierIndex = i + 1;
-                                    const owned = vehicleTier >= tierIndex;
-                                    const isNext = tierIndex === vehicleTier + 1;
-                                    return (
-                                        <UpgradeButton
-                                            key={tierIndex}
-                                            name={tier.name}
-                                            description={`Reduces travel time to ${tier.travelSecs}s`}
-                                            cost={tier.cost}
-                                            locked={owned}
-                                            canAfford={isNext && money >= tier.cost}
-                                            playerMoney={money}
-                                            onBuy={() => gameStore.getState().buyVehicle(tierIndex)}
-                                            icon={owned ? '✅' : tierIndex === 1 ? '🐴' : tierIndex === 2 ? '🚂' : '🚛'}
-                                        />
-                                    );
-                                })}
-                                {hasDriver && (
-                                    <UpgradeButton
-                                        name={`Larger Carrier (${driverCapUpgrades}/${MAX_DRIVER_CAP_UPGRADES})`}
-                                        description={`Driver carries +5 oz per upgrade. Current: ${getDriverCapacity(driverCapUpgrades)} oz (base ${DRIVER_BASE_CAPACITY} oz).`}
-                                        cost={getUpgradeCost('largerCarrier', driverCapUpgrades)}
-                                        locked={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES}
-                                        canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && money >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
-                                        playerMoney={money}
-                                        onBuy={() => buyUpgrade('largerCarrier')}
-                                        icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
-                                    />
-                                )}
-                            </div>
-                            )}
-                        </div>
+                            );
+                        })}
+                        {hasDriver && (
+                            <UpgradeButton
+                                name={`Larger Carrier (${driverCapUpgrades}/${MAX_DRIVER_CAP_UPGRADES})`}
+                                description={`Driver carries +5 oz per upgrade. Current: ${getDriverCapacity(driverCapUpgrades)} oz (base ${DRIVER_BASE_CAPACITY} oz).`}
+                                cost={getUpgradeCost('largerCarrier', driverCapUpgrades)}
+                                locked={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES}
+                                canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && money >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
+                                playerMoney={money}
+                                onBuy={() => gameStore.getState().buyUpgrade('largerCarrier')}
+                                icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
+                            />
+                        )}
                     </div>
                 )}
 
-                {activeTab === 'laborOffice' && (
-                    <div className={`space-y-3${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
-                        <h3 className="text-lg font-semibold text-green-800">👷 Labor Office</h3>
-                        <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-xl text-center space-y-2">
-                            <div className="text-2xl">🏗️</div>
-                            <p className="text-sm font-semibold text-amber-800">Hiring Hall — Coming Soon</p>
-                            <p className="text-xs text-amber-600">
-                                Worker hiring is being rebuilt with the new Frontier Town employee system.
-                                Check back in an upcoming update!
-                            </p>
-                        </div>
-
+                {/* Tavern panel — Hiring Hall + Driver */}
+                {openPanel === 'tavern' && (
+                    <div className={`space-y-4${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
+                        <HiringHall />
                         <UpgradeButton
                             name="Hire Driver"
                             description={hasDriver
                                 ? 'Driver is working — auto-sells gold on round trips'
-                                : vehicleTier < 2
-                                    ? 'Requires Steam Wagon first'
-                                    : 'Auto-sells your gold at Town without you traveling'}
+                                : traderLevel < 8
+                                    ? `Requires Trader Level 8 (currently ${traderLevel})`
+                                    : vehicleTier < 2
+                                        ? 'Requires Steam Wagon first'
+                                        : 'Auto-sells your gold at Town without you traveling'}
                             cost={DRIVER_COST}
                             locked={hasDriver}
-                            canAfford={!hasDriver && vehicleTier >= 2 && money >= DRIVER_COST}
+                            canAfford={!hasDriver && vehicleTier >= 2 && money >= DRIVER_COST && traderLevel >= 8}
                             playerMoney={money}
                             onBuy={() => gameStore.getState().buyDriver()}
                             icon={hasDriver ? '✅' : '🤠'}
                         />
                     </div>
                 )}
+
+                {openPanel === 'assayer' && <Assayer />}
+                {openPanel === 'blacksmith' && <Blacksmith />}
             </div>
         </div>
     );
