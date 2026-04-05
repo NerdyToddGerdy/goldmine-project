@@ -7,6 +7,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.21.1',
+        date: '2026-04-05',
+        title: 'Fix crash on old saves with missing seasonNumber',
+        changes: [
+            'getSettlementStage now guards against seasonNumber being 0 or undefined — fixes crash on saves from before the season system',
+        ],
+    },
+    {
         version: 'v1.21',
         date: '2026-04-05',
         title: 'Furnace smelting phase — bars avoid 15% driver haul fee (closes #104)',

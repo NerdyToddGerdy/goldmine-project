@@ -67,7 +67,7 @@ const SETTLEMENT_STAGES = [
 ] as const;
 
 export function getSettlementStage(seasonNumber: number): { emoji: string; name: string } {
-    const idx = Math.min(seasonNumber - 1, SETTLEMENT_STAGES.length - 1);
+    const idx = Math.min(Math.max(0, (seasonNumber ?? 1) - 1), SETTLEMENT_STAGES.length - 1);
     return SETTLEMENT_STAGES[idx];
 }
 
