@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { gameStore, useGameStore, getCommissionCost, getCommissionOptions } from '../store/gameStore';
+import { gameStore, useGameStore, getCommissionCost, getCommissionOptions, getSeasonGoal, getSettlementStage } from '../store/gameStore';
 import type { NPCId } from '../store/schema';
 import { Building } from './ui/Building';
-
-const SEASON_MONEY_GOAL = 10_000;
 
 const NPC_META: Record<NPCId, { emoji: string; name: string }> = {
     trader:       { emoji: '🏪', name: 'Trader' },
@@ -23,10 +21,13 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
 
     const storyNPCs = useGameStore(s => s.storyNPCs);
     const npcLevels = useGameStore(s => s.npcLevels);
-    const runMoneyEarned = useGameStore(s => s.runMoneyEarned);
+    const runGoldMined = useGameStore(s => s.runGoldMined);
+    const seasonNumber = useGameStore(s => s.seasonNumber);
+    const seasonGoal = getSeasonGoal(seasonNumber);
+    const settlement = getSettlementStage(seasonNumber);
     const employees = useGameStore(s => s.employees);
     const isTraveling = useGameStore(s => s.isTraveling);
-    const money = useGameStore(s => s.money);
+    const gold = useGameStore(s => s.gold);
 
     // Graceful fallback: if NPC triggers haven't fired yet,
     // treat the core two buildings as arrived once town is unlocked.
@@ -36,7 +37,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
     const assayerArrived   = storyNPCs.assayerArrived;
     const blacksmithArrived = storyNPCs.blacksmithArrived;
 
-    const seasonPct = Math.min(100, (runMoneyEarned / SEASON_MONEY_GOAL) * 100);
+    const seasonPct = Math.min(100, (runGoldMined / seasonGoal) * 100);
     const seasonGoalMet = seasonPct >= 100;
     const nearEnd = seasonPct >= 70;
 
@@ -51,7 +52,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
             <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-green-700">
                     <span className="font-semibold">Season earnings</span>
-                    <span className="font-mono">${runMoneyEarned.toFixed(0)} / ${SEASON_MONEY_GOAL.toLocaleString()}</span>
+                    <span className="font-mono">{runGoldMined.toFixed(0)} oz / {seasonGoal.toLocaleString()} oz</span>
                 </div>
                 <div className="relative h-3 rounded-full overflow-hidden bg-green-100 border border-green-200">
                     <div
@@ -102,7 +103,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                                     const meta = NPC_META[npcId];
                                     const currentLevel = npcLevels[npcId] ?? 0;
                                     const cost = getCommissionCost(npcId, currentLevel);
-                                    const canAfford = money >= cost;
+                                    const canAfford = gold >= cost;
                                     return (
                                         <div key={npcId} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-indigo-200">
                                             <span className="text-xl">{meta.emoji}</span>
@@ -115,7 +116,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                                                 disabled={!canAfford}
                                                 className="text-xs px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                             >
-                                                ${cost.toLocaleString()}
+                                                {cost.toLocaleString()} oz
                                             </button>
                                         </div>
                                     );
@@ -143,7 +144,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
             <div className="flex flex-col items-center gap-0 py-1">
                 <div className="w-0.5 h-4 bg-amber-200" />
                 <div className="px-4 py-2 rounded-xl border border-amber-200 bg-amber-50/60 text-sm text-amber-700 font-semibold">
-                    🏕️ Your Camp
+                    {settlement.emoji} Your {settlement.name}
                 </div>
                 <div className="w-0.5 h-4 bg-amber-200" />
                 <div className="w-full h-px bg-amber-300" />
@@ -160,7 +161,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                         lockHint="Sell gold to attract a trader"
                         onClick={() => onOpenPanel('shop')}
                     >
-                        {money > 0 ? null : undefined}
+                        {gold > 0 ? null : undefined}
                     </Building>
 
                     <Building

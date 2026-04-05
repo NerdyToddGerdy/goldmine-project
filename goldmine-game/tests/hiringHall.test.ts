@@ -53,29 +53,29 @@ describe('getHireCost', () => {
 
 describe('refreshDraftPool', () => {
     it('populates pool for free when pool is empty', () => {
-        gameStore.setState({ draftPool: [], money: 0, npcLevels: { trader: 0, tavernKeeper: 2, assayer: 0, blacksmith: 0 } });
+        gameStore.setState({ draftPool: [], gold: 0, npcLevels: { trader: 0, tavernKeeper: 2, assayer: 0, blacksmith: 0 } });
         const result = gameStore.getState().refreshDraftPool();
         expect(result).toBe(true);
         expect(gameStore.getState().draftPool).toHaveLength(4);
-        expect(gameStore.getState().money).toBe(0); // free
+        expect(gameStore.getState().gold).toBe(0); // free
     });
 
     it('deducts cost when pool is not empty', () => {
         // put one employee in draft pool so it's non-empty
         const emp = generateEmployee();
-        gameStore.setState({ draftPool: [emp], money: 100, draftPoolRefreshCost: 10, npcLevels: { trader: 0, tavernKeeper: 2, assayer: 0, blacksmith: 0 } });
+        gameStore.setState({ draftPool: [emp], gold: 100, draftPoolRefreshCost: 10, npcLevels: { trader: 0, tavernKeeper: 2, assayer: 0, blacksmith: 0 } });
         gameStore.getState().refreshDraftPool();
-        expect(gameStore.getState().money).toBe(90);
+        expect(gameStore.getState().gold).toBe(90);
         expect(gameStore.getState().draftPool).toHaveLength(4);
     });
 
     it('returns false and does not charge when insufficient funds', () => {
         const emp = generateEmployee();
-        gameStore.setState({ draftPool: [emp], money: 5, draftPoolRefreshCost: 10 });
+        gameStore.setState({ draftPool: [emp], gold: 5, draftPoolRefreshCost: 10 });
         const result = gameStore.getState().refreshDraftPool();
         expect(result).toBe(false);
         expect(gameStore.getState().draftPool).toHaveLength(1);
-        expect(gameStore.getState().money).toBe(5);
+        expect(gameStore.getState().gold).toBe(5);
     });
 });
 
@@ -86,7 +86,7 @@ describe('hireEmployee', () => {
         const emp = generateEmployee();
         emp.rarity = 'common'; // ensure known cost
         const cost = HIRE_COSTS.common;
-        gameStore.setState({ draftPool: [emp], employees: [], money: cost + 50 });
+        gameStore.setState({ draftPool: [emp], employees: [], gold: cost + 50 });
 
         const result = gameStore.getState().hireEmployee(emp.id);
 
@@ -94,13 +94,13 @@ describe('hireEmployee', () => {
         expect(gameStore.getState().draftPool).toHaveLength(0);
         expect(gameStore.getState().employees).toHaveLength(1);
         expect(gameStore.getState().employees[0].id).toBe(emp.id);
-        expect(gameStore.getState().money).toBe(50);
+        expect(gameStore.getState().gold).toBe(50);
     });
 
     it('returns false when insufficient funds', () => {
         const emp = generateEmployee();
         emp.rarity = 'common';
-        gameStore.setState({ draftPool: [emp], employees: [], money: 0 });
+        gameStore.setState({ draftPool: [emp], employees: [], gold: 0 });
 
         const result = gameStore.getState().hireEmployee(emp.id);
 

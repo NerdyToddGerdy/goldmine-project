@@ -5,14 +5,6 @@ import { useState } from 'react';
 
 type SmithTab = 'gear' | 'equipment' | 'slots';
 
-function LockedHint({ requiredLevel }: { requiredLevel: number }) {
-    return (
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-dashed border-gray-200 opacity-60">
-            <span className="text-base">🔒</span>
-            <span className="text-xs text-gray-400">Available at Blacksmith Level {requiredLevel}</span>
-        </div>
-    );
-}
 
 const ROLE_LABELS: Record<Role, string> = {
     miner: 'Miner',
@@ -29,7 +21,7 @@ const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', '
 export function Blacksmith() {
     const [tab, setTab] = useState<SmithTab>('gear');
 
-    const money = useGameStore(s => s.money);
+    const gold = useGameStore(s => s.gold);
     const scoopPower = useGameStore(s => s.scoopPower);
     const panPower = useGameStore(s => s.panPower);
     const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
@@ -82,8 +74,9 @@ export function Blacksmith() {
                                 cost={shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0}
                                 currentLevel={shovelTier}
                                 maxLevel={MAX_TOOL_TIER}
-                                canAfford={money >= (shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0) && shovelTier < MAX_TOOL_TIER && (shovelTier < 2 || blacksmithLevel >= 2)}
-                                playerMoney={money}
+                                locked={shovelTier >= 2 && blacksmithLevel < 2}
+                                canAfford={shovelTier < MAX_TOOL_TIER && gold >= (shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0)}
+                                playerMoney={gold}
                                 onBuy={() => buyUpgrade('betterShovel')}
                                 icon="⛏️"
                             />
@@ -93,8 +86,9 @@ export function Blacksmith() {
                                 cost={panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0}
                                 currentLevel={panTier}
                                 maxLevel={MAX_TOOL_TIER}
-                                canAfford={money >= (panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0) && panTier < MAX_TOOL_TIER && (panTier < 2 || blacksmithLevel >= 2)}
-                                playerMoney={money}
+                                locked={panTier >= 2 && blacksmithLevel < 2}
+                                canAfford={panTier < MAX_TOOL_TIER && gold >= (panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0)}
+                                playerMoney={gold}
                                 onBuy={() => buyUpgrade('betterPan')}
                                 icon="🥘"
                             />
@@ -110,20 +104,21 @@ export function Blacksmith() {
                                 cost={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL ? BUCKET_UPGRADE_COSTS[bucketUpgrades] : 0}
                                 currentLevel={bucketUpgrades}
                                 maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= BUCKET_UPGRADE_COSTS[bucketUpgrades] && (bucketUpgrades < 1 || (blacksmithLevel >= 2 && bucketUpgrades < 2) || blacksmithLevel >= 3)}
-                                playerMoney={money}
+                                locked={(bucketUpgrades === 1 && blacksmithLevel < 2) || (bucketUpgrades >= 2 && blacksmithLevel < 3)}
+                                canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= BUCKET_UPGRADE_COSTS[bucketUpgrades]}
+                                playerMoney={gold}
                                 onBuy={() => buyUpgrade('bucketUpgrade')}
                                 icon="🪣"
                             />
-                            {blacksmithLevel < 2 && bucketUpgrades >= 1 && <LockedHint requiredLevel={2} />}
                             <UpgradeButton
                                 name="Larger Pan"
                                 description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}` : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
                                 cost={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0}
                                 currentLevel={panCapUpgrades}
                                 maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= PAN_CAP_UPGRADE_COSTS[panCapUpgrades] && (panCapUpgrades < 1 || (blacksmithLevel >= 2 && panCapUpgrades < 2) || blacksmithLevel >= 3)}
-                                playerMoney={money}
+                                locked={(panCapUpgrades === 1 && blacksmithLevel < 2) || (panCapUpgrades >= 2 && blacksmithLevel < 3)}
+                                canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= PAN_CAP_UPGRADE_COSTS[panCapUpgrades]}
+                                playerMoney={gold}
                                 onBuy={() => buyUpgrade('panCapUpgrade')}
                                 icon="🍳"
                             />
@@ -133,8 +128,9 @@ export function Blacksmith() {
                                 cost={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0}
                                 currentLevel={panSpeedUpgrades}
                                 maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && money >= PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] && (panSpeedUpgrades < 1 || (blacksmithLevel >= 2 && panSpeedUpgrades < 2) || blacksmithLevel >= 3)}
-                                playerMoney={money}
+                                locked={(panSpeedUpgrades === 1 && blacksmithLevel < 2) || (panSpeedUpgrades >= 2 && blacksmithLevel < 3)}
+                                canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades]}
+                                playerMoney={gold}
                                 onBuy={() => buyUpgrade('panSpeedUpgrade')}
                                 icon="⚡"
                             />
@@ -145,33 +141,29 @@ export function Blacksmith() {
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">⚙️ Machinery Upgrades</h4>
                             <div className="space-y-2">
-                                {hasSluiceBox && (
-                                    blacksmithLevel >= 2 ? (
-                                        <UpgradeButton
-                                            name="Better Sluice Box"
-                                            description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
-                                            cost={getUpgradeCost('betterSluice', sluiceGear - 1)}
-                                            currentLevel={sluiceGear - 1}
-                                            canAfford={money >= getUpgradeCost('betterSluice', sluiceGear - 1)}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('betterSluice')}
-                                            icon="🚿"
-                                        />
-                                    ) : <LockedHint requiredLevel={2} />
+                                {hasSluiceBox && blacksmithLevel >= 2 && (
+                                    <UpgradeButton
+                                        name="Better Sluice Box"
+                                        description={`Sluice extraction: ${(UPGRADES.sluiceWorker.extractionBonus * sluiceGear * 100).toFixed(0)}% → ${(UPGRADES.sluiceWorker.extractionBonus * (sluiceGear + 1) * 100).toFixed(0)}% per worker`}
+                                        cost={getUpgradeCost('betterSluice', sluiceGear - 1)}
+                                        currentLevel={sluiceGear - 1}
+                                        canAfford={gold >= getUpgradeCost('betterSluice', sluiceGear - 1)}
+                                        playerMoney={gold}
+                                        onBuy={() => buyUpgrade('betterSluice')}
+                                        icon="🚿"
+                                    />
                                 )}
-                                {hasFurnace && (
-                                    blacksmithLevel >= 3 ? (
-                                        <UpgradeButton
-                                            name="Better Furnace"
-                                            description={`Smelt rate: ${furnaceGear}× oz/sec → ${furnaceGear + 1}× oz/sec`}
-                                            cost={getUpgradeCost('betterFurnace', furnaceGear - 1)}
-                                            currentLevel={furnaceGear - 1}
-                                            canAfford={money >= getUpgradeCost('betterFurnace', furnaceGear - 1)}
-                                            playerMoney={money}
-                                            onBuy={() => buyUpgrade('betterFurnace')}
-                                            icon="⚗️"
-                                        />
-                                    ) : <LockedHint requiredLevel={3} />
+                                {hasFurnace && blacksmithLevel >= 3 && (
+                                    <UpgradeButton
+                                        name="Better Furnace"
+                                        description={`Smelt rate: ${furnaceGear}× oz/sec → ${furnaceGear + 1}× oz/sec`}
+                                        cost={getUpgradeCost('betterFurnace', furnaceGear - 1)}
+                                        currentLevel={furnaceGear - 1}
+                                        canAfford={gold >= getUpgradeCost('betterFurnace', furnaceGear - 1)}
+                                        playerMoney={gold}
+                                        onBuy={() => buyUpgrade('betterFurnace')}
+                                        icon="⚗️"
+                                    />
                                 )}
                             </div>
                         </div>
@@ -182,55 +174,49 @@ export function Blacksmith() {
             {/* Equipment tab */}
             {tab === 'equipment' && (
                 <div className="space-y-2">
-                    {blacksmithLevel >= 2 ? (
+                    {blacksmithLevel >= 2 && !hasSluiceBox && (
                         <UpgradeButton
                             name="Sluice Box"
                             description="Converts bucket dirt into paydirt. Unlocks Sluice Operators."
                             cost={EQUIPMENT.sluiceBox.cost}
-                            locked={hasSluiceBox}
-                            canAfford={money >= EQUIPMENT.sluiceBox.cost && !hasSluiceBox}
-                            playerMoney={money}
+                            canAfford={gold >= EQUIPMENT.sluiceBox.cost}
+                            playerMoney={gold}
                             onBuy={() => buyUpgrade('sluiceBox')}
-                            icon={hasSluiceBox ? '✅' : '🚿'}
+                            icon="🚿"
                         />
-                    ) : <LockedHint requiredLevel={2} />}
-                    {blacksmithLevel >= 3 ? (
+                    )}
+                    {blacksmithLevel >= 3 && !hasFurnace && (
                         <UpgradeButton
                             name="Furnace"
                             description="Removes smelting fee entirely. Unlocks Furnace Operators and gold bar certification."
                             cost={EQUIPMENT.furnace.cost}
-                            locked={hasFurnace}
-                            canAfford={money >= EQUIPMENT.furnace.cost && !hasFurnace}
-                            playerMoney={money}
+                            canAfford={gold >= EQUIPMENT.furnace.cost}
+                            playerMoney={gold}
                             onBuy={() => buyUpgrade('furnace')}
-                            icon={hasFurnace ? '✅' : '⚗️'}
+                            icon="⚗️"
                         />
-                    ) : <LockedHint requiredLevel={3} />}
-                    {blacksmithLevel >= 3 ? (
+                    )}
+                    {blacksmithLevel >= 3 && !hasMetalDetector && (
                         <UpgradeButton
                             name="Metal Detector"
                             description="Unlocks 🔍 Detect action — high-gold patches for richer scoops. Unlocks Detector Operators."
                             cost={EQUIPMENT.metalDetector.cost}
-                            locked={hasMetalDetector}
-                            canAfford={money >= EQUIPMENT.metalDetector.cost && !hasMetalDetector}
-                            playerMoney={money}
+                            canAfford={gold >= EQUIPMENT.metalDetector.cost}
+                            playerMoney={gold}
                             onBuy={() => buyUpgrade('metalDetector')}
-                            icon={hasMetalDetector ? '✅' : '🔍'}
+                            icon="🔍"
                         />
-                    ) : null}
-                    {hasMetalDetector && (
-                        blacksmithLevel >= 4 ? (
-                            <UpgradeButton
-                                name="Motherlode Sensor"
-                                description="20% chance each detected patch is a motherlode (3× capacity)"
-                                cost={EQUIPMENT.motherlode.cost}
-                                locked={hasMotherlode}
-                                canAfford={money >= EQUIPMENT.motherlode.cost && !hasMotherlode}
-                                playerMoney={money}
-                                onBuy={() => buyUpgrade('motherlode')}
-                                icon={hasMotherlode ? '✅' : '🌋'}
-                            />
-                        ) : <LockedHint requiredLevel={4} />
+                    )}
+                    {hasMetalDetector && blacksmithLevel >= 4 && !hasMotherlode && (
+                        <UpgradeButton
+                            name="Motherlode Sensor"
+                            description="20% chance each detected patch is a motherlode (3× capacity)"
+                            cost={EQUIPMENT.motherlode.cost}
+                            canAfford={gold >= EQUIPMENT.motherlode.cost}
+                            playerMoney={gold}
+                            onBuy={() => buyUpgrade('motherlode')}
+                            icon="🌋"
+                        />
                     )}
                 </div>
             )}
@@ -260,8 +246,8 @@ export function Blacksmith() {
                                 currentLevel={extra}
                                 maxLevel={costs.length}
                                 locked={maxed}
-                                canAfford={!maxed && money >= cost && blacksmithLevel >= 4}
-                                playerMoney={money}
+                                canAfford={!maxed && gold >= cost && blacksmithLevel >= 4}
+                                playerMoney={gold}
                                 onBuy={() => buyRoleSlot(role)}
                                 icon="👤"
                             />

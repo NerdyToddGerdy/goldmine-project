@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, EMPLOYEE_WAGES, getEmployeeRolePower } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -66,7 +66,7 @@ function EmployeeCard({ emp, children }: { emp: Employee; children?: React.React
 // ─── Draft Pool ───────────────────────────────────────────────────────────────
 
 function DraftPool() {
-    const money = useGameStore(s => s.money);
+    const gold = useGameStore(s => s.gold);
     const draftPool = useGameStore(s => s.draftPool);
     const refreshCost = useGameStore(s => s.draftPoolRefreshCost);
 
@@ -83,10 +83,10 @@ function DraftPool() {
                 <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Candidates</h4>
                 <button
                     onClick={() => gameStore.getState().refreshDraftPool()}
-                    disabled={money < refreshCost}
+                    disabled={gold < refreshCost}
                     className="text-xs px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold border border-amber-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Refresh Pool (${refreshCost})
+                    Refresh Pool ({refreshCost} oz)
                 </button>
             </div>
 
@@ -96,11 +96,11 @@ function DraftPool() {
                 <div className="space-y-2">
                     {draftPool.map(emp => {
                         const cost = getHireCost(emp);
-                        const canAfford = money >= cost;
+                        const canAfford = gold >= cost;
                         return (
                             <EmployeeCard key={emp.id} emp={emp}>
                                 <div className="flex items-center justify-between pt-1">
-                                    <span className="text-xs text-gray-500">Hire: <span className="font-semibold text-gray-700">${cost}</span></span>
+                                    <span className="text-xs text-gray-500">Hire: <span className="font-semibold text-gray-700">{cost} oz</span></span>
                                     <button
                                         onClick={() => gameStore.getState().hireEmployee(emp.id)}
                                         disabled={!canAfford}
@@ -133,8 +133,7 @@ function Bench() {
                 <div className="space-y-2">
                     {bench.map(emp => (
                         <EmployeeCard key={emp.id} emp={emp}>
-                            <div className="flex items-center justify-between pt-1">
-                                <span className="text-xs text-gray-500">Wage: <span className="font-semibold">${EMPLOYEE_WAGES[emp.rarity].toFixed(2)}/s</span></span>
+                            <div className="flex items-center justify-end pt-1">
                                 <button
                                     onClick={() => gameStore.getState().dismissEmployee(emp.id)}
                                     className="text-xs px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-semibold border border-red-300 transition-all"
@@ -229,7 +228,7 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
     );
 }
 
-function Roster() {
+export function Roster() {
     const employees = useGameStore(s => s.employees);
     const roleSlots = useGameStore(s => s.roleSlots);
     const hasSluiceBox = useGameStore(s => s.hasSluiceBox);

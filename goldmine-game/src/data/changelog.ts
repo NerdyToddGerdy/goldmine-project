@@ -7,6 +7,61 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.21',
+        date: '2026-04-05',
+        title: 'Furnace smelting phase — bars avoid 15% driver haul fee (closes #104)',
+        changes: [
+            'Raw panned gold (flakes) now incurs a 15% fee when delivered by the driver',
+            'Gold bars carry at full value — smelt flakes into bars to recover that 15%',
+            'Driver status card shows −15% badge on flake loads so the cost is always visible',
+            'Furnace section now shows the flakes-to-bars value note and "Smelting" progress label',
+            'Furnace Load button now reads "Load flakes" for clarity',
+            'Bars-in-hand row shows driver hint when the driver is hired',
+        ],
+    },
+    {
+        version: 'v1.20.3',
+        date: '2026-04-05',
+        title: 'Settlement grows from Camp to City across seasons',
+        changes: [
+            'Camp label on the town map now reflects your settlement tier',
+            '10 stages: Camp → Outpost → Shantytown → Settlement → Hamlet → Village → Boom Town → Township → Town → City',
+        ],
+    },
+    {
+        version: 'v1.20.2',
+        date: '2026-04-05',
+        title: 'Season goal scales per run (100 → 200 → 400 oz…)',
+        changes: [
+            'Season 1 goal is now 100 oz instead of 1 000 oz',
+            'Goal doubles each season: 100 → 200 → 400 → 800 → 1 600 oz…',
+        ],
+    },
+    {
+        version: 'v1.20.1',
+        date: '2026-04-05',
+        title: 'Remove per-tick crew wages — workers are free to run',
+        changes: [
+            'Workers no longer drain gold each tick; one-time hire cost remains the only crew expense',
+            'Crew is always productive when assigned — no more idle-worker payroll deductions',
+            'Resource bar no longer shows a payroll deduction row',
+        ],
+    },
+    {
+        version: 'v1.20',
+        date: '2026-04-04',
+        title: 'Gold is the currency — money removed (closes #87)',
+        changes: [
+            'Gold (oz) is now the single spendable currency; the money/$ system is gone',
+            'All purchases (vehicles, driver, gear, upgrades, commissions, hiring) now cost gold oz',
+            'Driver deposits gold directly to your balance instead of a separate vault',
+            'Collecting bars (furnace bars + gold bars + certified bars) redeems them to gold; certified bars still yield 1.2× oz',
+            'Season goal now tracks oz of gold extracted (1 000 oz) instead of money earned',
+            'Gold price market removed — gold oz is a fixed 1:1 resource',
+            'Schema bumped to v34; saves from v33 and earlier migrate automatically',
+        ],
+    },
+    {
         version: 'v1.19.2',
         date: '2026-04-02',
         title: 'Hover/tap tooltips on rate stats and gear multipliers (closes #87)',

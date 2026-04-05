@@ -85,7 +85,7 @@ describe('XP gain in _fixedTick', () => {
         emp.xpByRole = {};
         gameStore.setState({
             employees: [emp],
-            money: 9999,
+            gold: 9999,
             bucketFilled: 0,
         });
 
@@ -102,7 +102,7 @@ describe('XP gain in _fixedTick', () => {
         const bucketCap = 10; // BUCKET_CAPACITY default
         gameStore.setState({
             employees: [emp],
-            money: 9999,
+            gold: 9999,
             bucketFilled: bucketCap, // bucket full → miners idle
             dustBucketSize: 0,
             bucketUpgrades: 0,
@@ -118,7 +118,7 @@ describe('XP gain in _fixedTick', () => {
         const emp = generateEmployee();
         emp.assignedRole = null;
         emp.xpByRole = {};
-        gameStore.setState({ employees: [emp], money: 9999 });
+        gameStore.setState({ employees: [emp], gold: 9999 });
 
         gameStore.getState().stepSimulation(FIXED_DT_MS);
 
@@ -132,7 +132,7 @@ describe('XP gain in _fixedTick', () => {
         emp.assignedRole = 'miner';
         // XP for level 10 (cap) = 10^2 * 10 = 1000; set to cap already
         emp.xpByRole = { miner: 1000 };
-        gameStore.setState({ employees: [emp], money: 9999, bucketFilled: 0 });
+        gameStore.setState({ employees: [emp], gold: 9999, bucketFilled: 0 });
 
         gameStore.getState().stepSimulation(FIXED_DT_MS);
 

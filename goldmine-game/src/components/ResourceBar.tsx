@@ -1,74 +1,36 @@
-import { useGameStore, getEmployeePayroll, getAssignedPower, PROSPECTOR_PAN_RATE, SLUICE_EXTRACTION_RATE, getEffectiveBucketCapacity, BASE_EXTRACTION, GOLD_PRICE_UPDATE_TICKS, EMPLOYEE_WAGES, type FloatingNumber } from "../store/gameStore";
+import { useGameStore, getAssignedPower, PROSPECTOR_PAN_RATE, SLUICE_EXTRACTION_RATE, BASE_EXTRACTION, type FloatingNumber } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
-import { Tooltip } from "./ui";
 
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
     const goldBars = useGameStore((s) => s.goldBars);
-    const money = useGameStore((s) => s.money);
 
     const employees = useGameStore((s) => s.employees);
     const sluiceGear = useGameStore((s) => s.sluiceGear);
     const hasFurnace = useGameStore((s) => s.hasFurnace);
-
-    // Bucket/pan state for idle detection
-    const bucketFilled = useGameStore((s) => s.bucketFilled);
     const panFilled = useGameStore((s) => s.panFilled);
-    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
 
-    const unlockedTown = useGameStore((s) => s.unlockedTown);
-    const goldPrice = useGameStore((s) => s.goldPrice);
-    const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
-    const tickCount = useGameStore((s) => s.tickCount);
-
-    // Active payroll (simplified display — idle deduction handled in _fixedTick)
-    const totalPayroll = getEmployeePayroll(employees);
-    const bucketCap = getEffectiveBucketCapacity(bucketUpgrades);
-    const minersIdle = bucketFilled >= bucketCap;
+    // Stat-driven gold production rate (prospectors only produce when pan has material)
     const prospectsIdle = panFilled < 1;
-    const assignedMinerWages = employees
-        .filter(e => e.assignedRole === 'miner')
-        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
-    const assignedProspectorWages = employees
-        .filter(e => e.assignedRole === 'prospector')
-        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
-    const activePayroll = totalPayroll
-        - (minersIdle ? assignedMinerWages : 0)
-        - (prospectsIdle ? assignedProspectorWages : 0);
-
-    // Check if workers can be paid
-    const canAffordWorkers = money >= activePayroll / 60;
-
-    // Stat-driven rates
-    const prospectorPower = (canAffordWorkers && !prospectsIdle) ? getAssignedPower(employees, 'prospector') : 0;
-    const sluiceOpPower = canAffordWorkers ? getAssignedPower(employees, 'sluiceOperator') : 0;
-
+    const prospectorPower = prospectsIdle ? 0 : getAssignedPower(employees, 'prospector');
+    const sluiceOpPower = getAssignedPower(employees, 'sluiceOperator');
     let extractionRate = BASE_EXTRACTION;
     extractionRate += sluiceOpPower * SLUICE_EXTRACTION_RATE * sluiceGear;
-
     const goldRate = prospectorPower * PROSPECTOR_PAN_RATE * extractionRate / BASE_EXTRACTION;
-
-    const moneyRate = -activePayroll;
-
-    const goldPriceProgress = unlockedTown
-        ? Math.min(1, (tickCount - lastGoldPriceUpdate) / GOLD_PRICE_UPDATE_TICKS)
-        : undefined;
 
     const floatingNumbers = useGameStore((s) => s.floatingNumbers);
     const goldFloats = floatingNumbers.filter((f) => f.resource === 'gold');
-    const moneyFloats = floatingNumbers.filter((f) => f.resource === 'money');
 
     return (
         <div className="space-y-1.5">
             <div className="grid gap-2 grid-cols-2">
                 <div className="relative">
                     <ResourceCard
-                        label={hasFurnace ? "Gold Bars" : "Gold"}
-                        value={hasFurnace ? goldBars : gold}
+                        label="Gold"
+                        value={gold}
                         rate={goldRate}
-                        icon={hasFurnace ? "🧱" : "✨"}
+                        icon="✨"
                         color="yellow"
-                        priceInfo={goldPriceProgress !== undefined ? { price: goldPrice, progress: goldPriceProgress } : undefined}
                     />
                     {goldFloats.map((f: FloatingNumber) => (
                         <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-yellow-500 animate-float-up pointer-events-none">
@@ -76,21 +38,16 @@ export function ResourceBar() {
                         </span>
                     ))}
                 </div>
-                <div className="relative">
-                    <ResourceCard label="Money" value={money} rate={moneyRate} icon="💰" color="green" />
-                    {moneyFloats.map((f: FloatingNumber) => (
-                        <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-green-500 animate-float-up pointer-events-none">
-                            +${formatNumber(f.amount)}
-                        </span>
-                    ))}
-                </div>
+                {hasFurnace && goldBars > 0 && (
+                    <ResourceCard
+                        label="Gold Bars"
+                        value={goldBars}
+                        rate={0}
+                        icon="🧱"
+                        color="amber"
+                    />
+                )}
             </div>
-            {totalPayroll > 0 && (
-                <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                    <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wide">Payroll</span>
-                    <span className="text-xs font-semibold tabular-nums text-orange-900 dark:text-orange-100">💰 -{formatNumber(activePayroll)}/sec</span>
-                </div>
-            )}
         </div>
     );
 }
@@ -101,14 +58,12 @@ function ResourceCard({
     rate,
     icon,
     color,
-    priceInfo,
 }: {
     label: string;
     value: number;
     rate: number;
     icon: string;
     color: 'amber' | 'cyan' | 'yellow' | 'green';
-    priceInfo?: { price: number; progress: number };
 }) {
     const colorClasses = {
         amber: {
@@ -152,27 +107,13 @@ function ResourceCard({
                     {label}
                 </div>
                 <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>
-                    {icon} {formatNumber(value)}
+                    {icon} {formatNumber(value)} oz
                 </div>
                 <div className={`text-xs font-semibold tabular-nums ${rateColor}`}>
                     {formatRate(rate)}
                 </div>
-                {priceInfo && (
-                    <div className="text-xs tabular-nums text-gray-500 dark:text-gray-400 mt-0.5">
-                        <Tooltip content={`Price updates every ~${Math.round(GOLD_PRICE_UPDATE_TICKS / 3600)} min. Bar below shows time until next update.`}>
-                            <span className="underline decoration-dotted cursor-help">📈 ${priceInfo.price.toFixed(2)}/oz</span>
-                        </Tooltip>
-                    </div>
-                )}
             </div>
-            {priceInfo && (
-                <div className="h-1 bg-black/10 dark:bg-white/10">
-                    <div
-                        className="h-full bg-yellow-400 dark:bg-yellow-500 transition-[width] duration-300"
-                        style={{ width: `${priceInfo.progress * 100}%` }}
-                    />
-                </div>
-            )}
         </div>
     );
 }
+

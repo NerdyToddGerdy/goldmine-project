@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV32, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY, getCommissionCost} from "./schema"
+import {defaultSaveV34, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY, getCommissionCost} from "./schema"
 import type { Employee, Role, RoleSlots, StoryNPCState, NPCId } from './schema';
 export { makeCommonEmployee } from './schema';
 export type { Employee, Role, NPCId } from './schema';
@@ -48,10 +48,28 @@ export const PAN_CAP_UPGRADE_COSTS = [15, 55, 175] as const;
 export const PAN_SPEED_UPGRADE_COSTS = [8, 30, 100] as const;
 export const MAX_GEAR_UPGRADE_LEVEL = 3;
 
-// Gold market price constants
-export const GOLD_PRICE_MIN = 0.60;
-export const GOLD_PRICE_MAX = 1.80;
-export const GOLD_PRICE_UPDATE_TICKS = 1800; // 30s × 60 ticks/s
+// Season goal (oz of gold mined to unlock winter commission) — doubles each season
+export function getSeasonGoal(seasonNumber: number): number {
+    return Math.round(100 * Math.pow(2, seasonNumber - 1));
+}
+
+const SETTLEMENT_STAGES = [
+    { emoji: '🏕️', name: 'Camp' },
+    { emoji: '⛺', name: 'Outpost' },
+    { emoji: '🏚️', name: 'Shantytown' },
+    { emoji: '🏠', name: 'Settlement' },
+    { emoji: '🏘️', name: 'Hamlet' },
+    { emoji: '🏡', name: 'Village' },
+    { emoji: '🏗️', name: 'Boom Town' },
+    { emoji: '🏘️', name: 'Township' },
+    { emoji: '🏙️', name: 'Town' },
+    { emoji: '🌆', name: 'City' },
+] as const;
+
+export function getSettlementStage(seasonNumber: number): { emoji: string; name: string } {
+    const idx = Math.min(seasonNumber - 1, SETTLEMENT_STAGES.length - 1);
+    return SETTLEMENT_STAGES[idx];
+}
 
 // Sluice box mechanic: dirt → paydirt conversion
 export const SLUICE_CONVERSION_RATIO = 0.65;  // 10 dirt → 6.5 paydirt (35% mass loss)
@@ -79,7 +97,7 @@ let _toastId = 0;
 
 export interface FloatingNumber {
     id: number;
-    resource: 'gold' | 'money';
+    resource: 'gold';
     amount: number;
 }
 let _floatId = 0;
@@ -100,8 +118,7 @@ export type GameState = {
     // Resources
     dirt: number // raw dirt from scooping
     paydirt: number // dirt that potentially contains gold
-    gold: number // refined gold from panning
-    money: number // currency from selling gold
+    gold: number // refined gold — also the spendable currency
 
     // Employees (new v29 system)
     employees: Employee[]
@@ -133,11 +150,11 @@ export type GameState = {
     unlockedTown: boolean
 
     // Season / commission system
-    runMoneyEarned: number  // cumulative money income this run (resets on commission)
+    runGoldMined: number  // cumulative gold extracted this season (resets on commission)
     npcLevels: Record<NPCId, number>  // commission level per NPC (0 = not yet arrived)
     pendingCommission: NPCId | null   // NPC commissioned this winter (shown in spring banner)
 
-    // Money-purchasable gear upgrades (persisted, reset on commission)
+    // Gear upgrades (persisted, reset on commission)
     bucketUpgrades: number   // 0-3: +5 bucket capacity per level
     panCapUpgrades: number   // 0-3: +10 pan capacity per level
     panSpeedUpgrades: number // 0-3: +0.5 pan click amount per level
@@ -151,12 +168,6 @@ export type GameState = {
     travelProgress: number       // ticks elapsed of current travel
     travelDestination: 'mine' | 'town'
     driverTripTicks: number      // driver's position in round-trip cycle
-    goldInPocket: number         // gold snapshotted at departure to Town; caps what can be sold
-
-    // Gold market price (persisted)
-    goldPrice: number            // current $/oz market rate
-    lastGoldPriceUpdate: number  // tickCount at last price update
-    goldPriceHistory: number[]   // last 20 price samples for sparkline (session-only, not persisted)
 
     // Metal detector
     richDirtInBucket: number     // portion of bucket fill that came from high-yield patch
@@ -179,17 +190,13 @@ export type GameState = {
     driverCarryingFlakes: number // oz of raw flakes currently in transit
     driverCarryingBars: number   // oz of gold bars currently in transit
     driverCapUpgrades: number    // Larger Carrier upgrade level (0–3)
-    vaultFlakes: number          // oz of raw flakes deposited at the bank vault
-    vaultBars: number            // oz of gold bars deposited at the bank vault
-    goldBarsCertified: number    // bars certified by Assayer (sell at full bar premium)
+    goldBarsCertified: number    // bars certified by Assayer (collect at 1.2× gold bonus)
 
     // Changelog tracking (persisted)
     lastSeenChangelogVersion: string  // last changelog version player acknowledged
 
     // Lifetime stats (persisted, never reset)
     totalGoldExtracted: number  // cumulative gold panned across all runs
-    totalMoneyEarned: number    // cumulative money received from all sales
-    peakRunMoney: number        // highest runMoneyEarned in a single run
 
     // Settings (persisted)
     timePlayed: number // total ticks played
@@ -235,10 +242,7 @@ export type GameState = {
     loadFurnace: () => void  // transfer gold flakes → furnaceFilled (up to FURNACE_CAPACITY)
     toggleFurnace: () => void // toggle furnaceRunning switch
     collectBars: () => void  // move furnaceBars → goldBars
-    collectGold: () => void  // pack all available gold into pocket (pre-travel; also used by driver)
-    certifyBars: () => boolean  // pay CERT_FEE, move goldBars → goldBarsCertified
-    sellGold: () => void // sell goldBars (with furnace) or gold flakes (without)
-    sellVault: () => void // sell raw gold flakes stored in bank vault
+    certifyBars: () => boolean  // pay CERT_FEE in gold, move goldBars → goldBarsCertified (collect at 1.2×)
     buyUpgrade: (upgrade: string) => boolean // returns success
 
     // Hiring Hall actions (#113, #114)
@@ -254,7 +258,7 @@ export type GameState = {
     dismissToast: (id: number) => void
 
     // Floating numbers
-    addFloatingNumber: (resource: 'gold' | 'money', amount: number) => void
+    addFloatingNumber: (resource: 'gold', amount: number) => void
 
     // Settings
     setDarkMode: (dark: boolean) => void
@@ -306,11 +310,12 @@ export function getTravelDurationTicks(vehicleTier: number): number {
 }
 
 // Constants
-export const SMELTING_FEE_PERCENT = 0.15;   // 15% fee when selling raw flakes
-export const GOLD_BAR_PRICE_MULTIPLIER = 1.2; // bars sell at 20% premium over market price
-export const FURNACE_CAPACITY = 10;        // oz of gold flakes the furnace holds
+export const GOLD_BAR_CERTIFIED_BONUS = 1.2; // certified bars yield 20% more gold oz when collected
+export const CERT_FEE = 25;                   // gold oz to certify all bars in hand
+export const FURNACE_CAPACITY = 10;           // oz of gold flakes the furnace holds
 export const SMELT_RATE_BASE = 1.0;        // oz flakes → bars per second (× furnaceGear)
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
+export const FLAKES_HAUL_FEE = 0.15; // 15% lost when driver delivers raw flakes — smelt into bars to avoid
 
 // Driver carrier constants
 export const DRIVER_BASE_CAPACITY = 10;    // oz per trip at no upgrades
@@ -328,52 +333,6 @@ export const SHOVEL_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 export const PAN_TIER_COSTS = [10, 50, 200, 800, 3000] as const;
 
 // Wage system - base wages per second
-export const WORKER_WAGES = {
-    shovel: 0.10,           // Miners
-    pan: 0.15,              // Prospectors
-    haulerWorker: 0.08,     // Haulers
-    sluiceWorker: 0.20,     // Sluice Operators
-    furnaceWorker: 0.22,    // Furnace Operators
-    detectorWorker: 0.18,   // Detector Operators
-};
-
-export const WAGE_SCALING_MULTIPLIER = 1.15; // 15% increase per additional worker of same type
-
-// Calculate wage for a single worker based on how many of that type exist
-export function getWorkerWage(workerType: keyof typeof WORKER_WAGES, count: number): number {
-    const baseWage = WORKER_WAGES[workerType];
-    if (count === 0) return 0;
-    return baseWage * Math.pow(WAGE_SCALING_MULTIPLIER, count - 1);
-}
-
-// Calculate total wage cost for all workers of a type
-export function getTotalWageForType(workerType: keyof typeof WORKER_WAGES, count: number): number {
-    let total = 0;
-    for (let i = 1; i <= count; i++) {
-        total += getWorkerWage(workerType, i);
-    }
-    return total;
-}
-
-// Calculate total payroll across all worker types
-export function getTotalPayroll(state: {
-    shovels: number;
-    pans: number;
-    haulers: number;
-    sluiceWorkers: number;
-    furnaceWorkers: number;
-    bankerWorkers: number;
-    detectorWorkers: number;
-}): number {
-    return (
-        getTotalWageForType('shovel', state.shovels) +
-        getTotalWageForType('pan', state.pans) +
-        getTotalWageForType('haulerWorker', state.haulers) +
-        getTotalWageForType('sluiceWorker', state.sluiceWorkers) +
-        getTotalWageForType('furnaceWorker', state.furnaceWorkers) +
-        getTotalWageForType('detectorWorker', state.detectorWorkers)
-    );
-}
 
 export function getUpgradeCost(baseUpgrade: string, owned: number): number {
     const upgrade = UPGRADES[baseUpgrade as keyof typeof UPGRADES];
@@ -388,15 +347,6 @@ export const PROSPECTOR_PAN_RATE = 0.4;        // pan/sec per power unit    (1.5
 export const SLUICE_DRAIN_BOOST_RATE = 2 / 15; // drain multiplier per power unit (0.5 / 3.75)
 export const SLUICE_EXTRACTION_RATE = 4 / 150; // extraction bonus per power unit (0.1 / 3.75)
 export const DETECTOR_PROGRESS_RATE = 2 / 15;  // spots/sec per power unit  (0.5 / 3.75)
-
-// Flat wage per rarity tier ($/sec per actively working employee)
-export const EMPLOYEE_WAGES: Record<import('./schema').Rarity, number> = {
-    common: 0.15,
-    uncommon: 0.30,
-    rare: 0.55,
-    epic: 1.00,
-    legendary: 1.80,
-};
 
 /** Primary stat power for a given role */
 export function getEmployeeRolePower(e: Employee, role: Role): number {
@@ -439,13 +389,6 @@ export function countAssigned(employees: Employee[], role: Role): number {
     return employees.filter(e => e.assignedRole === role).length;
 }
 
-/** Total wage cost per second for all assigned employees */
-export function getEmployeePayroll(employees: Employee[]): number {
-    return employees
-        .filter(e => e.assignedRole !== null)
-        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
-}
-
 // ─── Employee generation (Hiring Hall, #113) ─────────────────────────────────
 
 export const HIRE_COSTS: Record<import('./schema').Rarity, number> = {
@@ -461,8 +404,7 @@ export function getHireCost(e: Employee): number {
 }
 
 // Assayer certification (#116)
-export const CERT_FEE = 25;                    // flat fee to certify all bars in hand
-export const UNCERTIFIED_BAR_PENALTY = 0.10;  // 10% deducted from uncertified bar sale price
+// CERT_FEE is defined above (line ~293). UNCERTIFIED_BAR_PENALTY removed (no penalty in gold-as-currency model).
 
 // Role slot upgrades (#117) — extra slots beyond the defaults (miner:5, hauler:3, prospector:5, sluiceOp:3, furnaceOp:2, detectorOp:2)
 export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 };
@@ -544,7 +486,6 @@ export const gameStore = createStore<GameState>()(
             dirt: 0,
             paydirt: 0,
             gold: 0,
-            money: 0,
 
             // Employees (v29)
             employees: [],
@@ -576,7 +517,7 @@ export const gameStore = createStore<GameState>()(
             unlockedTown: false,
 
             // Season / commission system
-            runMoneyEarned: 0,
+            runGoldMined: 0,
             npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
             pendingCommission: null,
 
@@ -592,12 +533,6 @@ export const gameStore = createStore<GameState>()(
             travelProgress: 0,
             travelDestination: 'mine' as const,
             driverTripTicks: 0,
-            goldInPocket: 0,
-
-            // Gold market price
-            goldPrice: 1.0,
-            lastGoldPriceUpdate: 0,
-            goldPriceHistory: [1.0],
 
             // Metal detector
             richDirtInBucket: 0,
@@ -620,17 +555,13 @@ export const gameStore = createStore<GameState>()(
             driverCarryingFlakes: 0,
             driverCarryingBars: 0,
             driverCapUpgrades: 0,
-            vaultFlakes: 0,
-            vaultBars: 0,
             goldBarsCertified: 0,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV32().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV34().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
-            totalMoneyEarned: 0,
-            peakRunMoney: 0,
 
             // Settings
             timePlayed: 0,
@@ -662,7 +593,6 @@ export const gameStore = createStore<GameState>()(
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
-                    money: 0,
                     employees: [],
                     carts: 0,
                     hasSluiceBox: false,
@@ -674,17 +604,13 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
-                    runMoneyEarned: 0,
+                    runGoldMined: 0,
                     vehicleTier: 0,
                     hasDriver: false,
                     isTraveling: false,
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
-                    goldInPocket: 0,
-                    goldPrice: 1.0,
-                    lastGoldPriceUpdate: 0,
-                    goldPriceHistory: [1.0],
                     richDirtInBucket: 0,
                     richDirtInSluice: 0,
                     hasMetalDetector: false,
@@ -701,8 +627,6 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
                     driverCapUpgrades: 0,
-                    vaultFlakes: 0,
-                    vaultBars: 0,
                     goldBarsCertified: 0,
                     _accumulator: 0,
                     devMode: false,
@@ -728,7 +652,6 @@ export const gameStore = createStore<GameState>()(
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
-                    money: 0,
                     employees: [],
                     roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
                     storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
@@ -746,7 +669,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
-                    runMoneyEarned: 0,
+                    runGoldMined: 0,
                     npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
                     pendingCommission: null,
                     bucketUpgrades: 0,
@@ -758,10 +681,6 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
-                    goldInPocket: 0,
-                    goldPrice: 1.0,
-                    lastGoldPriceUpdate: 0,
-                    goldPriceHistory: [1.0],
                     timePlayed: 0,
                     darkMode: false,
                     richDirtInBucket: 0,
@@ -780,13 +699,9 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
                     driverCapUpgrades: 0,
-                    vaultFlakes: 0,
-                    vaultBars: 0,
                     goldBarsCertified: 0,
-                    lastSeenChangelogVersion: defaultSaveV32().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV34().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
-                    totalMoneyEarned: 0,
-                    peakRunMoney: 0,
                     _accumulator: 0,
                     devMode: false,
                     devLogs: [],
@@ -809,7 +724,6 @@ export const gameStore = createStore<GameState>()(
                     dirt: s.dirt,
                     paydirt: s.paydirt,
                     gold: s.gold,
-                    money: s.money,
                     employees: s.employees,
                     roleSlots: s.roleSlots,
                     storyNPCs: s.storyNPCs,
@@ -827,7 +741,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: s.furnaceGear,
                     unlockedPanning: s.unlockedPanning,
                     unlockedTown: s.unlockedTown,
-                    runMoneyEarned: s.runMoneyEarned,
+                    runGoldMined: s.runGoldMined,
                     npcLevels: s.npcLevels,
                     pendingCommission: s.pendingCommission,
                     bucketUpgrades: s.bucketUpgrades,
@@ -837,12 +751,8 @@ export const gameStore = createStore<GameState>()(
                     hasDriver: s.hasDriver,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
-                    goldPrice: s.goldPrice,
-                    lastGoldPriceUpdate: s.lastGoldPriceUpdate,
                     lastSeenChangelogVersion: s.lastSeenChangelogVersion,
                     totalGoldExtracted: s.totalGoldExtracted,
-                    totalMoneyEarned: s.totalMoneyEarned,
-                    peakRunMoney: s.peakRunMoney,
                     richDirtInBucket: s.richDirtInBucket,
                     richDirtInSluice: s.richDirtInSluice,
                     hasMetalDetector: s.hasMetalDetector,
@@ -859,8 +769,6 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingFlakes: s.driverCarryingFlakes,
                     driverCarryingBars: s.driverCarryingBars,
                     driverCapUpgrades: s.driverCapUpgrades,
-                    vaultFlakes: s.vaultFlakes,
-                    vaultBars: s.vaultBars,
                     goldBarsCertified: s.goldBarsCertified,
                 };
                 return JSON.stringify(save, null, 2);
@@ -891,7 +799,6 @@ export const gameStore = createStore<GameState>()(
                     dirt: migrated.dirt,
                     paydirt: migrated.paydirt,
                     gold: migrated.gold,
-                    money: migrated.money,
                     employees: migrated.employees,
                     roleSlots: migrated.roleSlots,
                     storyNPCs: migrated.storyNPCs,
@@ -909,7 +816,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: migrated.furnaceGear,
                     unlockedPanning: migrated.unlockedPanning,
                     unlockedTown: migrated.unlockedTown,
-                    runMoneyEarned: migrated.runMoneyEarned,
+                    runGoldMined: migrated.runGoldMined,
                     npcLevels: migrated.npcLevels,
                     pendingCommission: migrated.pendingCommission,
                     bucketUpgrades: migrated.bucketUpgrades,
@@ -919,12 +826,8 @@ export const gameStore = createStore<GameState>()(
                     hasDriver: migrated.hasDriver,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
-                    goldPrice: migrated.goldPrice,
-                    lastGoldPriceUpdate: migrated.lastGoldPriceUpdate,
                     lastSeenChangelogVersion: migrated.lastSeenChangelogVersion,
                     totalGoldExtracted: migrated.totalGoldExtracted,
-                    totalMoneyEarned: migrated.totalMoneyEarned,
-                    peakRunMoney: migrated.peakRunMoney,
                     richDirtInBucket: migrated.richDirtInBucket,
                     richDirtInSluice: migrated.richDirtInSluice,
                     hasMetalDetector: migrated.hasMetalDetector,
@@ -941,8 +844,6 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingFlakes: migrated.driverCarryingFlakes,
                     driverCarryingBars: migrated.driverCarryingBars,
                     driverCapUpgrades: migrated.driverCapUpgrades,
-                    vaultFlakes: migrated.vaultFlakes,
-                    vaultBars: migrated.vaultBars,
                     goldBarsCertified: migrated.goldBarsCertified,
                 }));
                 // Apply darkMode immediately
@@ -1098,21 +999,15 @@ export const gameStore = createStore<GameState>()(
             startTravel: (destination: 'mine' | 'town') => {
                 const s = get();
                 if (s.isTraveling || s.location === destination) return;
-                // Auto-collect before departure so goldInPocket is always accurate (#106)
-                const allBars = s.goldBars + s.furnaceBars;
                 set({
                     isTraveling: true,
                     travelDestination: destination,
                     travelProgress: 0,
-                    // Collect any ready furnace bars into goldBars before snapshotting
-                    goldBars: s.hasFurnace ? allBars : s.goldBars,
-                    furnaceBars: 0,
-                    goldInPocket: destination === 'town' ? (s.hasFurnace ? allBars : s.gold) : 0,
                 });
             },
 
             cancelTravel: () => {
-                set({ isTraveling: false, travelProgress: 0, goldInPocket: 0 });
+                set({ isTraveling: false, travelProgress: 0 });
             },
 
             buyVehicle: (tier: number) => {
@@ -1121,8 +1016,8 @@ export const gameStore = createStore<GameState>()(
                 if (tier <= s.vehicleTier) return false;
                 if (tier !== s.vehicleTier + 1) return false; // must buy in order
                 const tierData = VEHICLE_TIERS[tier as 1|2|3];
-                if (s.money < tierData.cost) return false;
-                set({ money: s.money - tierData.cost, vehicleTier: tier });
+                if (s.gold < tierData.cost) return false;
+                set({ gold: s.gold - tierData.cost, vehicleTier: tier });
                 get().addToast(`🚗 ${tierData.name} purchased! Travel: ${tierData.travelSecs}s`, 'success');
                 return true;
             },
@@ -1131,8 +1026,8 @@ export const gameStore = createStore<GameState>()(
                 const s = get();
                 if (s.hasDriver) return false;
                 if (s.vehicleTier < 2) return false; // requires Steam Wagon
-                if (s.money < DRIVER_COST) return false;
-                set({ money: s.money - DRIVER_COST, hasDriver: true });
+                if (s.gold < DRIVER_COST) return false;
+                set({ gold: s.gold - DRIVER_COST, hasDriver: true });
                 get().addToast('🤠 Driver hired! He will auto-sell your gold.', 'success');
                 return true;
             },
@@ -1144,9 +1039,9 @@ export const gameStore = createStore<GameState>()(
                 const emp = s.draftPool.find(e => e.id === employeeId);
                 if (!emp) return false;
                 const cost = HIRE_COSTS[emp.rarity];
-                if (s.money < cost) return false;
+                if (s.gold < cost) return false;
                 set({
-                    money: s.money - cost,
+                    gold: s.gold - cost,
                     draftPool: s.draftPool.filter(e => e.id !== employeeId),
                     employees: [...s.employees, emp],
                 });
@@ -1160,13 +1055,13 @@ export const gameStore = createStore<GameState>()(
             refreshDraftPool: () => {
                 const s = get();
                 const isInitial = s.draftPool.length === 0;
-                if (!isInitial && s.money < s.draftPoolRefreshCost) return false;
+                if (!isInitial && s.gold < s.draftPoolRefreshCost) return false;
                 const tavernLevel = s.npcLevels.tavernKeeper;
                 const poolSize = tavernLevel >= 4 ? 6 : tavernLevel >= 2 ? 4 : 2;
                 const maxRarity: import('./schema').Rarity =
                     tavernLevel >= 4 ? 'legendary' : tavernLevel >= 3 ? 'epic' : tavernLevel >= 2 ? 'rare' : 'uncommon';
                 set({
-                    money: isInitial ? s.money : s.money - s.draftPoolRefreshCost,
+                    gold: isInitial ? s.gold : s.gold - s.draftPoolRefreshCost,
                     draftPool: _generateDraftPool(maxRarity, poolSize),
                 });
                 return true;
@@ -1191,73 +1086,9 @@ export const gameStore = createStore<GameState>()(
                 const costs = ROLE_SLOT_COSTS[role];
                 if (extra >= costs.length) return false;
                 const cost = costs[extra];
-                if (s.money < cost) return false;
-                set({ money: s.money - cost, roleSlots: { ...s.roleSlots, [role]: s.roleSlots[role] + 1 } });
+                if (s.gold < cost) return false;
+                set({ gold: s.gold - cost, roleSlots: { ...s.roleSlots, [role]: s.roleSlots[role] + 1 } });
                 return true;
-            },
-
-            sellGold: () => {
-                const s = get();
-                if (s.hasFurnace) {
-                    // With furnace: sell certified + uncertified bars
-                    // Certified bars → full bar premium; uncertified → bar premium minus UNCERTIFIED_BAR_PENALTY
-                    const totalSellable = Math.min(s.goldBars + s.goldBarsCertified, s.goldInPocket);
-                    if (totalSellable < 0.01) return;
-                    const certifiedSell = Math.min(s.goldBarsCertified, totalSellable);
-                    const uncertifiedSell = totalSellable - certifiedSell;
-                    const certValue = certifiedSell * s.goldPrice * GOLD_BAR_PRICE_MULTIPLIER;
-                    const uncertValue = uncertifiedSell * s.goldPrice * GOLD_BAR_PRICE_MULTIPLIER * (1 - UNCERTIFIED_BAR_PENALTY);
-                    const finalValue = certValue + uncertValue;
-                    const newRunMoney = s.runMoneyEarned + finalValue;
-                    set({
-                        money: s.money + finalValue,
-                        runMoneyEarned: newRunMoney,
-                        goldBars: Math.max(0, s.goldBars - uncertifiedSell),
-                        goldBarsCertified: Math.max(0, s.goldBarsCertified - certifiedSell),
-                        goldInPocket: 0,
-                        totalMoneyEarned: s.totalMoneyEarned + finalValue,
-                        peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
-                    });
-                    get().addFloatingNumber('money', finalValue);
-                } else {
-                    // Without furnace: sell raw flakes carried to town (15% fee)
-                    const sellable = Math.min(s.gold, s.goldInPocket);
-                    if (sellable < 0.01) return;
-                    const baseValue = sellable * s.goldPrice;
-                    const fee = baseValue * SMELTING_FEE_PERCENT;
-                    const finalValue = baseValue - fee;
-                    const newRunMoney = s.runMoneyEarned + finalValue;
-                    set({
-                        money: s.money + finalValue,
-                        runMoneyEarned: newRunMoney,
-                        gold: s.gold - sellable,
-                        goldInPocket: 0,
-                        totalMoneyEarned: s.totalMoneyEarned + finalValue,
-                        peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
-                    });
-                    get().addFloatingNumber('money', finalValue);
-                }
-            },
-
-            sellVault: () => {
-                const s = get();
-                if (s.vaultFlakes < 0.01 && s.vaultBars < 0.01) return;
-                // Bars sell at premium price (no fee)
-                const barsValue = s.vaultBars * s.goldPrice * GOLD_BAR_PRICE_MULTIPLIER;
-                // Flakes sell with 15% fee
-                const flakesBase = s.vaultFlakes * s.goldPrice;
-                const flakesValue = flakesBase - flakesBase * SMELTING_FEE_PERCENT;
-                const finalValue = barsValue + flakesValue;
-                const newRunMoney = s.runMoneyEarned + finalValue;
-                set({
-                    vaultFlakes: 0,
-                    vaultBars: 0,
-                    money: s.money + finalValue,
-                    runMoneyEarned: newRunMoney,
-                    totalMoneyEarned: s.totalMoneyEarned + finalValue,
-                    peakRunMoney: Math.max(s.peakRunMoney, newRunMoney),
-                });
-                get().addFloatingNumber('money', finalValue);
             },
 
             loadFurnace: () => {
@@ -1279,30 +1110,22 @@ export const gameStore = createStore<GameState>()(
             },
 
             collectBars: () => {
+                // Redeems furnace bars and any gold bars in inventory back to spendable gold.
+                // Certified bars yield GOLD_BAR_CERTIFIED_BONUS (1.2×).
                 set((s) => {
-                    if (s.furnaceBars <= 0) return s;
-                    return { goldBars: s.goldBars + s.furnaceBars, furnaceBars: 0 };
-                });
-            },
-
-            collectGold: () => {
-                // Packs all available gold into goldInPocket for the next trip to town.
-                // With furnace: also flushes furnaceBars into goldBars first.
-                set((s) => {
-                    if (s.hasFurnace) {
-                        const allBars = s.goldBars + s.furnaceBars;
-                        return { goldBars: allBars, furnaceBars: 0, goldInPocket: allBars };
-                    }
-                    return { goldInPocket: s.gold };
+                    if (s.furnaceBars <= 0 && s.goldBars <= 0 && s.goldBarsCertified <= 0) return s;
+                    const certifiedValue = s.goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS;
+                    const totalGold = s.furnaceBars + s.goldBars + certifiedValue;
+                    return { gold: s.gold + totalGold, furnaceBars: 0, goldBars: 0, goldBarsCertified: 0 };
                 });
             },
 
             certifyBars: () => {
                 const s = get();
                 if (!s.storyNPCs.assayerArrived) return false;
-                if (s.money < CERT_FEE) return false;
+                if (s.gold < CERT_FEE) return false;
                 if (s.goldBars < 0.001) return false;
-                set({ money: s.money - CERT_FEE, goldBarsCertified: s.goldBarsCertified + s.goldBars, goldBars: 0 });
+                set({ gold: s.gold - CERT_FEE, goldBarsCertified: s.goldBarsCertified + s.goldBars, goldBars: 0 });
                 return true;
             },
 
@@ -1314,9 +1137,9 @@ export const gameStore = createStore<GameState>()(
                     const tier = s.scoopPower - 1; // 0-indexed current tier
                     if (tier >= MAX_TOOL_TIER) return false;
                     const cost = SHOVEL_TIER_COSTS[tier];
-                    if (s.money >= cost) {
+                    if (s.gold >= cost) {
                         set({
-                            money: s.money - cost,
+                            gold: s.gold - cost,
                             scoopPower: s.scoopPower + 1,
                         });
                         return true;
@@ -1325,85 +1148,85 @@ export const gameStore = createStore<GameState>()(
                     const tier = s.panPower - 1; // 0-indexed current tier
                     if (tier >= MAX_TOOL_TIER) return false;
                     const cost = PAN_TIER_COSTS[tier];
-                    if (s.money >= cost) {
+                    if (s.gold >= cost) {
                         set({
-                            money: s.money - cost,
+                            gold: s.gold - cost,
                             panPower: s.panPower + 1,
                         });
                         return true;
                     }
                 } else if (upgrade === 'betterSluice') {
                     const cost = getUpgradeCost('betterSluice', s.sluiceGear - 1);
-                    if (s.money >= cost && s.hasSluiceBox) {
+                    if (s.gold >= cost && s.hasSluiceBox) {
                         set({
-                            money: s.money - cost,
+                            gold: s.gold - cost,
                             sluiceGear: s.sluiceGear + 1,
                         });
                         return true;
                     }
                 } else if (upgrade === 'betterFurnace') {
                     const cost = getUpgradeCost('betterFurnace', s.furnaceGear - 1);
-                    if (s.money >= cost && s.hasFurnace) {
+                    if (s.gold >= cost && s.hasFurnace) {
                         set({
-                            money: s.money - cost,
+                            gold: s.gold - cost,
                             furnaceGear: s.furnaceGear + 1,
                         });
                         return true;
                     }
                 } else if (upgrade === 'sluiceBox') {
                     const cost = EQUIPMENT.sluiceBox.cost;
-                    if (s.money >= cost && !s.hasSluiceBox) {
-                        set({ money: s.money - cost, hasSluiceBox: true });
+                    if (s.gold >= cost && !s.hasSluiceBox) {
+                        set({ gold: s.gold - cost, hasSluiceBox: true });
                         get().addToast('🚿 Sluice Box purchased! Sluice Operators now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'furnace') {
                     const cost = EQUIPMENT.furnace.cost;
-                    if (s.money >= cost && !s.hasFurnace) {
-                        set({ money: s.money - cost, hasFurnace: true });
-                        get().addToast('⚗️ Furnace purchased! Furnace Operators now available. Sell fee removed.', 'success');
+                    if (s.gold >= cost && !s.hasFurnace) {
+                        set({ gold: s.gold - cost, hasFurnace: true });
+                        get().addToast('⚗️ Furnace purchased! Furnace Operators now available.', 'success');
                         return true;
                     }
                 } else if (upgrade === 'bucketUpgrade') {
                     if (s.bucketUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
                     const cost = BUCKET_UPGRADE_COSTS[s.bucketUpgrades];
-                    if (s.money >= cost) {
-                        set({ money: s.money - cost, bucketUpgrades: s.bucketUpgrades + 1 });
+                    if (s.gold >= cost) {
+                        set({ gold: s.gold - cost, bucketUpgrades: s.bucketUpgrades + 1 });
                         return true;
                     }
                 } else if (upgrade === 'panCapUpgrade') {
                     if (s.panCapUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
                     const cost = PAN_CAP_UPGRADE_COSTS[s.panCapUpgrades];
-                    if (s.money >= cost) {
-                        set({ money: s.money - cost, panCapUpgrades: s.panCapUpgrades + 1 });
+                    if (s.gold >= cost) {
+                        set({ gold: s.gold - cost, panCapUpgrades: s.panCapUpgrades + 1 });
                         return true;
                     }
                 } else if (upgrade === 'panSpeedUpgrade') {
                     if (s.panSpeedUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
                     const cost = PAN_SPEED_UPGRADE_COSTS[s.panSpeedUpgrades];
-                    if (s.money >= cost) {
-                        set({ money: s.money - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
+                    if (s.gold >= cost) {
+                        set({ gold: s.gold - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
                         return true;
                     }
                 } else if (upgrade === 'metalDetector') {
                     const cost = EQUIPMENT.metalDetector.cost;
-                    if (s.money >= cost && !s.hasMetalDetector) {
-                        set({ money: s.money - cost, hasMetalDetector: true });
+                    if (s.gold >= cost && !s.hasMetalDetector) {
+                        set({ gold: s.gold - cost, hasMetalDetector: true });
                         get().addToast('🔍 Metal Detector purchased!', 'success');
                         return true;
                     }
                 } else if (upgrade === 'motherlode') {
                     const cost = EQUIPMENT.motherlode.cost;
-                    if (s.money >= cost && s.hasMetalDetector && !s.hasMotherlode) {
-                        set({ money: s.money - cost, hasMotherlode: true });
+                    if (s.gold >= cost && s.hasMetalDetector && !s.hasMotherlode) {
+                        set({ gold: s.gold - cost, hasMotherlode: true });
                         get().addToast('💎 Motherlode Upgrade installed!', 'success');
                         return true;
                     }
                 } else if (upgrade === 'largerCarrier') {
                     if (s.hasDriver && s.driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES) {
                         const cost = getUpgradeCost('largerCarrier', s.driverCapUpgrades);
-                        if (s.money >= cost) {
-                            set({ money: s.money - cost, driverCapUpgrades: s.driverCapUpgrades + 1 });
+                        if (s.gold >= cost) {
+                            set({ gold: s.gold - cost, driverCapUpgrades: s.driverCapUpgrades + 1 });
                             return true;
                         }
                     }
@@ -1455,18 +1278,15 @@ export const gameStore = createStore<GameState>()(
             selectCommission: (npcId: NPCId | null) => {
                 const s = get();
                 let newNpcLevels = s.npcLevels;
-                let newMoney = 0; // money always resets on season end
                 if (npcId !== null) {
                     const currentLevel = s.npcLevels[npcId] ?? 0;
                     if (currentLevel < 1) return false;
                     const cost = getCommissionCost(npcId, currentLevel);
-                    if (s.money < cost) return false;
-                    newMoney = s.money - cost;
+                    if (s.gold < cost) return false;
                     newNpcLevels = { ...s.npcLevels, [npcId]: currentLevel + 1 };
                 }
 
                 set({
-                    money: newMoney,
                     npcLevels: newNpcLevels,
                     pendingCommission: npcId,
                     // Permanent — keep and update
@@ -1474,12 +1294,11 @@ export const gameStore = createStore<GameState>()(
                     darkMode: s.darkMode,
                     timeScale: s.timeScale,
                     totalGoldExtracted: s.totalGoldExtracted,
-                    totalMoneyEarned: s.totalMoneyEarned,
-                    peakRunMoney: Math.max(s.peakRunMoney, s.runMoneyEarned),
                     seasonNumber: s.seasonNumber + 1,
                     storyNPCs: s.storyNPCs,
                     roleSlots: s.roleSlots,
-                    // Reset run fields
+                    // Reset run fields (gold always resets on season end)
+                    gold: 0,
                     isPaused: false,
                     tickCount: 0,
                     location: 'mine',
@@ -1487,7 +1306,6 @@ export const gameStore = createStore<GameState>()(
                     panFilled: 0,
                     dirt: 0,
                     paydirt: 0,
-                    gold: 0,
                     employees: [],
                     carts: 0,
                     hasSluiceBox: false,
@@ -1499,7 +1317,7 @@ export const gameStore = createStore<GameState>()(
                     furnaceGear: 1,
                     unlockedPanning: false,
                     unlockedTown: false,
-                    runMoneyEarned: 0,
+                    runGoldMined: 0,
                     bucketUpgrades: 0,
                     panCapUpgrades: 0,
                     panSpeedUpgrades: 0,
@@ -1509,9 +1327,6 @@ export const gameStore = createStore<GameState>()(
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
                     driverTripTicks: 0,
-                    goldInPocket: 0,
-                    goldPrice: 1.0,
-                    lastGoldPriceUpdate: 0,
                     sluiceBoxFilled: 0,
                     minersMossFilled: 0,
                     richDirtInBucket: 0,
@@ -1530,8 +1345,7 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
                     driverCapUpgrades: 0,
-                    vaultFlakes: 0,
-                    vaultBars: 0,
+                    goldBarsCertified: 0,
                     _accumulator: 0,
                     toasts: [],
                     floatingNumbers: [],
@@ -1549,36 +1363,20 @@ export const gameStore = createStore<GameState>()(
                     // Increment time played each tick
                     const newTimePlayed = s.timePlayed + 1;
 
-                    // Determine bucket/pan capacity and idle state before payroll
+                    // Determine bucket/pan capacity and idle state
                     const bucketCap = getEffectiveBucketCapacity(s.bucketUpgrades);
                     const panCap = getEffectivePanCapacity(s.panCapUpgrades);
                     const minersIdle = s.bucketFilled >= bucketCap;   // bucket full → miners blocked
                     const prospectsIdle = s.panFilled <= 0;             // pan empty → prospectors blocked
 
-                    // Active payroll excludes idle employees
-                    const assignedMinerWages = s.employees
-                        .filter(e => e.assignedRole === 'miner')
-                        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
-                    const assignedProspectorWages = s.employees
-                        .filter(e => e.assignedRole === 'prospector')
-                        .reduce((sum, e) => sum + EMPLOYEE_WAGES[e.rarity], 0);
-                    const activePayrollPerSec = getEmployeePayroll(s.employees)
-                        - (minersIdle ? assignedMinerWages : 0)
-                        - (prospectsIdle ? assignedProspectorWages : 0);
-                    const activePayrollPerTick = activePayrollPerSec / 60;
-
-                    const canAffordWorkers = s.money >= activePayrollPerTick;
-
-                    // Stat-driven worker power (zero if can't afford or idle)
-                    const miningPower = (canAffordWorkers && !minersIdle)
-                        ? getAssignedPower(s.employees, 'miner') : 0;
-                    const prospectorPower = (canAffordWorkers && !prospectsIdle)
-                        ? getAssignedPower(s.employees, 'prospector') : 0;
-                    const sluiceOpPower = canAffordWorkers ? getAssignedPower(s.employees, 'sluiceOperator') : 0;
-                    const hasActiveHauler = canAffordWorkers && countAssigned(s.employees, 'hauler') > 0;
-                    const hasActiveFurnaceOp = canAffordWorkers && countAssigned(s.employees, 'furnaceOperator') > 0;
-                    const detectorPower = canAffordWorkers ? getAssignedPower(s.employees, 'detectorOperator') : 0;
-                    const certifierPower = (canAffordWorkers && s.npcLevels.assayer >= 2)
+                    // Stat-driven worker power (zero when idle)
+                    const miningPower = minersIdle ? 0 : getAssignedPower(s.employees, 'miner');
+                    const prospectorPower = prospectsIdle ? 0 : getAssignedPower(s.employees, 'prospector');
+                    const sluiceOpPower = getAssignedPower(s.employees, 'sluiceOperator');
+                    const hasActiveHauler = countAssigned(s.employees, 'hauler') > 0;
+                    const hasActiveFurnaceOp = countAssigned(s.employees, 'furnaceOperator') > 0;
+                    const detectorPower = getAssignedPower(s.employees, 'detectorOperator');
+                    const certifierPower = s.npcLevels.assayer >= 2
                         ? getAssignedPower(s.employees, 'certifier') : 0;
 
                     // Automation: miners fill the bucket
@@ -1697,11 +1495,6 @@ export const gameStore = createStore<GameState>()(
                         goldGained = panConsumed * extractionRate * paydirtMultiplier;
                     }
 
-                    // Payroll: deduct wages only for active (non-idle) workers
-                    const moneyAfterPayroll = canAffordWorkers
-                        ? s.money - activePayrollPerTick
-                        : s.money;
-
                     // Player travel progress
                     let newIsTraveling = s.isTraveling;
                     let newTravelProgress = s.travelProgress;
@@ -1720,13 +1513,12 @@ export const gameStore = createStore<GameState>()(
                         }
                     }
 
-                    // Driver round-trip: load bars first (premium), then flakes; deposit to vault
+                    // Driver round-trip: load bars first, then flakes; deposit directly to gold balance
                     let driverLoadedFlakes = 0;
                     let driverLoadedBars = 0;
                     let newDriverCarryingFlakes = s.driverCarryingFlakes;
                     let newDriverCarryingBars = s.driverCarryingBars;
-                    let newVaultFlakes = s.vaultFlakes;
-                    let newVaultBars = s.vaultBars;
+                    let driverDepositedGold = 0;
                     let newDriverTripTicks = s.driverTripTicks;
 
                     if (s.hasDriver) {
@@ -1749,10 +1541,9 @@ export const gameStore = createStore<GameState>()(
                         } else {
                             newDriverTripTicks++;
                             if (newDriverTripTicks === tripDuration) {
-                                // Arrived at town — deposit into vault
-                                newVaultBars += newDriverCarryingBars;
-                                newVaultFlakes += newDriverCarryingFlakes;
-                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver deposited ${(newDriverCarryingBars + newDriverCarryingFlakes).toFixed(2)}oz → vault`);
+                                // Arrived at town — bars at full value; flakes lose 15% haul fee
+                                driverDepositedGold = newDriverCarryingBars + newDriverCarryingFlakes * (1 - FLAKES_HAUL_FEE);
+                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver deposited ${driverDepositedGold.toFixed(2)}oz → gold (bars: ${newDriverCarryingBars.toFixed(2)}, flakes×0.85: ${(newDriverCarryingFlakes * (1 - FLAKES_HAUL_FEE)).toFixed(2)})`);
                                 newDriverCarryingBars = 0;
                                 newDriverCarryingFlakes = 0;
                             }
@@ -1809,24 +1600,11 @@ export const gameStore = createStore<GameState>()(
                     let certFeeCharged = 0;
                     if (certifierPower > 0 && s.hasFurnace && newGoldBars >= 0.001) {
                         const certCycle = Math.max(30, Math.floor(120 / certifierPower));
-                        if (s.tickCount % certCycle === 0 && moneyAfterPayroll >= CERT_FEE) {
+                        if (s.tickCount % certCycle === 0 && s.gold >= CERT_FEE) {
                             certFeeCharged = CERT_FEE;
                             newGoldBarsCertified += newGoldBars;
                             newGoldBars = 0;
                         }
-                    }
-
-                    // Gold market price update
-                    let newGoldPrice = s.goldPrice;
-                    let newLastGoldPriceUpdate = s.lastGoldPriceUpdate;
-                    let newGoldPriceHistory = s.goldPriceHistory;
-                    if (s.tickCount - s.lastGoldPriceUpdate >= GOLD_PRICE_UPDATE_TICKS) {
-                        const swing = (Math.random() - 0.5) * 0.2;
-                        const reversion = (1.0 - s.goldPrice) * 0.1;
-                        newGoldPrice = Math.max(GOLD_PRICE_MIN, Math.min(GOLD_PRICE_MAX, s.goldPrice + swing + reversion));
-                        newLastGoldPriceUpdate = s.tickCount;
-                        newGoldPriceHistory = [...s.goldPriceHistory.slice(-19), newGoldPrice];
-                        if (s.devMode) devEvents.push(`[${s.tickCount}] Gold price → $${newGoldPrice.toFixed(3)}/oz`);
                     }
 
                     // ── NPC Arrival Triggers (#115) ───────────────────────────────────────
@@ -1862,24 +1640,22 @@ export const gameStore = createStore<GameState>()(
                         sluiceOperator: 'Sluice Operator', furnaceOperator: 'Furnace Operator',
                         detectorOperator: 'Detector Operator', certifier: 'Certifier',
                     };
-                    const newEmployees = canAffordWorkers
-                        ? s.employees.map(e => {
-                            if (e.assignedRole === null) return e;
-                            if (e.assignedRole === 'miner' && minersIdle) return e;
-                            if (e.assignedRole === 'prospector' && prospectsIdle) return e;
-                            if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || s.goldBars < 0.001)) return e;
-                            const role = e.assignedRole;
-                            const oldXp = e.xpByRole[role] ?? 0;
-                            const oldLevel = getEmployeeLevel(oldXp, e.rarity);
-                            if (oldLevel >= EMPLOYEE_LEVEL_CAPS[e.rarity]) return e;
-                            const newXp = oldXp + 1;
-                            const newLevel = getEmployeeLevel(newXp, e.rarity);
-                            if (newLevel > oldLevel) {
-                                levelUps.push(`${e.name} reached Level ${newLevel} as ${ROLE_DISPLAY[role]}!`);
-                            }
-                            return { ...e, xpByRole: { ...e.xpByRole, [role]: newXp } };
-                        })
-                        : s.employees;
+                    const newEmployees = s.employees.map(e => {
+                        if (e.assignedRole === null) return e;
+                        if (e.assignedRole === 'miner' && minersIdle) return e;
+                        if (e.assignedRole === 'prospector' && prospectsIdle) return e;
+                        if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || s.goldBars < 0.001)) return e;
+                        const role = e.assignedRole;
+                        const oldXp = e.xpByRole[role] ?? 0;
+                        const oldLevel = getEmployeeLevel(oldXp, e.rarity);
+                        if (oldLevel >= EMPLOYEE_LEVEL_CAPS[e.rarity]) return e;
+                        const newXp = oldXp + 1;
+                        const newLevel = getEmployeeLevel(newXp, e.rarity);
+                        if (newLevel > oldLevel) {
+                            levelUps.push(`${e.name} reached Level ${newLevel} as ${ROLE_DISPLAY[role]}!`);
+                        }
+                        return { ...e, xpByRole: { ...e.xpByRole, [role]: newXp } };
+                    });
                     // ─────────────────────────────────────────────────────────────────────
 
                     return {
@@ -1899,7 +1675,7 @@ export const gameStore = createStore<GameState>()(
                         patchCapacity: newPatchCapacity,
                         dirt: s.dirt + dirtChange,
                         paydirt: s.paydirt + paydirtChange,
-                        gold: s.gold + goldGained - autoFurnaceLoad - driverLoadedFlakes,
+                        gold: s.gold + goldGained - autoFurnaceLoad - driverLoadedFlakes + driverDepositedGold - certFeeCharged,
                         goldBars: Math.max(0, newGoldBars - driverLoadedBars),
                         goldBarsCertified: newGoldBarsCertified,
                         furnaceFilled: newFurnaceFilled,
@@ -1908,14 +1684,8 @@ export const gameStore = createStore<GameState>()(
                         driverCarryingFlakes: newDriverCarryingFlakes,
                         driverCarryingBars: newDriverCarryingBars,
                         driverCapUpgrades: s.driverCapUpgrades,
-                        vaultFlakes: newVaultFlakes,
-                        vaultBars: newVaultBars,
-                        money: moneyAfterPayroll - certFeeCharged,
-                        runMoneyEarned: s.runMoneyEarned,
+                        runGoldMined: s.runGoldMined + goldGained,
                         totalGoldExtracted: s.totalGoldExtracted + goldGained,
-                        totalMoneyEarned: s.totalMoneyEarned,
-                        peakRunMoney: s.peakRunMoney,
-                        goldInPocket: s.goldInPocket,
                         isTraveling: newIsTraveling,
                         travelProgress: newTravelProgress,
                         location: newLocation,
@@ -1923,9 +1693,6 @@ export const gameStore = createStore<GameState>()(
                         npcLevels: newNpcLevels,
                         unlockedTown: s.unlockedTown || townJustUnlocked,
                         driverTripTicks: newDriverTripTicks,
-                        goldPrice: newGoldPrice,
-                        lastGoldPriceUpdate: newLastGoldPriceUpdate,
-                        goldPriceHistory: newGoldPriceHistory,
                         devLogs: s.devMode && devEvents.length > 0
                             ? [...devEvents, ...s.devLogs].slice(0, 100)
                             : s.devLogs,
@@ -1960,7 +1727,6 @@ export const gameStore = createStore<GameState>()(
             dirt: state.dirt,
             paydirt: state.paydirt,
             gold: state.gold,
-            money: state.money,
             employees: state.employees,
             roleSlots: state.roleSlots,
             storyNPCs: state.storyNPCs,
@@ -1978,7 +1744,7 @@ export const gameStore = createStore<GameState>()(
             furnaceGear: state.furnaceGear,
             unlockedPanning: state.unlockedPanning,
             unlockedTown: state.unlockedTown,
-            runMoneyEarned: state.runMoneyEarned,
+            runGoldMined: state.runGoldMined,
             npcLevels: state.npcLevels,
             pendingCommission: state.pendingCommission,
             bucketUpgrades: state.bucketUpgrades,
@@ -1988,12 +1754,8 @@ export const gameStore = createStore<GameState>()(
             hasDriver: state.hasDriver,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
-            goldPrice: state.goldPrice,
-            lastGoldPriceUpdate: state.lastGoldPriceUpdate,
             lastSeenChangelogVersion: state.lastSeenChangelogVersion,
             totalGoldExtracted: state.totalGoldExtracted,
-            totalMoneyEarned: state.totalMoneyEarned,
-            peakRunMoney: state.peakRunMoney,
             richDirtInBucket: state.richDirtInBucket,
             richDirtInSluice: state.richDirtInSluice,
             hasMetalDetector: state.hasMetalDetector,
@@ -2010,8 +1772,6 @@ export const gameStore = createStore<GameState>()(
             driverCarryingFlakes: state.driverCarryingFlakes,
             driverCarryingBars: state.driverCarryingBars,
             driverCapUpgrades: state.driverCapUpgrades,
-            vaultFlakes: state.vaultFlakes,
-            vaultBars: state.vaultBars,
             goldBarsCertified: state.goldBarsCertified,
         }),
         migrate: (persisted, fromVersion) => {
@@ -2019,7 +1779,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV32();
+                return defaultSaveV34();
             }
         },
         onRehydrateStorage: ()=> (state) => {
@@ -2040,18 +1800,10 @@ export const gameStore = createStore<GameState>()(
                 state.goldBars += state.driverCarryingBars;
                 state.driverCarryingBars = 0;
             }
-            state.goldPriceHistory = [state.goldPrice];
-            // If lastGoldPriceUpdate is ahead of tickCount (e.g. stale value after prestige reset tickCount to 0),
-            // reset it so the price update timer doesn't get stuck indefinitely.
-            if (state.lastGoldPriceUpdate > state.tickCount) {
-                state.lastGoldPriceUpdate = 0;
-            }
             if (state.sluiceBoxFilled < 0) state.sluiceBoxFilled = 0;
             if (state.minersMossFilled < 0) state.minersMossFilled = 0;
             state.devMode = false;
             state.devLogs = [];
-            // Restore gold-in-pocket on reload: if at Town, all current sellable gold was carried there
-            state.goldInPocket = state.location === 'town' ? (state.hasFurnace ? state.goldBars : state.gold) : 0;
             // Apply persisted dark mode preference
             if (state.darkMode) {
                 document.documentElement.classList.add('dark');

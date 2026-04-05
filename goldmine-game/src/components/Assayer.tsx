@@ -1,10 +1,9 @@
-import { gameStore, useGameStore, CERT_FEE, UNCERTIFIED_BAR_PENALTY } from '../store/gameStore';
+import { gameStore, useGameStore, CERT_FEE, GOLD_BAR_CERTIFIED_BONUS } from '../store/gameStore';
 
 export function Assayer() {
-    const money = useGameStore(s => s.money);
+    const gold = useGameStore(s => s.gold);
     const goldBars = useGameStore(s => s.goldBars);
     const goldBarsCertified = useGameStore(s => s.goldBarsCertified);
-    const goldPrice = useGameStore(s => s.goldPrice);
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
     const employees = useGameStore(s => s.employees);
@@ -20,16 +19,15 @@ export function Assayer() {
         );
     }
 
-    const certifiedPricePerBar = goldPrice * 1.2;
-    const uncertifiedPricePerBar = goldPrice * 1.2 * (1 - UNCERTIFIED_BAR_PENALTY);
-    const canCertify = money >= CERT_FEE && goldBars >= 0.001;
+    const canCertify = gold >= CERT_FEE && goldBars >= 0.001;
+    const certifiedBonus = ((GOLD_BAR_CERTIFIED_BONUS - 1) * 100).toFixed(0);
 
     return (
         <div className="space-y-4">
             <h3 className="text-lg font-semibold text-amber-800">⚖️ Assayer Office</h3>
             <p className="text-xs text-amber-700">
-                Certified bars sell at the full <span className="font-semibold">${certifiedPricePerBar.toFixed(2)}/oz</span> premium.
-                Uncertified bars incur a {(UNCERTIFIED_BAR_PENALTY * 100).toFixed(0)}% fee — only <span className="font-semibold">${uncertifiedPricePerBar.toFixed(2)}/oz</span>.
+                Certified bars yield <span className="font-semibold">+{certifiedBonus}% gold</span> when collected.
+                Pay {CERT_FEE} oz to certify all bars in hand.
             </p>
 
             {/* Current inventory */}
@@ -41,6 +39,9 @@ export function Assayer() {
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-center">
                     <p className="text-xs text-amber-600 mb-0.5">Certified Bars</p>
                     <p className="text-lg font-bold text-amber-800">{goldBarsCertified.toFixed(2)} oz</p>
+                    {goldBarsCertified > 0 && (
+                        <p className="text-xs text-amber-600">→ {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz on collect</p>
+                    )}
                 </div>
             </div>
 
@@ -48,20 +49,20 @@ export function Assayer() {
             <div className="p-3 rounded-xl border border-gray-200 bg-white space-y-2">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Flat certification fee</span>
-                    <span className="font-semibold text-gray-700">${CERT_FEE}</span>
+                    <span className="font-semibold text-gray-700">{CERT_FEE} oz gold</span>
                 </div>
                 <button
                     onClick={() => gameStore.getState().certifyBars()}
                     disabled={!canCertify}
                     className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Certify All Bars (${CERT_FEE})
+                    Certify All Bars ({CERT_FEE} oz)
                 </button>
                 {!canCertify && goldBars < 0.001 && (
                     <p className="text-xs text-gray-400 text-center">No uncertified bars in inventory</p>
                 )}
-                {!canCertify && goldBars >= 0.001 && money < CERT_FEE && (
-                    <p className="text-xs text-red-400 text-center">Not enough money (need ${CERT_FEE})</p>
+                {!canCertify && goldBars >= 0.001 && gold < CERT_FEE && (
+                    <p className="text-xs text-red-400 text-center">Not enough gold (need {CERT_FEE} oz)</p>
                 )}
             </div>
 

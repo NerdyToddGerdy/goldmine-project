@@ -33,7 +33,6 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 export function DevPanel() {
     const timeScale = useGameStore(s => s.timeScale);
     const gold = useGameStore(s => s.gold);
-    const money = useGameStore(s => s.money);
     const bucketUpgrades = useGameStore(s => s.bucketUpgrades);
     const panCapUpgrades = useGameStore(s => s.panCapUpgrades);
     const devLogs = useGameStore(s => s.devLogs);
@@ -54,13 +53,9 @@ export function DevPanel() {
         location: s.location,
         bucketFilled: s.bucketFilled,
         panFilled: s.panFilled,
-        goldInPocket: s.goldInPocket,
         gold: s.gold,
-        money: s.money,
-        goldPrice: s.goldPrice,
-        lastGoldPriceUpdate: s.lastGoldPriceUpdate,
         driverTripTicks: s.driverTripTicks,
-        runMoneyEarned: s.runMoneyEarned,
+        runGoldMined: s.runGoldMined,
         seasonNumber: s.seasonNumber,
     }));
 
@@ -68,26 +63,21 @@ export function DevPanel() {
     const panCap = getEffectivePanCapacity(panCapUpgrades);
 
     const [goldAmount, setGoldAmount] = useState('100');
-    const [moneyAmount, setMoneyAmount] = useState('1000');
     const [bucketAmount, setBucketAmount] = useState(String(bucketCap));
     const [panAmount, setPanAmount] = useState(String(panCap));
 
     const inspectorRows: [string, string][] = [
-        ['tickCount',           String(snap.tickCount)],
-        ['timePlayed',          String(snap.timePlayed)],
-        ['timeScale',           `${snap.timeScale}×`],
-        ['isPaused',            snap.isPaused ? 'yes' : 'no'],
-        ['location',            snap.location],
-        ['bucketFilled',        snap.bucketFilled.toFixed(3)],
-        ['panFilled',           snap.panFilled.toFixed(3)],
-        ['gold',                formatNumber(snap.gold)],
-        ['goldInPocket',        formatNumber(snap.goldInPocket)],
-        ['money',               `$${formatNumber(snap.money)}`],
-        ['goldPrice',           `$${snap.goldPrice.toFixed(3)}`],
-        ['priceAge (ticks)',    String(snap.tickCount - snap.lastGoldPriceUpdate)],
-        ['driverTripTicks',     String(snap.driverTripTicks)],
-        ['runMoneyEarned',      `$${formatNumber(snap.runMoneyEarned)}`],
-        ['seasonNumber',        String(snap.seasonNumber)],
+        ['tickCount',       String(snap.tickCount)],
+        ['timePlayed',      String(snap.timePlayed)],
+        ['timeScale',       `${snap.timeScale}×`],
+        ['isPaused',        snap.isPaused ? 'yes' : 'no'],
+        ['location',        snap.location],
+        ['bucketFilled',    snap.bucketFilled.toFixed(3)],
+        ['panFilled',       snap.panFilled.toFixed(3)],
+        ['gold (oz)',       formatNumber(snap.gold)],
+        ['driverTripTicks', String(snap.driverTripTicks)],
+        ['runGoldMined',    `${formatNumber(snap.runGoldMined)} oz`],
+        ['seasonNumber',    String(snap.seasonNumber)],
     ];
 
     return (
@@ -134,22 +124,6 @@ export function DevPanel() {
                             <button
                                 onClick={() => gameStore.setState({ gold: gold + (parseFloat(goldAmount) || 0) })}
                                 className="px-3 py-1 rounded-lg text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 transition-all"
-                            >
-                                + Add
-                            </button>
-                        </div>
-                        {/* Money */}
-                        <div className="flex items-center gap-2">
-                            <span className="w-20 text-xs text-zinc-600 dark:text-zinc-400">Money ($)</span>
-                            <input
-                                type="number"
-                                value={moneyAmount}
-                                onChange={e => setMoneyAmount(e.target.value)}
-                                className="w-24 px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-sm font-mono text-zinc-900 dark:text-zinc-100"
-                            />
-                            <button
-                                onClick={() => gameStore.setState({ money: money + (parseFloat(moneyAmount) || 0) })}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-green-100 dark:bg-green-900/30 border border-green-400 text-green-800 dark:text-green-300 hover:bg-green-200 transition-all"
                             >
                                 + Add
                             </button>

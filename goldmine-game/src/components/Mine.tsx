@@ -1,55 +1,45 @@
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getEmployeePayroll, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, GOLD_BAR_CERTIFIED_BONUS, getSettlementStage, FLAKES_HAUL_FEE } from "../store/gameStore";
 import { ProgressBar, Tooltip } from "./ui";
+import { Roster } from "./HiringHall";
 import { formatNumber } from "../utils/format";
-import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 export function Mine() {
-    const bucketFilled = useGameStore((s) => s.bucketFilled);
-    const panFilled = useGameStore((s) => s.panFilled);
-    const sluiceBoxFilled = useGameStore((s) => s.sluiceBoxFilled);
-    const minersMossFilled = useGameStore((s) => s.minersMossFilled);
-    const gold = useGameStore((s) => s.gold);
-    const money = useGameStore((s) => s.money);
-    const scoopPower = useGameStore((s) => s.scoopPower);
-    const panPower = useGameStore((s) => s.panPower);
-    const unlockedPanning = useGameStore((s) => s.unlockedPanning);
-    const unlockedTown = useGameStore((s) => s.unlockedTown);
-    const hasSluiceBox = useGameStore((s) => s.hasSluiceBox);
-    const sluiceGear = useGameStore((s) => s.sluiceGear);
+    const {
+        bucketFilled, panFilled, sluiceBoxFilled, minersMossFilled,
+        gold, scoopPower, panPower, unlockedPanning, unlockedTown,
+        hasSluiceBox, sluiceGear, hasFurnace, employees,
+        bucketUpgrades, panCapUpgrades, vehicleTier, seasonNumber,
+        isTraveling, travelProgress, travelDestination,
+        furnaceGear, devMode, tickCount,
+        driverTripTicks, hasDriver, isPaused,
+        hasMetalDetector, richDirtInBucket,
+        detectProgress, detectTarget, patchActive, patchRemaining, patchCapacity,
+        furnaceFilled, furnaceRunning, furnaceBars, goldBars, goldBarsCertified,
+        driverCarryingFlakes, driverCarryingBars, driverCapUpgrades,
+    } = useGameStore(useShallow((s) => ({
+        bucketFilled: s.bucketFilled, panFilled: s.panFilled,
+        sluiceBoxFilled: s.sluiceBoxFilled, minersMossFilled: s.minersMossFilled,
+        gold: s.gold, scoopPower: s.scoopPower, panPower: s.panPower,
+        unlockedPanning: s.unlockedPanning, unlockedTown: s.unlockedTown,
+        hasSluiceBox: s.hasSluiceBox, sluiceGear: s.sluiceGear,
+        hasFurnace: s.hasFurnace, employees: s.employees,
+        bucketUpgrades: s.bucketUpgrades, panCapUpgrades: s.panCapUpgrades,
+        vehicleTier: s.vehicleTier, seasonNumber: s.seasonNumber,
+        isTraveling: s.isTraveling, travelProgress: s.travelProgress,
+        travelDestination: s.travelDestination,
+        furnaceGear: s.furnaceGear, devMode: s.devMode, tickCount: s.tickCount,
+        driverTripTicks: s.driverTripTicks, hasDriver: s.hasDriver, isPaused: s.isPaused,
+        hasMetalDetector: s.hasMetalDetector, richDirtInBucket: s.richDirtInBucket,
+        detectProgress: s.detectProgress, detectTarget: s.detectTarget,
+        patchActive: s.patchActive, patchRemaining: s.patchRemaining, patchCapacity: s.patchCapacity,
+        furnaceFilled: s.furnaceFilled, furnaceRunning: s.furnaceRunning,
+        furnaceBars: s.furnaceBars, goldBars: s.goldBars, goldBarsCertified: s.goldBarsCertified,
+        driverCarryingFlakes: s.driverCarryingFlakes, driverCarryingBars: s.driverCarryingBars,
+        driverCapUpgrades: s.driverCapUpgrades,
+    })));
 
-    const hasFurnace = useGameStore((s) => s.hasFurnace);
-    const employees = useGameStore((s) => s.employees);
-    const bucketUpgrades = useGameStore((s) => s.bucketUpgrades);
-    const panCapUpgrades = useGameStore((s) => s.panCapUpgrades);
-    const vehicleTier = useGameStore((s) => s.vehicleTier);
-    const isTraveling = useGameStore((s) => s.isTraveling);
-    const travelProgress = useGameStore((s) => s.travelProgress);
-    const travelDestination = useGameStore((s) => s.travelDestination);
-    const furnaceGear = useGameStore((s) => s.furnaceGear);
-    const devMode = useGameStore((s) => s.devMode);
-    const tickCount = useGameStore((s) => s.tickCount);
-    const driverTripTicks = useGameStore((s) => s.driverTripTicks);
-    const hasDriver = useGameStore((s) => s.hasDriver);
-    const goldPrice = useGameStore((s) => s.goldPrice);
-    const lastGoldPriceUpdate = useGameStore((s) => s.lastGoldPriceUpdate);
-    const isPaused = useGameStore((s) => s.isPaused);
-    const hasMetalDetector = useGameStore((s) => s.hasMetalDetector);
-    const richDirtInBucket = useGameStore((s) => s.richDirtInBucket);
-    const detectProgress = useGameStore((s) => s.detectProgress);
-    const detectTarget = useGameStore((s) => s.detectTarget);
-    const patchActive = useGameStore((s) => s.patchActive);
-    const patchRemaining = useGameStore((s) => s.patchRemaining);
-    const patchCapacity = useGameStore((s) => s.patchCapacity);
-
-    const furnaceFilled = useGameStore((s) => s.furnaceFilled);
-    const furnaceRunning = useGameStore((s) => s.furnaceRunning);
-    const furnaceBars = useGameStore((s) => s.furnaceBars);
-    const goldBars = useGameStore((s) => s.goldBars);
-
-    const driverCarryingFlakes = useGameStore((s) => s.driverCarryingFlakes);
-    const driverCarryingBars = useGameStore((s) => s.driverCarryingBars);
-    const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
-
+    const settlementName = getSettlementStage(seasonNumber).name;
     const effectiveBucketCap = getEffectiveBucketCapacity(bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(panCapUpgrades);
     // Travel progress bar calculations
@@ -59,9 +49,6 @@ export function Mine() {
     const secsRemaining = Math.ceil((totalTravelTicks - travelProgress) / 60);
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
-    // Payroll widget calculations (per minute)
-    const payrollPerMin = getEmployeePayroll(employees) * 60;
-
     const scoopDirt = () => gameStore.getState().scoopDirt();
     const emptyBucket = () => gameStore.getState().emptyBucket();
     const detectPatch = () => gameStore.getState().detectPatch();
@@ -69,9 +56,7 @@ export function Mine() {
     const panForGold = () => gameStore.getState().panForGold();
     const loadFurnace = () => gameStore.getState().loadFurnace();
     const toggleFurnace = () => gameStore.getState().toggleFurnace();
-    const goldInPocket = useGameStore((s) => s.goldInPocket);
     const collectBars = () => gameStore.getState().collectBars();
-    const collectGold = () => gameStore.getState().collectGold();
     const travelToTown = () => gameStore.getState().startTravel('town');
 
     // Manual actions now benefit from gear upgrades
@@ -113,7 +98,7 @@ export function Mine() {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <span className="font-semibold text-green-900 text-sm">
-                                    {vehicleEmoji} To Town… ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].name})
+                                    {vehicleEmoji} To {settlementName}… ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].name})
                                 </span>
                                 <button
                                     onClick={() => gameStore.getState().cancelTravel()}
@@ -142,28 +127,12 @@ export function Mine() {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {/* Collect Gold — packs pocket before departure */}
-                            {(hasFurnace ? (goldBars + furnaceBars) : gold) > 0.001 && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={collectGold}
-                                        className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold text-sm transition-all"
-                                    >
-                                        🎒 Collect Gold
-                                    </button>
-                                    <span className="text-xs text-gray-500 shrink-0">
-                                        {goldInPocket > 0
-                                            ? `${hasFurnace ? goldInPocket.toFixed(2) + ' bars' : goldInPocket.toFixed(2) + ' oz'} packed`
-                                            : 'Not packed'}
-                                    </span>
-                                </div>
-                            )}
                             <button
                                 onClick={travelToTown}
                                 disabled={isTraveling}
                                 className={`w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed${pulse('travel')}`}
                             >
-                                🏘️ Travel to Town ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
+                                🏘️ Travel to {settlementName} ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
                             </button>
                         </div>
                     )}
@@ -237,7 +206,12 @@ export function Mine() {
                                 <span className="font-semibold">
                                     {driverCarryingBars > 0 && `${formatNumber(driverCarryingBars)} oz bars`}
                                     {driverCarryingBars > 0 && driverCarryingFlakes > 0 && ' + '}
-                                    {driverCarryingFlakes > 0 && `${formatNumber(driverCarryingFlakes)} oz flakes`}
+                                    {driverCarryingFlakes > 0 && (
+                                        <span>
+                                            {formatNumber(driverCarryingFlakes)} oz flakes
+                                            <span className="text-red-600 ml-1">(−{(FLAKES_HAUL_FEE * 100).toFixed(0)}%)</span>
+                                        </span>
+                                    )}
                                 </span>
                             )}
                         </div>
@@ -419,10 +393,15 @@ export function Mine() {
                             </Tooltip>
                         </div>
 
+                        {/* Flakes → Bars value note */}
+                        <p className="text-xs text-orange-500">
+                            ✨ Flakes → 🧱 Bars — bars avoid the {(FLAKES_HAUL_FEE * 100).toFixed(0)}% driver haul fee
+                        </p>
+
                         {/* Furnace fill progress bar */}
                         <div>
                             <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-orange-700 font-semibold">Loaded</span>
+                                <span className="text-xs text-orange-700 font-semibold">Smelting</span>
                                 <span className="text-xs text-orange-700 font-semibold">{furnaceFilled.toFixed(1)} / {FURNACE_CAPACITY} oz</span>
                             </div>
                             <ProgressBar value={furnaceFilled} max={FURNACE_CAPACITY} color="amber" isActive={furnaceRunning} isFull={furnaceFilled >= FURNACE_CAPACITY} />
@@ -435,7 +414,7 @@ export function Mine() {
                                 disabled={isTraveling || gold <= 0 || furnaceFilled >= FURNACE_CAPACITY}
                                 className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                🔥 Load ({Math.min(gold, FURNACE_CAPACITY - furnaceFilled).toFixed(1)} oz)
+                                🔥 Load flakes ({Math.min(gold, FURNACE_CAPACITY - furnaceFilled).toFixed(1)} oz)
                             </button>
                             <button
                                 onClick={toggleFurnace}
@@ -450,17 +429,25 @@ export function Mine() {
                             </button>
                         </div>
 
-                        {/* Gold flakes hint */}
+                        {/* Gold flakes available */}
                         {gold > 0 && (
                             <p className="text-xs text-orange-600 text-center">
-                                {gold.toFixed(2)} oz flakes ready to load
+                                {gold.toFixed(2)} oz flakes on hand
                             </p>
                         )}
 
-                        {/* Bars ready to collect */}
-                        {furnaceBars > 0 && (
+                        {/* Bars ready to carry / certify / collect */}
+                        {(furnaceBars > 0 || goldBars > 0 || goldBarsCertified > 0) && (
                             <div className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                <span className="text-sm font-semibold text-amber-800">🧱 {furnaceBars.toFixed(2)} oz bars ready</span>
+                                <div className="text-sm font-semibold text-amber-800">
+                                    <div>🧱 {(furnaceBars + goldBars).toFixed(2)} oz bars</div>
+                                    {goldBarsCertified > 0 && (
+                                        <div className="text-xs text-amber-600">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz</div>
+                                    )}
+                                    {goldBars > 0 && hasDriver && (
+                                        <div className="text-xs text-green-600">Driver will carry bars at full value</div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={collectBars}
                                     disabled={isTraveling}
@@ -469,13 +456,6 @@ export function Mine() {
                                     Collect
                                 </button>
                             </div>
-                        )}
-
-                        {/* Gold bars in inventory */}
-                        {goldBars > 0 && (
-                            <p className="text-xs text-amber-700 text-center font-semibold">
-                                🧱 {goldBars.toFixed(2)} oz bars in inventory — travel to Town to sell
-                            </p>
                         )}
 
                         {countAssigned(employees, 'furnaceOperator') > 0 && (
@@ -491,26 +471,26 @@ export function Mine() {
                     const tips = [
                         { show: !unlockedPanning,
                           text: '⛏️ Fill the bucket to start panning!', amber: true },
-                        { show: unlockedPanning && !hasSluiceBox && money >= EQUIPMENT.sluiceBox.cost,
-                          text: `💡 You can afford the Sluice Box! Buy it in Town → Shop → Equipment.` },
+                        { show: unlockedPanning && !hasSluiceBox && gold >= EQUIPMENT.sluiceBox.cost,
+                          text: `💡 You can afford the Sluice Box! Buy it in Town → Blacksmith → Equipment.` },
                         { show: unlockedPanning && !hasSluiceBox,
-                          text: `💡 Save up $${EQUIPMENT.sluiceBox.cost} for the Sluice Box in Town — concentrates dirt into richer paydirt (3 paydirt per click vs 1).` },
+                          text: `💡 Save up ${EQUIPMENT.sluiceBox.cost} oz for the Sluice Box in Town — concentrates dirt into richer paydirt (3 paydirt per click vs 1).` },
                         { show: hasSluiceBox && countAssigned(employees, 'miner') === 0 && countAssigned(employees, 'prospector') === 0,
-                          text: '💡 Hire Miners and Prospectors in Town → Labor Office to automate the mine.' },
+                          text: '💡 Hire Miners and Prospectors in Town → Tavern → Hiring Hall to automate the mine.' },
                         { show: hasSluiceBox && countAssigned(employees, 'miner') === 0,
-                          text: '💡 Hire a Miner in Town → Labor Office to auto-fill the bucket.' },
+                          text: '💡 Hire a Miner in Town → Tavern → Hiring Hall to auto-fill the bucket.' },
                         { show: hasSluiceBox && countAssigned(employees, 'prospector') === 0,
-                          text: '💡 Hire a Prospector in Town → Labor Office to auto-pan gold from the pan.' },
+                          text: '💡 Hire a Prospector in Town → Tavern → Hiring Hall to auto-pan gold.' },
                         { show: hasSluiceBox && countAssigned(employees, 'sluiceOperator') === 0 && countAssigned(employees, 'miner') > 0 && countAssigned(employees, 'prospector') > 0,
-                          text: '💡 Hire a Sluice Operator in Town → Labor Office to boost gold extraction and auto-clean the moss.' },
-                        { show: !hasMetalDetector && hasSluiceBox && money >= EQUIPMENT.metalDetector.cost,
-                          text: `💡 You can afford a Metal Detector ($${EQUIPMENT.metalDetector.cost}) — finds rich dirt patches for up to 30% better yields.` },
+                          text: '💡 Hire a Sluice Operator in Town → Tavern → Hiring Hall to boost gold extraction and auto-clean the moss.' },
+                        { show: !hasMetalDetector && hasSluiceBox && gold >= EQUIPMENT.metalDetector.cost,
+                          text: `💡 You can afford a Metal Detector (${EQUIPMENT.metalDetector.cost} oz) — finds rich dirt patches for better yields.` },
                         { show: !hasFurnace && hasSluiceBox && gold > 2,
-                          text: '💡 A Furnace smelts gold flakes into bars — bars sell at 1.2× price with no smelting fee. Buy in Town → Shop → Equipment.' },
+                          text: '💡 A Furnace smelts gold flakes into bars — certify them at the Assayer for a 20% bonus. Buy in Town → Blacksmith → Equipment.' },
                         { show: hasFurnace && !hasDriver && vehicleTier >= 2,
-                          text: '💡 Hire a Driver in Town → Transport to automatically haul gold to the Bank Vault.' },
-                        { show: !hasDriver && gold > 0 && unlockedTown && !isTraveling,
-                          text: '💡 You have gold — head to Town and sell it at the Bank.' },
+                          text: '💡 Hire a Driver in Town → Tavern to automatically haul your gold.' },
+                        { show: !hasDriver && gold > 0.5 && unlockedTown && !isTraveling,
+                          text: '💡 Head to Town to spend your gold on upgrades and workers.' },
                     ];
                     const tip = tips.find(t => t.show);
                     if (!tip) return null;
@@ -526,22 +506,12 @@ export function Mine() {
                 })()}
             </div>
 
-            {/* Automation Status */}
-            {(countAssigned(employees, 'miner') > 0 || countAssigned(employees, 'prospector') > 0) && (
+            {/* Crew Assignments */}
+            {employees.length > 0 && (
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <h3 className="text-sm font-semibold text-amber-800 mb-2">Automation</h3>
-                    <div className="text-sm space-y-1 text-amber-700">
-                        {countAssigned(employees, 'miner') > 0 && <div>🪨 {countAssigned(employees, 'miner')} Miners (auto-digging)</div>}
-                        {countAssigned(employees, 'prospector') > 0 && <div>✨ {countAssigned(employees, 'prospector')} Prospectors (auto-panning)</div>}
-                    </div>
+                    <h3 className="text-sm font-semibold text-amber-800 mb-3">👷 Crew</h3>
+                    <Roster />
                 </div>
-            )}
-
-            {/* Payroll widget — shows when any workers are hired */}
-            {payrollPerMin > 0 && (
-                <PayrollWidget
-                    payrollPerMin={payrollPerMin}
-                />
             )}
 
             {/* Dev debug overlay (#30) */}
@@ -573,8 +543,7 @@ export function Mine() {
                     )}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-zinc-600 dark:text-zinc-400">
                         <span>Tick</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount}</span>
-                        <span>Gold $/oz</span><span className="text-zinc-900 dark:text-zinc-100">{goldPrice.toFixed(3)}</span>
-                        <span>Price age</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount - lastGoldPriceUpdate} ticks</span>
+                        <span>Gold (oz)</span><span className="text-zinc-900 dark:text-zinc-100">{gold.toFixed(3)}</span>
                         <span>Paused</span><span className="text-zinc-900 dark:text-zinc-100">{isPaused ? 'yes' : 'no'}</span>
                     </div>
                 </div>
@@ -583,40 +552,4 @@ export function Mine() {
     );
 }
 
-function PayrollWidget({ payrollPerMin }: { payrollPerMin: number }) {
-    const [open, setOpen] = useState(false);
-    const netPerMin = -payrollPerMin;
-    const netColor = netPerMin >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-
-    return (
-        <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm">
-            <button
-                onClick={() => setOpen((o) => !o)}
-                className="w-full flex items-center justify-between"
-            >
-                <span className="font-semibold text-gray-700 dark:text-gray-300">📊 Workers</span>
-                <span className="flex items-center gap-2">
-                    <span className={`font-semibold tabular-nums ${netColor}`}>
-                        {netPerMin >= 0 ? '+' : ''}{formatNumber(netPerMin)}/min
-                    </span>
-                    <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
-                </span>
-            </button>
-            {open && (
-                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
-                    <div className="flex justify-between text-red-600 dark:text-red-400">
-                        <Tooltip content="Wages/sec by rarity: Common $0.15 · Uncommon $0.30 · Rare $0.55 · Epic $1.00 · Legendary $1.80">
-                            <span className="underline decoration-dotted cursor-help">👷 Payroll</span>
-                        </Tooltip>
-                        <span className="tabular-nums font-semibold">−${formatNumber(payrollPerMin)}/min</span>
-                    </div>
-                    <div className={`flex justify-between font-bold border-t border-gray-100 dark:border-gray-700 pt-1 ${netColor}`}>
-                        <span>Net</span>
-                        <span className="tabular-nums">{netPerMin >= 0 ? '+' : ''}{formatNumber(netPerMin)}/min</span>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
 

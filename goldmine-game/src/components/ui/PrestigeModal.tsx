@@ -4,7 +4,6 @@ import { VEHICLE_TIERS, countAssigned, type Employee } from '../../store/gameSto
 export function PrestigeModal({
     dustReward,
     legacyDust,
-    money,
     gold,
     employees,
     hasSluiceBox,
@@ -15,7 +14,6 @@ export function PrestigeModal({
 }: {
     dustReward: number;
     legacyDust: number;
-    money: number;
     gold: number;
     employees: Employee[];
     hasSluiceBox: boolean;
@@ -30,7 +28,6 @@ export function PrestigeModal({
     const furnaceOps = countAssigned(employees, 'furnaceOperator');
 
     const lossList: string[] = [];
-    if (money > 0) lossList.push(`💰 $${formatNumber(money)} in savings`);
     if (gold > 0) lossList.push(`✨ ${formatNumber(gold)} oz gold`);
     if (miners > 0) lossList.push(`👷 ${miners} Miner${miners !== 1 ? 's' : ''}`);
     if (prospectors > 0) lossList.push(`🧑‍🔬 ${prospectors} Prospector${prospectors !== 1 ? 's' : ''}`);

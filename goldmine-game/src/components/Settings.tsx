@@ -60,8 +60,6 @@ export function Settings() {
     const timePlayed = useGameStore((s) => s.timePlayed);
     const seasonNumber = useGameStore((s) => s.seasonNumber);
     const totalGoldExtracted = useGameStore((s) => s.totalGoldExtracted);
-    const totalMoneyEarned = useGameStore((s) => s.totalMoneyEarned);
-    const peakRunMoney = useGameStore((s) => s.peakRunMoney);
 
     const [hardResetInput, setHardResetInput] = useState('');
     const [importError, setImportError] = useState<string | null>(null);
@@ -146,16 +144,8 @@ export function Settings() {
                     <span className="font-semibold tabular-nums text-yellow-700 dark:text-yellow-400">✨ {formatNumber(totalGoldExtracted)} oz</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Total Money Earned</span>
-                    <span className="font-semibold tabular-nums text-green-700 dark:text-green-400">💰 ${formatNumber(totalMoneyEarned)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Season</span>
                     <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">❄️ {seasonNumber}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Peak Run Earnings</span>
-                    <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">${formatNumber(peakRunMoney)}</span>
                 </div>
             </div>
 

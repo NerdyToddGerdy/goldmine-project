@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 33 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 34 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
@@ -483,13 +483,23 @@ export type SaveV32 = Omit<SaveV31,
 // v33: certifier role added to RoleSlots
 export type SaveV33 = Omit<SaveV32, 'version'> & { version: 33 };
 
-export type LatestSave = SaveV33;
+// v34: gold is the currency — remove money, market price, vault; rename runMoneyEarned→runGoldMined
+export type SaveV34 = Omit<SaveV33,
+    'version' | 'money' | 'goldPrice' | 'lastGoldPriceUpdate' |
+    'totalMoneyEarned' | 'peakRunMoney' | 'runMoneyEarned' |
+    'vaultFlakes' | 'vaultBars'
+> & {
+    version: 34;
+    runGoldMined: number;  // gold extracted this season (replaces runMoneyEarned)
+};
+
+export type LatestSave = SaveV34;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV33();
+        return defaultSaveV34();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1424,8 +1434,17 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 33);
     }
 
-    // Already v33, ensure fields exist
-    const s = raw as Partial<SaveV33>;
+    if (fromVersion < 34) {
+        // v33 → v34: gold is the currency — strip money/market/vault; rename runMoneyEarned→runGoldMined
+        const s = raw as Partial<SaveV33>;
+        const { money: _m, goldPrice: _gp, lastGoldPriceUpdate: _lgpu,
+                totalMoneyEarned: _tme, peakRunMoney: _prm,
+                vaultFlakes: _vf, vaultBars: _vb, runMoneyEarned: _rme, ...rest } = s as any;
+        return migrateToLatest({ ...rest, version: 34, runGoldMined: 0 }, 34);
+    }
+
+    // Already v34, ensure fields exist
+    const s = raw as Partial<SaveV34>;
     const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
     const defaultNpcLevels: Record<NPCId, number> = {
         trader: storyNPCs.traderArrived ? 1 : 0,
@@ -1434,7 +1453,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
     };
     return {
-        version: 33,
+        version: 34,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1443,7 +1462,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         dirt: s.dirt ?? 0,
         paydirt: s.paydirt ?? 0,
         gold: s.gold ?? 0,
-        money: s.money ?? 0,
         carts: s.carts ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
         hasFurnace: s.hasFurnace ?? false,
@@ -1456,18 +1474,14 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         unlockedTown: s.unlockedTown ?? false,
         timePlayed: s.timePlayed ?? 0,
         darkMode: s.darkMode ?? false,
-        runMoneyEarned: s.runMoneyEarned ?? 0,
+        runGoldMined: s.runGoldMined ?? 0,
         vehicleTier: s.vehicleTier ?? 0,
         hasDriver: s.hasDriver ?? false,
         bucketUpgrades: s.bucketUpgrades ?? 0,
         panCapUpgrades: s.panCapUpgrades ?? 0,
         panSpeedUpgrades: s.panSpeedUpgrades ?? 0,
-        goldPrice: s.goldPrice ?? 1.0,
-        lastGoldPriceUpdate: s.lastGoldPriceUpdate ?? 0,
         lastSeenChangelogVersion: s.lastSeenChangelogVersion ?? CHANGELOG[0].version,
         totalGoldExtracted: s.totalGoldExtracted ?? 0,
-        totalMoneyEarned: s.totalMoneyEarned ?? 0,
-        peakRunMoney: s.peakRunMoney ?? 0,
         sluiceBoxFilled: s.sluiceBoxFilled ?? 0,
         minersMossFilled: s.minersMossFilled ?? 0,
         richDirtInBucket: s.richDirtInBucket ?? 0,
@@ -1483,11 +1497,10 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceRunning: s.furnaceRunning ?? false,
         furnaceBars: s.furnaceBars ?? 0,
         goldBars: s.goldBars ?? 0,
+        goldBarsCertified: s.goldBarsCertified ?? 0,
         driverCarryingFlakes: s.driverCarryingFlakes ?? 0,
         driverCarryingBars: s.driverCarryingBars ?? 0,
         driverCapUpgrades: s.driverCapUpgrades ?? 0,
-        vaultFlakes: s.vaultFlakes ?? 0,
-        vaultBars: s.vaultBars ?? 0,
         employees: s.employees ?? [],
         roleSlots: {
             miner: s.roleSlots?.miner ?? 5,
@@ -1496,14 +1509,13 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
             sluiceOperator: s.roleSlots?.sluiceOperator ?? 3,
             furnaceOperator: s.roleSlots?.furnaceOperator ?? 2,
             detectorOperator: s.roleSlots?.detectorOperator ?? 2,
-            certifier: (s.roleSlots as any)?.certifier ?? 1,
+            certifier: s.roleSlots?.certifier ?? 1,
         },
         storyNPCs,
         seasonNumber: s.seasonNumber ?? 1,
         npcsRetained: s.npcsRetained ?? 0,
         draftPool: s.draftPool ?? [],
         draftPoolRefreshCost: s.draftPoolRefreshCost ?? 10,
-        goldBarsCertified: s.goldBarsCertified ?? 0,
         npcLevels: s.npcLevels ?? defaultNpcLevels,
         pendingCommission: s.pendingCommission ?? null,
     };
@@ -1658,6 +1670,13 @@ export function defaultSaveV32(): SaveV32 {
 
 export function defaultSaveV33(): SaveV33 {
     return { ...defaultSaveV32(), version: 33 };
+}
+
+export function defaultSaveV34(): SaveV34 {
+    const { money: _m, goldPrice: _gp, lastGoldPriceUpdate: _lgpu,
+            totalMoneyEarned: _tme, peakRunMoney: _prm,
+            vaultFlakes: _vf, vaultBars: _vb, runMoneyEarned: _rme, ...rest } = defaultSaveV33();
+    return { ...rest, version: 34, runGoldMined: 0 };
 }
 
 export function defaultSaveV2(): SaveV2 {

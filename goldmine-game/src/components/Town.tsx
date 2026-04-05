@@ -13,13 +13,21 @@ const PANEL_LABELS: Record<TownPanel, string> = {
     blacksmith:  '🔨 Blacksmith',
 };
 
+const PANEL_NPC: Record<TownPanel, 'trader' | 'tavernKeeper' | 'assayer' | 'blacksmith'> = {
+    shop:       'trader',
+    tavern:     'tavernKeeper',
+    assayer:    'assayer',
+    blacksmith: 'blacksmith',
+};
+
 export function Town() {
     const [openPanel, setOpenPanel] = useState<TownPanel | null>(null);
 
-    const money = useGameStore((s) => s.money);
+    const gold = useGameStore((s) => s.gold);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
     const hasDriver = useGameStore((s) => s.hasDriver);
     const traderLevel = useGameStore((s) => s.npcLevels.trader);
+    const npcLevels = useGameStore((s) => s.npcLevels);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
@@ -81,6 +89,7 @@ export function Town() {
                         ← Town
                     </button>
                     <span className="font-semibold text-green-800 text-sm">{PANEL_LABELS[openPanel]}</span>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Lv {npcLevels[PANEL_NPC[openPanel]]}</span>
                 </div>
             )}
 
@@ -101,8 +110,8 @@ export function Town() {
                             const tierIndex = i + 1;
                             const owned = vehicleTier >= tierIndex;
                             const isNext = tierIndex === vehicleTier + 1;
-                            // Trader level required: tier 1 = lvl 3, tier 2 = lvl 5, tier 3 = lvl 7
-                            const requiredTraderLevel = tierIndex === 1 ? 3 : tierIndex === 2 ? 5 : 7;
+                            // Trader level required: tier 1 = lvl 1, tier 2 = lvl 2, tier 3 = lvl 3
+                            const requiredTraderLevel = tierIndex as 1 | 2 | 3;
                             const traderUnlocked = traderLevel >= requiredTraderLevel;
                             if (!owned && !traderUnlocked) {
                                 return (
@@ -119,8 +128,8 @@ export function Town() {
                                     description={`Reduces travel time to ${tier.travelSecs}s`}
                                     cost={tier.cost}
                                     locked={owned}
-                                    canAfford={isNext && money >= tier.cost && traderUnlocked}
-                                    playerMoney={money}
+                                    canAfford={isNext && gold >= tier.cost && traderUnlocked}
+                                    playerMoney={gold}
                                     onBuy={() => gameStore.getState().buyVehicle(tierIndex)}
                                     icon={owned ? '✅' : tierIndex === 1 ? '🐴' : tierIndex === 2 ? '🚂' : '🚛'}
                                 />
@@ -132,8 +141,8 @@ export function Town() {
                                 description={`Driver carries +5 oz per upgrade. Current: ${getDriverCapacity(driverCapUpgrades)} oz (base ${DRIVER_BASE_CAPACITY} oz).`}
                                 cost={getUpgradeCost('largerCarrier', driverCapUpgrades)}
                                 locked={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES}
-                                canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && money >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
-                                playerMoney={money}
+                                canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && gold >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
+                                playerMoney={gold}
                                 onBuy={() => gameStore.getState().buyUpgrade('largerCarrier')}
                                 icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
                             />
@@ -149,15 +158,13 @@ export function Town() {
                             name="Hire Driver"
                             description={hasDriver
                                 ? 'Driver is working — auto-sells gold on round trips'
-                                : traderLevel < 8
-                                    ? `Requires Trader Level 8 (currently ${traderLevel})`
-                                    : vehicleTier < 2
-                                        ? 'Requires Steam Wagon first'
-                                        : 'Auto-sells your gold at Town without you traveling'}
+                                : traderLevel < 4
+                                    ? `Requires Trader Level 4 (currently ${traderLevel})`
+                                    : 'Auto-sells your gold at Town without you traveling'}
                             cost={DRIVER_COST}
                             locked={hasDriver}
-                            canAfford={!hasDriver && vehicleTier >= 2 && money >= DRIVER_COST && traderLevel >= 8}
-                            playerMoney={money}
+                            canAfford={!hasDriver && gold >= DRIVER_COST && traderLevel >= 4}
+                            playerMoney={gold}
                             onBuy={() => gameStore.getState().buyDriver()}
                             icon={hasDriver ? '✅' : '🤠'}
                         />
