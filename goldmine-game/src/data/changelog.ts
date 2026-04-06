@@ -7,6 +7,69 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.24',
+        date: '2026-04-05',
+        title: 'Blacksmith upgrade tiers scale with NPC level',
+        changes: [
+            'Tool and gear upgrade max levels now increase as the Blacksmith levels up',
+            'Blacksmith L1: tools up to Tier 2, gear up to Level 1',
+            'Blacksmith L2: tools up to Tier 3, gear up to Level 2',
+            'Blacksmith L3: tools up to Tier 4, gear fully unlocked',
+            'Blacksmith L4: tools fully unlocked',
+            'Upgrades at the current cap now show a hint to level up the Blacksmith instead of disappearing',
+        ],
+    },
+    {
+        version: 'v1.23',
+        date: '2026-04-05',
+        title: 'Crew Forge — merge 3 into a higher rarity',
+        changes: [
+            'New ⚒️ Forge tab in the Hiring Hall',
+            'Select 3 unassigned crew of the same rarity to forge them into one of the next tier',
+            'Forged crew inherits the best stat from each input, keeps the first selected name, and starts with fresh XP',
+            'Forge costs: 50 oz → Uncommon · 150 oz → Rare · 400 oz → Epic · 1000 oz → Legendary',
+        ],
+    },
+    {
+        version: 'v1.22.3',
+        date: '2026-04-05',
+        title: 'Work assignments embedded inside each mine action',
+        changes: [
+            'Each action card (Bucket, Sluice, Pan, Furnace, Metal Detector) now shows its own assignment slots inline',
+            'Miner and Hauler assignments appear together in the Bucket card',
+            'Removed the separate bottom "Crew" section from the Mine view',
+        ],
+    },
+    {
+        version: 'v1.22.2',
+        date: '2026-04-05',
+        title: 'Winter commissions no longer cost gold',
+        changes: [
+            'Reaching the season earnings goal is all that\'s needed to commission an NPC upgrade',
+            'The gold cost per commission has been removed',
+        ],
+    },
+    {
+        version: 'v1.22.1',
+        date: '2026-04-05',
+        title: 'Employee XP progression slowed to meaningful timescale',
+        changes: [
+            'Employees now earn XP at 1 point per 5 seconds of active work (was 60/sec)',
+            'Level 1 reached in ~50 seconds · Level 10 in ~83 minutes · Level 30 in ~12.5 hours',
+        ],
+    },
+    {
+        version: 'v1.22',
+        date: '2026-04-05',
+        title: 'Trader head-start — begin each season with bonus gold',
+        changes: [
+            'Leveling the Trader now grants opening gold at the start of every new season',
+            'Trader L2 → 25 oz · L3 → 75 oz · L4 → 200 oz',
+            'Commission panel shows your guaranteed head-start for next season',
+            'Trader card shows "+X oz start" when leveling up would increase the bonus',
+        ],
+    },
+    {
         version: 'v1.21.1',
         date: '2026-04-05',
         title: 'Fix crash on old saves with missing seasonNumber',

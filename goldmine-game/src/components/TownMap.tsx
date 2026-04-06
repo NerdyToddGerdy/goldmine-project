@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { gameStore, useGameStore, getCommissionCost, getCommissionOptions, getSeasonGoal, getSettlementStage } from '../store/gameStore';
+import { gameStore, useGameStore, getCommissionOptions, getSeasonGoal, getSettlementStage, getTraderHeadStart } from '../store/gameStore';
 import type { NPCId } from '../store/schema';
 import { Building } from './ui/Building';
 
@@ -27,7 +27,6 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
     const settlement = getSettlementStage(seasonNumber);
     const employees = useGameStore(s => s.employees);
     const isTraveling = useGameStore(s => s.isTraveling);
-    const gold = useGameStore(s => s.gold);
 
     // Graceful fallback: if NPC triggers haven't fired yet,
     // treat the core two buildings as arrived once town is unlocked.
@@ -87,6 +86,27 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                         </div>
                         <p className="text-xs text-indigo-600">Choose one NPC to level up this winter. Season resets after.</p>
 
+                        {/* Head-start preview */}
+                        {(() => {
+                            const traderLevel = npcLevels.trader ?? 0;
+                            const currentStart = getTraderHeadStart(traderLevel);
+                            const nextStart = getTraderHeadStart(traderLevel + 1);
+                            if (currentStart > 0) {
+                                return (
+                                    <p className="text-xs text-amber-700 font-semibold text-center">
+                                        🥇 Next season starts with {currentStart} oz (Trader L{traderLevel})
+                                    </p>
+                                );
+                            } else if (nextStart > 0) {
+                                return (
+                                    <p className="text-xs text-gray-400 text-center">
+                                        Commission the Trader to start next season with {nextStart} oz
+                                    </p>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {commissionOptions.length === 0 ? (
                             <div className="space-y-2">
                                 <p className="text-xs text-gray-400 text-center">No NPCs have arrived yet — winter still approaches.</p>
@@ -102,21 +122,26 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                                 {commissionOptions.map(npcId => {
                                     const meta = NPC_META[npcId];
                                     const currentLevel = npcLevels[npcId] ?? 0;
-                                    const cost = getCommissionCost(npcId, currentLevel);
-                                    const canAfford = gold >= cost;
+                                    const headStartGain = npcId === 'trader'
+                                        ? getTraderHeadStart(currentLevel + 1) - getTraderHeadStart(currentLevel)
+                                        : 0;
                                     return (
                                         <div key={npcId} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-indigo-200">
                                             <span className="text-xl">{meta.emoji}</span>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-semibold text-gray-800">{meta.name}</p>
-                                                <p className="text-xs text-gray-500">Level {currentLevel} → {currentLevel + 1}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    Level {currentLevel} → {currentLevel + 1}
+                                                    {headStartGain > 0 && (
+                                                        <span className="ml-1 text-amber-600 font-semibold">+{headStartGain} oz start</span>
+                                                    )}
+                                                </p>
                                             </div>
                                             <button
                                                 onClick={() => { setShowCommission(false); gameStore.getState().selectCommission(npcId); }}
-                                                disabled={!canAfford}
-                                                className="text-xs px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                                className="text-xs px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all whitespace-nowrap"
                                             >
-                                                {cost.toLocaleString()} oz
+                                                Choose
                                             </button>
                                         </div>
                                     );
@@ -160,9 +185,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                         locked={!traderArrived}
                         lockHint="Sell gold to attract a trader"
                         onClick={() => onOpenPanel('shop')}
-                    >
-                        {gold > 0 ? null : undefined}
-                    </Building>
+                    />
 
                     <Building
                         emoji="🍺"

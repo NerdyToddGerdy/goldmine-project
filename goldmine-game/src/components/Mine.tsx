@@ -178,6 +178,9 @@ export function Mine() {
                             </button>
                         </div>
                     )}
+                    <div className="pt-1 border-t border-violet-100">
+                        <Roster roles={['detectorOperator']} />
+                    </div>
                 </div>
             )}
 
@@ -277,12 +280,8 @@ export function Mine() {
                         </button>
                     )}
 
-                    {/* Miner count */}
-                    <div className="flex items-center justify-between pt-1 border-t border-amber-100">
-                        <span className="text-sm text-amber-700">
-                            👷 Miners: <span className="font-semibold">{countAssigned(employees, 'miner')}</span>
-                        </span>
-                        <span className="text-xs text-amber-500">Hire in Town → Labor Office</span>
+                    <div className="pt-1 border-t border-amber-100">
+                        <Roster roles={['miner', 'hauler']} />
                     </div>
                 </div>
 
@@ -322,11 +321,14 @@ export function Mine() {
                         {/* Clean Moss Button */}
                         <button
                             onClick={cleanMoss}
-                            disabled={minersMossFilled === 0 || panIsFull || isTraveling || sluiceIsDraining}
+                            disabled={minersMossFilled === 0 || panIsFull || isTraveling}
                             className="w-full px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             🌿 Clean Moss → Pan (+3 paydirt)
                         </button>
+                        <div className="pt-1 border-t border-cyan-100">
+                            <Roster roles={['sluiceOperator']} />
+                        </div>
                     </div>
                 )}
 
@@ -371,12 +373,8 @@ export function Mine() {
                             )
                         </button>
 
-                        {/* Prospector count */}
-                        <div className="flex items-center justify-between pt-1 border-t border-yellow-100">
-                            <span className="text-sm text-yellow-700">
-                                🧑‍🔬 Prospectors: <span className="font-semibold">{countAssigned(employees, 'prospector')}</span>
-                            </span>
-                            <span className="text-xs text-yellow-500">Hire in Town → Labor Office</span>
+                        <div className="pt-1 border-t border-yellow-100">
+                            <Roster roles={['prospector']} />
                         </div>
                     </div>
                 )}
@@ -463,6 +461,9 @@ export function Mine() {
                                 Furnace Operators are auto-loading, smelting &amp; collecting
                             </p>
                         )}
+                        <div className="pt-1 border-t border-orange-100">
+                            <Roster roles={['furnaceOperator']} />
+                        </div>
                     </div>
                 )}
 
@@ -505,14 +506,6 @@ export function Mine() {
                     );
                 })()}
             </div>
-
-            {/* Crew Assignments */}
-            {employees.length > 0 && (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <h3 className="text-sm font-semibold text-amber-800 mb-3">👷 Crew</h3>
-                    <Roster />
-                </div>
-            )}
 
             {/* Dev debug overlay (#30) */}
             {devMode && (

@@ -48,6 +48,13 @@ export const PAN_CAP_UPGRADE_COSTS = [15, 55, 175] as const;
 export const PAN_SPEED_UPGRADE_COSTS = [8, 30, 100] as const;
 export const MAX_GEAR_UPGRADE_LEVEL = 3;
 
+export function getEffectiveMaxToolTier(smithLevel: number): number {
+    return Math.min(MAX_TOOL_TIER, smithLevel + 1);
+}
+export function getEffectiveMaxGearLevel(smithLevel: number): number {
+    return Math.min(MAX_GEAR_UPGRADE_LEVEL, smithLevel);
+}
+
 // Season goal (oz of gold mined to unlock winter commission) — doubles each season
 export function getSeasonGoal(seasonNumber: number): number {
     return Math.round(100 * Math.pow(2, seasonNumber - 1));
@@ -252,6 +259,7 @@ export type GameState = {
     assignEmployee: (employeeId: string, role: Role) => boolean
     unassignEmployee: (employeeId: string) => void
     buyRoleSlot: (role: Role) => boolean // stub — pricing in later issues
+    mergeEmployees: (ids: [string, string, string]) => boolean
 
     // Toasts
     addToast: (message: string, type?: ToastType) => void
@@ -317,6 +325,12 @@ export const SMELT_RATE_BASE = 1.0;        // oz flakes → bars per second (× 
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
 export const FLAKES_HAUL_FEE = 0.15; // 15% lost when driver delivers raw flakes — smelt into bars to avoid
 
+// Trader head-start: oz of gold granted at the start of each new season (indexed by trader level)
+export const TRADER_HEAD_START = [0, 0, 25, 75, 200] as const;
+export function getTraderHeadStart(traderLevel: number): number {
+    return TRADER_HEAD_START[Math.min(traderLevel, TRADER_HEAD_START.length - 1)] ?? 0;
+}
+
 // Driver carrier constants
 export const DRIVER_BASE_CAPACITY = 10;    // oz per trip at no upgrades
 export const DRIVER_CAP_BONUS_OZ = 5;      // oz added per Larger Carrier upgrade
@@ -369,6 +383,8 @@ export const EMPLOYEE_LEVEL_CAPS: Record<import('./schema').Rarity, number> = {
     common: 10, uncommon: 15, rare: 20, epic: 25, legendary: 30,
 };
 
+export const EMPLOYEE_XP_RATE = 1 / 300; // 1 XP per 5 seconds of active work
+
 export function getEmployeeLevel(xp: number, rarity: import('./schema').Rarity): number {
     return Math.min(Math.floor(Math.sqrt(xp / 10)), EMPLOYEE_LEVEL_CAPS[rarity]);
 }
@@ -406,8 +422,8 @@ export function getHireCost(e: Employee): number {
 // Assayer certification (#116)
 // CERT_FEE is defined above (line ~293). UNCERTIFIED_BAR_PENALTY removed (no penalty in gold-as-currency model).
 
-// Role slot upgrades (#117) — extra slots beyond the defaults (miner:5, hauler:3, prospector:5, sluiceOp:3, furnaceOp:2, detectorOp:2)
-export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 };
+// Role slot upgrades (#117) — extra slots beyond the defaults (miner:5, hauler:1, prospector:5, sluiceOp:3, furnaceOp:2, detectorOp:2)
+export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 };
 export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
     miner:            [300,  600, 1200],
     hauler:           [200,  400,  800],
@@ -430,7 +446,17 @@ const _STAT_RANGES: Record<import('./schema').Rarity, [number, number]> = {
 
 let _empGenSeq = 0;
 
-const _RARITY_ORDER: import('./schema').Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export const RARITY_ORDER: import('./schema').Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const _RARITY_ORDER = RARITY_ORDER;
+
+// Cost to forge 3 crew of rarity N into 1 of rarity N+1
+export const MERGE_COSTS: Record<import('./schema').Rarity, number> = {
+    common:    0,    // unused — can't merge into common
+    uncommon:  50,
+    rare:      150,
+    epic:      400,
+    legendary: 1000,
+};
 
 function _rollRarity(maxRarity: import('./schema').Rarity = 'legendary'): import('./schema').Rarity {
     const maxIdx = _RARITY_ORDER.indexOf(maxRarity);
@@ -489,7 +515,7 @@ export const gameStore = createStore<GameState>()(
 
             // Employees (v29)
             employees: [],
-            roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+            roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
             storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
             seasonNumber: 1,
             npcsRetained: 0,
@@ -653,7 +679,7 @@ export const gameStore = createStore<GameState>()(
                     paydirt: 0,
                     gold: 0,
                     employees: [],
-                    roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+                    roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
                     storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
                     seasonNumber: 1,
                     npcsRetained: 0,
@@ -1052,6 +1078,39 @@ export const gameStore = createStore<GameState>()(
                 set(s => ({ employees: s.employees.filter(e => e.id !== employeeId) }));
             },
 
+            mergeEmployees: ([id1, id2, id3]: [string, string, string]) => {
+                const s = get();
+                const inputs = [id1, id2, id3].map(id => s.employees.find(e => e.id === id));
+                if (inputs.some(e => !e)) return false;
+                const [a, b, c] = inputs as Employee[];
+                // All must be same rarity and unassigned
+                if (a.rarity !== b.rarity || a.rarity !== c.rarity) return false;
+                if ([a, b, c].some(e => e.assignedRole !== null)) return false;
+                const rarityIdx = _RARITY_ORDER.indexOf(a.rarity);
+                if (rarityIdx >= _RARITY_ORDER.length - 1) return false; // can't merge legendary
+                const targetRarity = _RARITY_ORDER[rarityIdx + 1];
+                const cost = MERGE_COSTS[targetRarity];
+                if (s.gold < cost) return false;
+                // Best stats from all three inputs
+                const bestStats = {
+                    brawn:      Math.max(a.stats.brawn,      b.stats.brawn,      c.stats.brawn),
+                    dexterity:  Math.max(a.stats.dexterity,  b.stats.dexterity,  c.stats.dexterity),
+                    technical:  Math.max(a.stats.technical,  b.stats.technical,  c.stats.technical),
+                    hustle:     Math.max(a.stats.hustle,     b.stats.hustle,     c.stats.hustle),
+                };
+                const merged: Employee = {
+                    id: `emp-${Date.now()}-${++_empGenSeq}`,
+                    name: a.name, // first selected keeps their name
+                    rarity: targetRarity,
+                    stats: bestStats,
+                    xpByRole: {},
+                    assignedRole: null,
+                };
+                const remaining = s.employees.filter(e => e.id !== id1 && e.id !== id2 && e.id !== id3);
+                set({ gold: s.gold - cost, employees: [...remaining, merged] });
+                return true;
+            },
+
             refreshDraftPool: () => {
                 const s = get();
                 const isInitial = s.draftPool.length === 0;
@@ -1133,9 +1192,10 @@ export const gameStore = createStore<GameState>()(
                 const s = get();
 
                 // Worker hiring removed — handled by Hiring Hall (#113)
+                const smithLevel = s.npcLevels.blacksmith ?? 0;
                 if (upgrade === 'betterShovel') {
                     const tier = s.scoopPower - 1; // 0-indexed current tier
-                    if (tier >= MAX_TOOL_TIER) return false;
+                    if (tier >= getEffectiveMaxToolTier(smithLevel)) return false;
                     const cost = SHOVEL_TIER_COSTS[tier];
                     if (s.gold >= cost) {
                         set({
@@ -1146,7 +1206,7 @@ export const gameStore = createStore<GameState>()(
                     }
                 } else if (upgrade === 'betterPan') {
                     const tier = s.panPower - 1; // 0-indexed current tier
-                    if (tier >= MAX_TOOL_TIER) return false;
+                    if (tier >= getEffectiveMaxToolTier(smithLevel)) return false;
                     const cost = PAN_TIER_COSTS[tier];
                     if (s.gold >= cost) {
                         set({
@@ -1188,21 +1248,21 @@ export const gameStore = createStore<GameState>()(
                         return true;
                     }
                 } else if (upgrade === 'bucketUpgrade') {
-                    if (s.bucketUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    if (s.bucketUpgrades >= getEffectiveMaxGearLevel(smithLevel)) return false;
                     const cost = BUCKET_UPGRADE_COSTS[s.bucketUpgrades];
                     if (s.gold >= cost) {
                         set({ gold: s.gold - cost, bucketUpgrades: s.bucketUpgrades + 1 });
                         return true;
                     }
                 } else if (upgrade === 'panCapUpgrade') {
-                    if (s.panCapUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    if (s.panCapUpgrades >= getEffectiveMaxGearLevel(smithLevel)) return false;
                     const cost = PAN_CAP_UPGRADE_COSTS[s.panCapUpgrades];
                     if (s.gold >= cost) {
                         set({ gold: s.gold - cost, panCapUpgrades: s.panCapUpgrades + 1 });
                         return true;
                     }
                 } else if (upgrade === 'panSpeedUpgrade') {
-                    if (s.panSpeedUpgrades >= MAX_GEAR_UPGRADE_LEVEL) return false;
+                    if (s.panSpeedUpgrades >= getEffectiveMaxGearLevel(smithLevel)) return false;
                     const cost = PAN_SPEED_UPGRADE_COSTS[s.panSpeedUpgrades];
                     if (s.gold >= cost) {
                         set({ gold: s.gold - cost, panSpeedUpgrades: s.panSpeedUpgrades + 1 });
@@ -1281,8 +1341,6 @@ export const gameStore = createStore<GameState>()(
                 if (npcId !== null) {
                     const currentLevel = s.npcLevels[npcId] ?? 0;
                     if (currentLevel < 1) return false;
-                    const cost = getCommissionCost(npcId, currentLevel);
-                    if (s.gold < cost) return false;
                     newNpcLevels = { ...s.npcLevels, [npcId]: currentLevel + 1 };
                 }
 
@@ -1297,8 +1355,8 @@ export const gameStore = createStore<GameState>()(
                     seasonNumber: s.seasonNumber + 1,
                     storyNPCs: s.storyNPCs,
                     roleSlots: s.roleSlots,
-                    // Reset run fields (gold always resets on season end)
-                    gold: 0,
+                    // Reset run fields; trader head-start grants opening gold
+                    gold: getTraderHeadStart(newNpcLevels.trader ?? 0),
                     isPaused: false,
                     tickCount: 0,
                     location: 'mine',
@@ -1424,9 +1482,8 @@ export const gameStore = createStore<GameState>()(
                         }
                     }
 
-                    // Sluice workers auto-clean moss → pan, but only once sluice has finished draining
-                    // so the moss visibly fills while the sluice is active
-                    if (s.hasSluiceBox && sluiceOpPower > 0 && newMinersMossFilled > 0 && newPanFilled < panCap && newSluiceBoxFilled === 0) {
+                    // Sluice workers auto-clean moss → pan only once the moss is full
+                    if (s.hasSluiceBox && sluiceOpPower > 0 && newMinersMossFilled >= panCap && newPanFilled < panCap) {
                         const spaceInPan = panCap - newPanFilled;
                         const transferred = Math.min(newMinersMossFilled, spaceInPan);
                         newMinersMossFilled -= transferred;
@@ -1649,7 +1706,7 @@ export const gameStore = createStore<GameState>()(
                         const oldXp = e.xpByRole[role] ?? 0;
                         const oldLevel = getEmployeeLevel(oldXp, e.rarity);
                         if (oldLevel >= EMPLOYEE_LEVEL_CAPS[e.rarity]) return e;
-                        const newXp = oldXp + 1;
+                        const newXp = oldXp + EMPLOYEE_XP_RATE;
                         const newLevel = getEmployeeLevel(newXp, e.rarity);
                         if (newLevel > oldLevel) {
                             levelUps.push(`${e.name} reached Level ${newLevel} as ${ROLE_DISPLAY[role]}!`);

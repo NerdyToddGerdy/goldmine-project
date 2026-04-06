@@ -1,4 +1,4 @@
-import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS } from '../store/gameStore';
+import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS, getEffectiveMaxToolTier, getEffectiveMaxGearLevel } from '../store/gameStore';
 import type { Role } from '../store/schema';
 import { UpgradeButton } from './ui';
 import { useState } from 'react';
@@ -6,9 +6,8 @@ import { useState } from 'react';
 type SmithTab = 'gear' | 'equipment' | 'slots';
 
 
-const ROLE_LABELS: Record<Role, string> = {
+const ROLE_LABELS: Partial<Record<Role, string>> = {
     miner: 'Miner',
-    hauler: 'Hauler',
     prospector: 'Prospector',
     sluiceOperator: 'Sluice Operator',
     furnaceOperator: 'Furnace Operator',
@@ -16,7 +15,7 @@ const ROLE_LABELS: Record<Role, string> = {
     certifier: 'Certifier',
 };
 
-const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
+const ROLE_ORDER: Role[] = ['miner', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
 
 export function Blacksmith() {
     const [tab, setTab] = useState<SmithTab>('gear');
@@ -35,6 +34,10 @@ export function Blacksmith() {
     const panSpeedUpgrades = useGameStore(s => s.panSpeedUpgrades);
     const roleSlots = useGameStore(s => s.roleSlots);
     const blacksmithLevel = useGameStore(s => s.npcLevels.blacksmith);
+
+    const smithLvl = blacksmithLevel ?? 0;
+    const effectiveMaxToolTier = getEffectiveMaxToolTier(smithLvl);
+    const effectiveMaxGearLevel = getEffectiveMaxGearLevel(smithLvl);
 
     const buyUpgrade = (u: string) => gameStore.getState().buyUpgrade(u);
     const buyRoleSlot = (role: Role) => gameStore.getState().buyRoleSlot(role);
@@ -70,24 +73,34 @@ export function Blacksmith() {
                         <div className="space-y-2">
                             <UpgradeButton
                                 name="Shovel Upgrade"
-                                description={shovelTier < MAX_TOOL_TIER ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click` : 'Maximum shovel tier reached'}
-                                cost={shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0}
+                                description={
+                                    shovelTier >= effectiveMaxToolTier && effectiveMaxToolTier < MAX_TOOL_TIER
+                                        ? `⬆️ Level up Blacksmith to unlock Tier ${effectiveMaxToolTier + 1}`
+                                        : shovelTier < MAX_TOOL_TIER
+                                            ? `Scoop power: ${scoopPower} → ${scoopPower + 1} dirt/click`
+                                            : 'Maximum shovel tier reached'
+                                }
+                                cost={shovelTier < effectiveMaxToolTier ? SHOVEL_TIER_COSTS[shovelTier] : 0}
                                 currentLevel={shovelTier}
-                                maxLevel={MAX_TOOL_TIER}
-                                locked={shovelTier >= 2 && blacksmithLevel < 2}
-                                canAfford={shovelTier < MAX_TOOL_TIER && gold >= (shovelTier < MAX_TOOL_TIER ? SHOVEL_TIER_COSTS[shovelTier] : 0)}
+                                maxLevel={effectiveMaxToolTier}
+                                canAfford={shovelTier < effectiveMaxToolTier && gold >= SHOVEL_TIER_COSTS[shovelTier]}
                                 playerMoney={gold}
                                 onBuy={() => buyUpgrade('betterShovel')}
                                 icon="⛏️"
                             />
                             <UpgradeButton
                                 name="Pan Upgrade"
-                                description={panTier < MAX_TOOL_TIER ? `Pan power: ${panPower} → ${panPower + 1} gold/pan` : 'Maximum pan tier reached'}
-                                cost={panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0}
+                                description={
+                                    panTier >= effectiveMaxToolTier && effectiveMaxToolTier < MAX_TOOL_TIER
+                                        ? `⬆️ Level up Blacksmith to unlock Tier ${effectiveMaxToolTier + 1}`
+                                        : panTier < MAX_TOOL_TIER
+                                            ? `Pan power: ${panPower} → ${panPower + 1} gold/pan`
+                                            : 'Maximum pan tier reached'
+                                }
+                                cost={panTier < effectiveMaxToolTier ? PAN_TIER_COSTS[panTier] : 0}
                                 currentLevel={panTier}
-                                maxLevel={MAX_TOOL_TIER}
-                                locked={panTier >= 2 && blacksmithLevel < 2}
-                                canAfford={panTier < MAX_TOOL_TIER && gold >= (panTier < MAX_TOOL_TIER ? PAN_TIER_COSTS[panTier] : 0)}
+                                maxLevel={effectiveMaxToolTier}
+                                canAfford={panTier < effectiveMaxToolTier && gold >= PAN_TIER_COSTS[panTier]}
                                 playerMoney={gold}
                                 onBuy={() => buyUpgrade('betterPan')}
                                 icon="🥘"
@@ -100,36 +113,51 @@ export function Blacksmith() {
                         <div className="space-y-2">
                             <UpgradeButton
                                 name="Larger Bucket"
-                                description={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL ? `Bucket: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}` : `Bucket: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`}
-                                cost={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL ? BUCKET_UPGRADE_COSTS[bucketUpgrades] : 0}
+                                description={
+                                    bucketUpgrades >= effectiveMaxGearLevel && effectiveMaxGearLevel < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `⬆️ Level up Blacksmith to unlock Level ${effectiveMaxGearLevel + 1}`
+                                        : bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                            ? `Bucket: ${BUCKET_CAPACITY + 5 * bucketUpgrades} → ${BUCKET_CAPACITY + 5 * (bucketUpgrades + 1)}`
+                                            : `Bucket: ${BUCKET_CAPACITY + 5 * bucketUpgrades} (maxed)`
+                                }
+                                cost={bucketUpgrades < effectiveMaxGearLevel ? BUCKET_UPGRADE_COSTS[bucketUpgrades] : 0}
                                 currentLevel={bucketUpgrades}
-                                maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                locked={(bucketUpgrades === 1 && blacksmithLevel < 2) || (bucketUpgrades >= 2 && blacksmithLevel < 3)}
-                                canAfford={bucketUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= BUCKET_UPGRADE_COSTS[bucketUpgrades]}
+                                maxLevel={effectiveMaxGearLevel}
+                                canAfford={bucketUpgrades < effectiveMaxGearLevel && gold >= BUCKET_UPGRADE_COSTS[bucketUpgrades]}
                                 playerMoney={gold}
                                 onBuy={() => buyUpgrade('bucketUpgrade')}
                                 icon="🪣"
                             />
                             <UpgradeButton
                                 name="Larger Pan"
-                                description={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}` : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`}
-                                cost={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0}
+                                description={
+                                    panCapUpgrades >= effectiveMaxGearLevel && effectiveMaxGearLevel < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `⬆️ Level up Blacksmith to unlock Level ${effectiveMaxGearLevel + 1}`
+                                        : panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                            ? `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} → ${PAN_CAPACITY + 10 * (panCapUpgrades + 1)}`
+                                            : `Pan capacity: ${PAN_CAPACITY + 10 * panCapUpgrades} (maxed)`
+                                }
+                                cost={panCapUpgrades < effectiveMaxGearLevel ? PAN_CAP_UPGRADE_COSTS[panCapUpgrades] : 0}
                                 currentLevel={panCapUpgrades}
-                                maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                locked={(panCapUpgrades === 1 && blacksmithLevel < 2) || (panCapUpgrades >= 2 && blacksmithLevel < 3)}
-                                canAfford={panCapUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= PAN_CAP_UPGRADE_COSTS[panCapUpgrades]}
+                                maxLevel={effectiveMaxGearLevel}
+                                canAfford={panCapUpgrades < effectiveMaxGearLevel && gold >= PAN_CAP_UPGRADE_COSTS[panCapUpgrades]}
                                 playerMoney={gold}
                                 onBuy={() => buyUpgrade('panCapUpgrade')}
                                 icon="🍳"
                             />
                             <UpgradeButton
                                 name="Faster Panning"
-                                description={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click` : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`}
-                                cost={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0}
+                                description={
+                                    panSpeedUpgrades >= effectiveMaxGearLevel && effectiveMaxGearLevel < MAX_GEAR_UPGRADE_LEVEL
+                                        ? `⬆️ Level up Blacksmith to unlock Level ${effectiveMaxGearLevel + 1}`
+                                        : panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL
+                                            ? `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click → ${1 + 0.5 * (panSpeedUpgrades + 1)}/click`
+                                            : `Pan consumes: ${1 + 0.5 * panSpeedUpgrades}/click (maxed)`
+                                }
+                                cost={panSpeedUpgrades < effectiveMaxGearLevel ? PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades] : 0}
                                 currentLevel={panSpeedUpgrades}
-                                maxLevel={MAX_GEAR_UPGRADE_LEVEL}
-                                locked={(panSpeedUpgrades === 1 && blacksmithLevel < 2) || (panSpeedUpgrades >= 2 && blacksmithLevel < 3)}
-                                canAfford={panSpeedUpgrades < MAX_GEAR_UPGRADE_LEVEL && gold >= PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades]}
+                                maxLevel={effectiveMaxGearLevel}
+                                canAfford={panSpeedUpgrades < effectiveMaxGearLevel && gold >= PAN_SPEED_UPGRADE_COSTS[panSpeedUpgrades]}
                                 playerMoney={gold}
                                 onBuy={() => buyUpgrade('panSpeedUpgrade')}
                                 icon="⚡"

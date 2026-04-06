@@ -242,7 +242,6 @@ describe('hardResetSave', () => {
 describe('selectCommission', () => {
     it('increments npcLevel for the commissioned NPC', () => {
         gameStore.setState({
-            gold: 9999,
             npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
         });
         const result = gameStore.getState().selectCommission('trader');
@@ -250,36 +249,10 @@ describe('selectCommission', () => {
         expect(gameStore.getState().npcLevels.trader).toBe(2);
     });
 
-    it('requires sufficient gold to commission (cost threshold check)', async () => {
-        const { getCommissionCost } = await import('../src/store/gameStore');
-        const cost = getCommissionCost('blacksmith', 1);
-        gameStore.setState({
-            gold: cost - 1,
-            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
-        });
-        expect(gameStore.getState().selectCommission('blacksmith')).toBe(false);
-        // exactly at cost → succeeds
-        gameStore.setState({
-            gold: cost,
-            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
-        });
-        expect(gameStore.getState().selectCommission('blacksmith')).toBe(true);
-        // gold always resets to 0 at season end
-        expect(gameStore.getState().gold).toBe(0);
-    });
-
     it('returns false when NPC has not arrived (level 0)', () => {
         gameStore.setState({
             gold: 9999,
             npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
-        });
-        expect(gameStore.getState().selectCommission('trader')).toBe(false);
-    });
-
-    it('returns false when insufficient funds', () => {
-        gameStore.setState({
-            gold: 0,
-            npcLevels: { trader: 1, tavernKeeper: 1, assayer: 1, blacksmith: 1 },
         });
         expect(gameStore.getState().selectCommission('trader')).toBe(false);
     });
@@ -292,7 +265,8 @@ describe('selectCommission', () => {
         });
         gameStore.getState().selectCommission('trader');
         const s = gameStore.getState();
-        expect(s.gold).toBe(0);
+        // trader L1→L2 grants 25 oz head-start; all other run fields reset
+        expect(s.gold).toBe(25);
         expect(s.hasSluiceBox).toBe(false);
         expect(s.seasonNumber).toBe(2);
     });

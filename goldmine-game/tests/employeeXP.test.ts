@@ -3,6 +3,7 @@ import {
     gameStore,
     getEmployeeLevel,
     EMPLOYEE_LEVEL_CAPS,
+    EMPLOYEE_XP_RATE,
     FIXED_DT_MS,
     generateEmployee,
 } from '../src/store/gameStore';
@@ -92,7 +93,7 @@ describe('XP gain in _fixedTick', () => {
         gameStore.getState().stepSimulation(FIXED_DT_MS);
 
         const updated = gameStore.getState().employees[0];
-        expect(updated.xpByRole['miner']).toBe(1);
+        expect(updated.xpByRole['miner']).toBeCloseTo(EMPLOYEE_XP_RATE, 6);
     });
 
     it('idle miner (bucket full) does not gain XP', () => {

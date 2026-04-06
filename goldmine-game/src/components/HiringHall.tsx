@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, getEmployeeRolePower } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -176,6 +176,12 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
     if (emp) {
         const s = RARITY_STYLES[emp.rarity];
         const power = getEmployeeRolePower(emp, role);
+        const xp = emp.xpByRole[role] ?? 0;
+        const level = getEmployeeLevel(xp, emp.rarity);
+        const cap = EMPLOYEE_LEVEL_CAPS[emp.rarity];
+        const xpForLevel = level * level * 10;
+        const xpForNext = (level + 1) * (level + 1) * 10;
+        const xpPct = level >= cap ? 100 : Math.min(100, ((xp - xpForLevel) / (xpForNext - xpForLevel)) * 100);
         return (
             <div className={`flex items-center gap-2 p-2 rounded-lg border-2 bg-white ${s.border}`}>
                 <span className="text-base">{meta.icon}</span>
@@ -183,8 +189,17 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
                     <div className="flex items-center gap-1.5">
                         <span className="text-xs font-semibold text-gray-800 truncate">{emp.name}</span>
                         <span className={`text-xs px-1 rounded capitalize ${s.badge}`}>{emp.rarity}</span>
+                        <span className="text-xs text-gray-500">L{level}{level >= cap ? ' ★' : ''}</span>
                     </div>
-                    <span className="text-xs text-gray-400">Power {power.toFixed(1)}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden">
+                            <div
+                                className={`h-full rounded-full transition-all duration-500 ${level >= cap ? 'bg-amber-400' : 'bg-blue-400'}`}
+                                style={{ width: `${xpPct}%` }}
+                            />
+                        </div>
+                        <span className="text-xs text-gray-400 shrink-0">Pwr {power.toFixed(1)}</span>
+                    </div>
                 </div>
                 <button
                     onClick={() => gameStore.getState().unassignEmployee(emp.id)}
@@ -228,7 +243,7 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
     );
 }
 
-export function Roster() {
+export function Roster({ roles }: { roles?: Role[] } = {}) {
     const employees = useGameStore(s => s.employees);
     const roleSlots = useGameStore(s => s.roleSlots);
     const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
@@ -237,6 +252,7 @@ export function Roster() {
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
 
     const bench = employees.filter(e => e.assignedRole === null);
+    const activeRoles = roles ?? ROLE_ORDER;
 
     function isLocked(role: Role): boolean {
         if (role === 'sluiceOperator') return !hasSluiceBox;
@@ -248,8 +264,8 @@ export function Roster() {
 
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>
-            {ROLE_ORDER.map(role => {
+            {!roles && <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>}
+            {activeRoles.map(role => {
                 const meta = ROLE_META[role];
                 const locked = isLocked(role);
                 const slotCount = roleSlots[role];
@@ -265,15 +281,14 @@ export function Roster() {
                         {locked ? (
                             <RoleSlotRow role={role} emp={null} bench={bench} isLocked={true} equipmentReq={meta.equipment} />
                         ) : (
-                            Array.from({ length: slotCount }, (_, i) => (
-                                <RoleSlotRow
-                                    key={i}
-                                    role={role}
-                                    emp={assigned[i] ?? null}
-                                    bench={bench}
-                                    isLocked={false}
-                                />
-                            ))
+                            <>
+                                {assigned.map((emp, i) => (
+                                    <RoleSlotRow key={i} role={role} emp={emp} bench={bench} isLocked={false} />
+                                ))}
+                                {filled < slotCount && (
+                                    <RoleSlotRow key="empty" role={role} emp={null} bench={bench} isLocked={false} />
+                                )}
+                            </>
                         )}
                     </div>
                 );
@@ -282,9 +297,152 @@ export function Roster() {
     );
 }
 
+// ─── Forge ────────────────────────────────────────────────────────────────────
+
+function Forge() {
+    const gold = useGameStore(s => s.gold);
+    const employees = useGameStore(s => s.employees);
+    const [selected, setSelected] = useState<string[]>([]);
+
+    const bench = employees.filter(e => e.assignedRole === null);
+
+    function toggle(id: string) {
+        setSelected(prev => {
+            if (prev.includes(id)) return prev.filter(x => x !== id);
+            const emp = bench.find(e => e.id === id)!;
+            // Only allow selecting same rarity as already-selected
+            const firstSelected = bench.find(e => e.id === prev[0]);
+            if (firstSelected && firstSelected.rarity !== emp.rarity) return prev;
+            if (prev.length >= 3) return prev;
+            return [...prev, id];
+        });
+    }
+
+    const sel = selected.map(id => bench.find(e => e.id === id)).filter(Boolean) as typeof bench;
+    const canForge = sel.length === 3 && sel.every(e => e.rarity === sel[0].rarity);
+    const targetRarity = canForge ? RARITY_ORDER[RARITY_ORDER.indexOf(sel[0].rarity) + 1] : null;
+    const forgeCost = targetRarity ? MERGE_COSTS[targetRarity] : 0;
+    const canAfford = gold >= forgeCost;
+
+    function doForge() {
+        if (!canForge) return;
+        const ids = selected as [string, string, string];
+        const ok = gameStore.getState().mergeEmployees(ids);
+        if (ok) setSelected([]);
+    }
+
+    const rarityGroups = RARITY_ORDER.filter(r => r !== 'legendary' || bench.some(e => e.rarity === 'legendary')).map(r => ({
+        rarity: r,
+        members: bench.filter(e => e.rarity === r),
+    })).filter(g => g.members.length > 0);
+
+    return (
+        <div className="space-y-4">
+            <p className="text-xs text-gray-500">Select 3 unassigned crew of the same rarity to forge them into one of the next tier.</p>
+
+            {bench.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-6">No unassigned crew available.</p>
+            )}
+
+            {rarityGroups.map(({ rarity, members }) => {
+                const s = RARITY_STYLES[rarity];
+                const targetR = RARITY_ORDER[RARITY_ORDER.indexOf(rarity) + 1];
+                const isMaxRarity = !targetR;
+                return (
+                    <div key={rarity} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className={`text-xs font-bold uppercase tracking-wider ${s.text}`}>{rarity}</span>
+                            {!isMaxRarity && members.length >= 3 && (
+                                <span className="text-xs text-gray-400">{members.length} available — {Math.floor(members.length / 3)} merge{Math.floor(members.length / 3) !== 1 ? 's' : ''} possible</span>
+                            )}
+                            {!isMaxRarity && members.length < 3 && (
+                                <span className="text-xs text-gray-400">{members.length}/3</span>
+                            )}
+                        </div>
+                        <div className="space-y-1">
+                            {members.map(emp => {
+                                const isSel = selected.includes(emp.id);
+                                const selRarity = sel[0]?.rarity;
+                                const isDisabled = isMaxRarity || (!isSel && selRarity && selRarity !== rarity) || (!isSel && selected.length >= 3);
+                                return (
+                                    <button
+                                        key={emp.id}
+                                        onClick={() => !isDisabled && toggle(emp.id)}
+                                        disabled={!!isDisabled}
+                                        className={`w-full flex items-center gap-2 p-2 rounded-lg border-2 text-left transition-all ${
+                                            isSel
+                                                ? `${s.border} bg-white shadow-sm ring-2 ring-offset-1 ring-amber-400`
+                                                : isDisabled
+                                                    ? 'border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed'
+                                                    : `border-gray-200 bg-white hover:${s.border} hover:bg-gray-50`
+                                        }`}
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-xs font-semibold text-gray-800">{emp.name}</span>
+                                                <span className={`text-xs px-1 rounded capitalize ${s.badge}`}>{emp.rarity}</span>
+                                            </div>
+                                            <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
+                                                <span>Brawn {emp.stats.brawn}</span>
+                                                <span>Dex {emp.stats.dexterity}</span>
+                                                <span>Tech {emp.stats.technical}</span>
+                                                <span>Hustle {emp.stats.hustle}</span>
+                                            </div>
+                                        </div>
+                                        {isSel && <span className="text-amber-500 font-bold text-sm">✓</span>}
+                                    </button>
+                                );
+            })}
+                        </div>
+                    </div>
+                );
+            })}
+
+            {/* Forge action panel */}
+            {sel.length > 0 && (
+                <div className="sticky bottom-0 p-3 rounded-xl border-2 border-amber-300 bg-amber-50 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-800">
+                            {sel.length}/3 selected{targetRarity ? ` → ${targetRarity}` : ''}
+                        </span>
+                        <button onClick={() => setSelected([])} className="text-xs text-amber-500 hover:text-amber-700">Clear</button>
+                    </div>
+
+                    {canForge && targetRarity && (
+                        <div className="space-y-1 text-xs text-amber-700">
+                            <div className="grid grid-cols-4 gap-1 font-mono">
+                                {(['brawn', 'dexterity', 'technical', 'hustle'] as const).map(stat => (
+                                    <div key={stat} className="text-center">
+                                        <div className="text-gray-400 capitalize">{stat === 'dexterity' ? 'Dex' : stat === 'technical' ? 'Tech' : stat.charAt(0).toUpperCase() + stat.slice(1)}</div>
+                                        <div className="font-bold text-amber-800">{Math.max(...sel.map(e => e.stats[stat]))}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-center text-amber-600">"{sel[0].name}" · {targetRarity}</p>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={doForge}
+                        disabled={!canForge || !canAfford}
+                        className="w-full py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {!canForge
+                            ? `Select ${3 - sel.length} more`
+                            : !canAfford
+                                ? `Need ${forgeCost} oz (have ${gold.toFixed(0)})`
+                                : `⚒️ Forge for ${forgeCost} oz`
+                        }
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type HallTab = 'draft' | 'bench' | 'roster';
+type HallTab = 'draft' | 'bench' | 'roster' | 'forge';
 
 export function HiringHall() {
     const [tab, setTab] = useState<HallTab>('draft');
@@ -294,7 +452,7 @@ export function HiringHall() {
             <h3 className="text-lg font-semibold text-green-800">🏗️ Hiring Hall</h3>
 
             <div className="flex gap-1 border-b-2 border-gray-200">
-                {([['draft', '📋 Candidates'], ['bench', '👥 Crew'], ['roster', '📌 Assignments']] as [HallTab, string][]).map(([id, label]) => (
+                {([['draft', '📋 Candidates'], ['bench', '👥 Crew'], ['roster', '📌 Assignments'], ['forge', '⚒️ Forge']] as [HallTab, string][]).map(([id, label]) => (
                     <button
                         key={id}
                         onClick={() => setTab(id)}
@@ -313,6 +471,7 @@ export function HiringHall() {
                 {tab === 'draft'  && <DraftPool />}
                 {tab === 'bench'  && <Bench />}
                 {tab === 'roster' && <Roster />}
+                {tab === 'forge'  && <Forge />}
             </div>
         </div>
     );
