@@ -391,20 +391,23 @@ export function computeEmployeeStats(emp: Employee) {
     };
 }
 
-/** Primary stat power for a given role */
+export const MAX_EXTRACTION_RATE = 0.8; // sluice ops cannot push extraction above this
+
+/** Primary stat power for a given role (sqrt-scaled for diminishing returns) */
 export function getEmployeeRolePower(e: Employee, role: Role): number {
     const { brawn, dexterity, technical, hustle } = computeEmployeeStats(e);
+    const sh = Math.sqrt(hustle);
     switch (role) {
         case 'miner':
         case 'hauler':
-            return brawn * 0.5 + hustle * 0.25;
+            return Math.sqrt(brawn) * 0.5 + sh * 0.25;
         case 'prospector':
-            return dexterity * 0.5 + hustle * 0.25;
+            return Math.sqrt(dexterity) * 0.5 + sh * 0.25;
         case 'sluiceOperator':
         case 'furnaceOperator':
         case 'detectorOperator':
         case 'certifier':
-            return technical * 0.5 + hustle * 0.25;
+            return Math.sqrt(technical) * 0.5 + sh * 0.25;
     }
 }
 
@@ -1033,6 +1036,7 @@ export const gameStore = createStore<GameState>()(
                 const materialUsed = Math.min(s.panFilled, getEffectivePanClickAmount(s.panSpeedUpgrades));
                 let extractionRate = BASE_EXTRACTION;
                 extractionRate += getAssignedPower(s.employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * s.sluiceGear;
+                extractionRate = Math.min(extractionRate, MAX_EXTRACTION_RATE);
                 // Paydirt from sluice box yields significantly more gold per unit
                 const paydirtMultiplier = s.hasSluiceBox ? PAYDIRT_YIELD_MULTIPLIER : 1;
                 const baseGold = materialUsed * s.panPower * extractionRate * paydirtMultiplier;
@@ -1380,7 +1384,6 @@ export const gameStore = createStore<GameState>()(
                     storyNPCs: s.storyNPCs,
                     roleSlots: s.roleSlots,
                     postedJobs: {},
-                    mossLockedForFill: false,
                     // Reset run fields; trader head-start grants opening gold
                     gold: getTraderHeadStart(newNpcLevels.trader ?? 0),
                     isPaused: false,
@@ -1570,6 +1573,7 @@ export const gameStore = createStore<GameState>()(
                         // Calculate extraction rate from employees (gear multiplies the bonus)
                         let extractionRate = BASE_EXTRACTION;
                         extractionRate += sluiceOpPower * SLUICE_EXTRACTION_RATE * s.sluiceGear;
+                        extractionRate = Math.min(extractionRate, MAX_EXTRACTION_RATE);
 
                         // panRate is intentionally independent of extractionRate — sluice operators boost
                         // gold yield per unit consumed, not how fast dirt is consumed.

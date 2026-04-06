@@ -72,9 +72,10 @@ describe('stepSimulation accumulator', () => {
 
 describe('miner fill rate per tick', () => {
     it('1 shovel fills bucket at correct rate', () => {
-        // common L0: brawn=1, hustle=1 → power=0.75; dirtPerTick = (0.75 * MINER_DIRT_RATE) / 60
+        // common L0: brawn=1, hustle=1 → power=sqrt(1)*0.5+sqrt(1)*0.25=0.75; dirtPerTick = (0.75 * MINER_DIRT_RATE) / 60
         const emp = makeCommonEmployee('miner', 'Miner');
-        const power = computeEmployeeStats(emp).brawn * 0.5 + computeEmployeeStats(emp).hustle * 0.25;
+        const { brawn, hustle } = computeEmployeeStats(emp);
+        const power = Math.sqrt(brawn) * 0.5 + Math.sqrt(hustle) * 0.25;
         const expected = (power * MINER_DIRT_RATE) / 60;
         gameStore.setState({ employees: [emp], gold: 9999, bucketFilled: 0 });
         runTicks(1);
@@ -83,7 +84,8 @@ describe('miner fill rate per tick', () => {
 
     it('two miners double the fill rate', () => {
         const emp = makeCommonEmployee('miner', 'M');
-        const power = computeEmployeeStats(emp).brawn * 0.5 + computeEmployeeStats(emp).hustle * 0.25;
+        const { brawn, hustle } = computeEmployeeStats(emp);
+        const power = Math.sqrt(brawn) * 0.5 + Math.sqrt(hustle) * 0.25;
         const expected = 2 * (power * MINER_DIRT_RATE) / 60;
         gameStore.setState({ employees: [makeCommonEmployee('miner', 'M1'), makeCommonEmployee('miner', 'M2')], gold: 9999, bucketFilled: 0 });
         runTicks(1);
@@ -105,7 +107,7 @@ describe('prospector production per tick', () => {
     it('1 pan produces correct gold with no upgrades', () => {
         const emp = makeCommonEmployee('prospector', 'Prospector');
         const { dexterity, hustle } = computeEmployeeStats(emp);
-        const prospPower = dexterity * 0.5 + hustle * 0.25;
+        const prospPower = Math.sqrt(dexterity) * 0.5 + Math.sqrt(hustle) * 0.25;
         const panRate = (prospPower * PROSPECTOR_PAN_RATE) / 60;
         const BASE_EXTRACTION = 0.2;
         const goldGained = panRate * BASE_EXTRACTION;
@@ -120,11 +122,11 @@ describe('prospector production per tick', () => {
         const sluice = makeCommonEmployee('sluiceOperator', 'Sluice');
         const { dexterity, hustle: pH } = computeEmployeeStats(prosp);
         const { technical, hustle: sH } = computeEmployeeStats(sluice);
-        const prospPower = dexterity * 0.5 + pH * 0.25;
-        const sluicePower = technical * 0.5 + sH * 0.25;
+        const prospPower = Math.sqrt(dexterity) * 0.5 + Math.sqrt(pH) * 0.25;
+        const sluicePower = Math.sqrt(technical) * 0.5 + Math.sqrt(sH) * 0.25;
         const panRate = (prospPower * PROSPECTOR_PAN_RATE) / 60;
         const BASE_EXTRACTION = 0.2;
-        const extractionRate = BASE_EXTRACTION + sluicePower * SLUICE_EXTRACTION_RATE * 1;
+        const extractionRate = Math.min(BASE_EXTRACTION + sluicePower * SLUICE_EXTRACTION_RATE * 1, 0.8);
         const expected = panRate * extractionRate * PAYDIRT_YIELD_MULTIPLIER;
         gameStore.setState({ employees: [prosp, sluice], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, gold: 0 });
         runTicks(1);
