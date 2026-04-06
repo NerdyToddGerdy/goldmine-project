@@ -1,21 +1,8 @@
-import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS, getEffectiveMaxToolTier, getEffectiveMaxGearLevel } from '../store/gameStore';
-import type { Role } from '../store/schema';
+import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, getEffectiveMaxToolTier, getEffectiveMaxGearLevel } from '../store/gameStore';
 import { UpgradeButton } from './ui';
 import { useState } from 'react';
 
-type SmithTab = 'gear' | 'equipment' | 'slots';
-
-
-const ROLE_LABELS: Partial<Record<Role, string>> = {
-    miner: 'Miner',
-    prospector: 'Prospector',
-    sluiceOperator: 'Sluice Operator',
-    furnaceOperator: 'Furnace Operator',
-    detectorOperator: 'Detector Operator',
-    certifier: 'Certifier',
-};
-
-const ROLE_ORDER: Role[] = ['miner', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
+type SmithTab = 'gear' | 'equipment';
 
 export function Blacksmith() {
     const [tab, setTab] = useState<SmithTab>('gear');
@@ -32,7 +19,6 @@ export function Blacksmith() {
     const bucketUpgrades = useGameStore(s => s.bucketUpgrades);
     const panCapUpgrades = useGameStore(s => s.panCapUpgrades);
     const panSpeedUpgrades = useGameStore(s => s.panSpeedUpgrades);
-    const roleSlots = useGameStore(s => s.roleSlots);
     const blacksmithLevel = useGameStore(s => s.npcLevels.blacksmith);
 
     const smithLvl = blacksmithLevel ?? 0;
@@ -40,7 +26,6 @@ export function Blacksmith() {
     const effectiveMaxGearLevel = getEffectiveMaxGearLevel(smithLvl);
 
     const buyUpgrade = (u: string) => gameStore.getState().buyUpgrade(u);
-    const buyRoleSlot = (role: Role) => gameStore.getState().buyRoleSlot(role);
 
     const shovelTier = scoopPower - 1;
     const panTier = panPower - 1;
@@ -50,7 +35,7 @@ export function Blacksmith() {
             <h3 className="text-lg font-semibold text-gray-800">🔨 Blacksmith</h3>
 
             <div className="flex gap-1 border-b-2 border-gray-200">
-                {([['gear', '⛏️ Gear'], ['equipment', '🔧 Equipment'], ['slots', '👥 Slots']] as [SmithTab, string][]).map(([id, label]) => (
+                {([['gear', '⛏️ Gear'], ['equipment', '🔧 Equipment']] as [SmithTab, string][]).map(([id, label]) => (
                     <button
                         key={id}
                         onClick={() => setTab(id)}
@@ -249,40 +234,6 @@ export function Blacksmith() {
                 </div>
             )}
 
-            {/* Role slots tab */}
-            {tab === 'slots' && (
-                <div className="space-y-2">
-                    {blacksmithLevel < 4 && (
-                        <div className="p-3 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
-                            <p className="text-xs text-gray-400">🔒 Role slot upgrades unlock at Blacksmith Level 4</p>
-                        </div>
-                    )}
-                    <p className="text-xs text-gray-500 pb-1">Purchase additional assignment slots per role.</p>
-                    {ROLE_ORDER.map(role => {
-                        const current = roleSlots[role];
-                        const base = DEFAULT_ROLE_SLOTS[role];
-                        const extra = current - base;
-                        const costs = ROLE_SLOT_COSTS[role];
-                        const maxed = extra >= costs.length;
-                        const cost = maxed ? 0 : costs[extra];
-                        return (
-                            <UpgradeButton
-                                key={role}
-                                name={`${ROLE_LABELS[role]} Slots`}
-                                description={maxed ? `${current} slots (maxed)` : `${current} → ${current + 1} slots`}
-                                cost={cost}
-                                currentLevel={extra}
-                                maxLevel={costs.length}
-                                locked={maxed}
-                                canAfford={!maxed && gold >= cost && blacksmithLevel >= 4}
-                                playerMoney={gold}
-                                onBuy={() => buyRoleSlot(role)}
-                                icon="👤"
-                            />
-                        );
-                    })}
-                </div>
-            )}
         </div>
     );
 }
