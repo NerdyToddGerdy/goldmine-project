@@ -7,6 +7,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.27.1',
+        date: '2026-04-05',
+        title: 'Crew power balance — soft curve + extraction cap',
+        changes: [
+            'Power formula now uses square-root scaling: Legendary L30 is ~5× a fresh Common, not 27×',
+            'Extraction rate is now capped at 0.8 — a fully staffed sluice crew can no longer flood gold endlessly',
+            'L0 crew output is unchanged — early game feel preserved',
+        ],
+    },
+    {
         version: 'v1.27',
         date: '2026-04-05',
         title: 'Stat-driven level growth — earned, not rolled',
