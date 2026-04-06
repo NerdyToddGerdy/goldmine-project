@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 34 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 35 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
@@ -493,7 +493,12 @@ export type SaveV34 = Omit<SaveV33,
     runGoldMined: number;  // gold extracted this season (replaces runMoneyEarned)
 };
 
-export type LatestSave = SaveV34;
+export type SaveV35 = Omit<SaveV34, 'version'> & {
+    version: 35;
+    postedJobs: Partial<Record<Role, boolean>>;
+};
+
+export type LatestSave = SaveV35;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
@@ -1443,8 +1448,22 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         return migrateToLatest({ ...rest, version: 34, runGoldMined: 0 }, 34);
     }
 
-    // Already v34, ensure fields exist
-    const s = raw as Partial<SaveV34>;
+    if (fromVersion === 34) {
+        // v34 → v35: add postedJobs; auto-post for equipment already owned
+        const s = raw as Partial<SaveV34>;
+        return migrateToLatest({
+            ...s,
+            version: 35,
+            postedJobs: {
+                sluiceOperator:   s.hasSluiceBox      ?? false,
+                furnaceOperator:  s.hasFurnace         ?? false,
+                detectorOperator: s.hasMetalDetector   ?? false,
+            },
+        }, 35);
+    }
+
+    // Already v35, ensure fields exist
+    const s = raw as Partial<SaveV35>;
     const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
     const defaultNpcLevels: Record<NPCId, number> = {
         trader: storyNPCs.traderArrived ? 1 : 0,
@@ -1453,7 +1472,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
     };
     return {
-        version: 34,
+        version: 35,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1518,6 +1537,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         draftPoolRefreshCost: s.draftPoolRefreshCost ?? 10,
         npcLevels: s.npcLevels ?? defaultNpcLevels,
         pendingCommission: s.pendingCommission ?? null,
+        postedJobs: s.postedJobs ?? {},
     };
 }
 
@@ -1677,6 +1697,10 @@ export function defaultSaveV34(): SaveV34 {
             totalMoneyEarned: _tme, peakRunMoney: _prm,
             vaultFlakes: _vf, vaultBars: _vb, runMoneyEarned: _rme, ...rest } = defaultSaveV33();
     return { ...rest, version: 34, runGoldMined: 0 };
+}
+
+export function defaultSaveV35(): SaveV35 {
+    return { ...defaultSaveV34(), version: 35, postedJobs: {} };
 }
 
 export function defaultSaveV2(): SaveV2 {

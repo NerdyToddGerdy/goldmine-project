@@ -7,6 +7,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.26',
+        date: '2026-04-05',
+        title: 'Moss batch cycle — must empty before refilling',
+        changes: [
+            'Sluice can no longer refill the miner\'s moss until it has been fully emptied',
+            'Creates a proper batch cycle: fill → clean → fill again',
+            'Operators and manual cleaning both count toward unlocking the next fill',
+        ],
+    },
+    {
+        version: 'v1.25',
+        date: '2026-04-05',
+        title: 'Job Postings — unlock roles separately from equipment',
+        changes: [
+            'Buying equipment no longer immediately enables crew assignment for that role',
+            'Post a job opening in Hiring Hall → Assignments to unlock crew assignment',
+            'Sluice Operator: 300 oz · Detector Operator: 600 oz · Furnace Operator: 2,500 oz',
+            'Job postings reset each season — must be re-posted at the start of every run',
+            'Existing saves with equipment already owned are automatically migrated (jobs pre-posted)',
+        ],
+    },
+    {
         version: 'v1.24',
         date: '2026-04-05',
         title: 'Blacksmith upgrade tiers scale with NPC level',

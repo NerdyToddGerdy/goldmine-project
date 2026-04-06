@@ -121,6 +121,7 @@ export type GameState = {
     panFilled: number // how much dirt/paydirt is in the pan (0 to PAN_CAPACITY)
     sluiceBoxFilled: number // dirt currently draining through the sluice box
     minersMossFilled: number // concentrated paydirt caught by the miner's moss
+    mossLockedForFill: boolean // true after moss fills up; sluice can't refill until moss is fully emptied
 
     // Resources
     dirt: number // raw dirt from scooping
@@ -260,6 +261,8 @@ export type GameState = {
     unassignEmployee: (employeeId: string) => void
     buyRoleSlot: (role: Role) => boolean // stub — pricing in later issues
     mergeEmployees: (ids: [string, string, string]) => boolean
+    postedJobs: Partial<Record<Role, boolean>>
+    postJob: (role: Role) => boolean
 
     // Toasts
     addToast: (message: string, type?: ToastType) => void
@@ -301,6 +304,13 @@ export const EQUIPMENT = {
     furnace: { cost: 1500 }, // Unlocks furnace workers + removes fee
     metalDetector: { cost: 350 }, // Unlocks detect action + detector workers
     motherlode: { cost: 500 }, // 20% chance of 3× spots per detect
+};
+
+// Cost to post the job opening after buying the equipment (resets each season)
+export const JOB_POSTING_COSTS: Partial<Record<Role, number>> = {
+    sluiceOperator:   300,
+    furnaceOperator:  2500,
+    detectorOperator: 600,
 };
 
 // Vehicle tiers for travel mechanic
@@ -507,6 +517,7 @@ export const gameStore = createStore<GameState>()(
             panFilled: 0,
             sluiceBoxFilled: 0,
             minersMossFilled: 0,
+            mossLockedForFill: false,
 
             // Resources
             dirt: 0,
@@ -516,6 +527,7 @@ export const gameStore = createStore<GameState>()(
             // Employees (v29)
             employees: [],
             roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+            postedJobs: {},
             storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
             seasonNumber: 1,
             npcsRetained: 0,
@@ -616,6 +628,7 @@ export const gameStore = createStore<GameState>()(
                     panFilled: 0,
                     sluiceBoxFilled: 0,
                     minersMossFilled: 0,
+                    mossLockedForFill: false,
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
@@ -675,11 +688,13 @@ export const gameStore = createStore<GameState>()(
                     panFilled: 0,
                     sluiceBoxFilled: 0,
                     minersMossFilled: 0,
+                    mossLockedForFill: false,
                     dirt: 0,
                     paydirt: 0,
                     gold: 0,
                     employees: [],
                     roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+                    postedJobs: {},
                     storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
                     seasonNumber: 1,
                     npcsRetained: 0,
@@ -1111,6 +1126,16 @@ export const gameStore = createStore<GameState>()(
                 return true;
             },
 
+            postJob: (role: Role) => {
+                const s = get();
+                const cost = JOB_POSTING_COSTS[role];
+                if (!cost) return false;
+                if (s.postedJobs[role]) return false;
+                if (s.gold < cost) return false;
+                set({ gold: s.gold - cost, postedJobs: { ...s.postedJobs, [role]: true } });
+                return true;
+            },
+
             refreshDraftPool: () => {
                 const s = get();
                 const isInitial = s.draftPool.length === 0;
@@ -1355,6 +1380,8 @@ export const gameStore = createStore<GameState>()(
                     seasonNumber: s.seasonNumber + 1,
                     storyNPCs: s.storyNPCs,
                     roleSlots: s.roleSlots,
+                    postedJobs: {},
+                    mossLockedForFill: false,
                     // Reset run fields; trader head-start grants opening gold
                     gold: getTraderHeadStart(newNpcLevels.trader ?? 0),
                     isPaused: false,
@@ -1387,6 +1414,7 @@ export const gameStore = createStore<GameState>()(
                     driverTripTicks: 0,
                     sluiceBoxFilled: 0,
                     minersMossFilled: 0,
+                    mossLockedForFill: false,
                     richDirtInBucket: 0,
                     richDirtInSluice: 0,
                     hasMetalDetector: false,
@@ -1447,10 +1475,12 @@ export const gameStore = createStore<GameState>()(
                     let newRichDirtInBucketForAutoEmpty = s.richDirtInBucket; // tracks auto-empty transfers
 
                     // Sluice box drain: dirt drains over time, concentrated paydirt collects in miner's moss
-                    // Paused while player is manually cleaning moss (can't pour into moss while rinsing it)
+                    // Moss must be fully emptied before it can accept more fill (batch cycle)
+                    let newMossLockedForFill = s.mossLockedForFill;
+                    if (newMinersMossFilled === 0) newMossLockedForFill = false;
                     if (s.hasSluiceBox) {
                         const sluiceCap = panCap; // sluice capacity = pan capacity
-                        if (newSluiceBoxFilled > 0 && newMinersMossFilled < sluiceCap) {
+                        if (newSluiceBoxFilled > 0 && newMinersMossFilled < sluiceCap && !newMossLockedForFill) {
                             const richRatio = newSluiceBoxFilled > 0 ? Math.min(1, newRichDirtInSluice / newSluiceBoxFilled) : 0;
                             const effectiveConversion = richRatio * RICH_CONVERSION_RATIO + (1 - richRatio) * SLUICE_CONVERSION_RATIO;
                             // Sluice operators speed up the drain rate
@@ -1461,6 +1491,7 @@ export const gameStore = createStore<GameState>()(
                             newSluiceBoxFilled = Math.max(0, newSluiceBoxFilled - actualDrain);
                             newRichDirtInSluice = Math.max(0, newRichDirtInSluice - actualDrain * richRatio);
                             newMinersMossFilled = Math.min(newMinersMossFilled + actualDrain * effectiveConversion, sluiceCap);
+                            if (newMinersMossFilled >= sluiceCap) newMossLockedForFill = true;
                         }
                     }
 
@@ -1723,6 +1754,7 @@ export const gameStore = createStore<GameState>()(
                         panFilled: newPanFilled,
                         sluiceBoxFilled: newSluiceBoxFilled,
                         minersMossFilled: newMinersMossFilled,
+                        mossLockedForFill: newMossLockedForFill,
                         richDirtInBucket: newRichDirtInBucket,
                         richDirtInSluice: newRichDirtInSluice,
                         detectProgress: newDetectProgress,
@@ -1786,6 +1818,7 @@ export const gameStore = createStore<GameState>()(
             gold: state.gold,
             employees: state.employees,
             roleSlots: state.roleSlots,
+            postedJobs: state.postedJobs,
             storyNPCs: state.storyNPCs,
             seasonNumber: state.seasonNumber,
             npcsRetained: state.npcsRetained,

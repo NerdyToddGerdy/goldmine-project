@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -250,14 +250,23 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
+    const postedJobs = useGameStore(s => s.postedJobs);
+    const gold = useGameStore(s => s.gold);
 
     const bench = employees.filter(e => e.assignedRole === null);
     const activeRoles = roles ?? ROLE_ORDER;
 
+    function equipmentOwned(role: Role): boolean {
+        if (role === 'sluiceOperator') return hasSluiceBox;
+        if (role === 'furnaceOperator') return hasFurnace;
+        if (role === 'detectorOperator') return hasMetalDetector;
+        return true;
+    }
+
     function isLocked(role: Role): boolean {
-        if (role === 'sluiceOperator') return !hasSluiceBox;
-        if (role === 'furnaceOperator') return !hasFurnace;
-        if (role === 'detectorOperator') return !hasMetalDetector;
+        if (role === 'sluiceOperator') return !hasSluiceBox || !postedJobs.sluiceOperator;
+        if (role === 'furnaceOperator') return !hasFurnace || !postedJobs.furnaceOperator;
+        if (role === 'detectorOperator') return !hasMetalDetector || !postedJobs.detectorOperator;
         if (role === 'certifier') return assayerLevel < 2;
         return false;
     }
@@ -267,10 +276,34 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
             {!roles && <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>}
             {activeRoles.map(role => {
                 const meta = ROLE_META[role];
+                const postingCost = JOB_POSTING_COSTS[role];
+                const needsPosting = !!postingCost && equipmentOwned(role) && !postedJobs[role];
                 const locked = isLocked(role);
                 const slotCount = roleSlots[role];
                 const assigned = employees.filter(e => e.assignedRole === role);
                 const filled = assigned.length;
+
+                // State 2: equipment owned, job not yet posted
+                if (needsPosting) {
+                    return (
+                        <div key={role} className="space-y-1.5">
+                            <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
+                            <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-amber-800">📋 Post Job Opening</p>
+                                    <p className="text-xs text-amber-600">Enables crew assignment for this role</p>
+                                </div>
+                                <button
+                                    onClick={() => gameStore.getState().postJob(role)}
+                                    disabled={gold < postingCost}
+                                    className="text-xs px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {postingCost.toLocaleString()} oz
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
 
                 return (
                     <div key={role} className="space-y-1.5">

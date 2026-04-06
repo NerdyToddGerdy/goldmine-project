@@ -381,7 +381,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(34);
+        expect(parsed.version).toBe(35);
     });
 
     it('exportSave round-trips through importSave', () => {
