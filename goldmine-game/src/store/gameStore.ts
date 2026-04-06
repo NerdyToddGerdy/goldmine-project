@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV36, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY, getCommissionCost} from "./schema"
+import {defaultSaveV36, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 import type { Employee, Role, Rarity, RoleSlots, StoryNPCState, NPCId } from './schema';
 export { makeCommonEmployee } from './schema';
 export type { Employee, Role, NPCId } from './schema';
@@ -821,6 +821,7 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingBars: s.driverCarryingBars,
                     driverCapUpgrades: s.driverCapUpgrades,
                     goldBarsCertified: s.goldBarsCertified,
+                    postedJobs: s.postedJobs,
                 };
                 return JSON.stringify(save, null, 2);
             },
