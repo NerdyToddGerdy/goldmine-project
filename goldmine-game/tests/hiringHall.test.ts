@@ -21,13 +21,11 @@ afterEach(() => {
 // ─── generateEmployee ─────────────────────────────────────────────────────────
 
 describe('generateEmployee', () => {
-    it('returns an employee with valid rarity and stats', () => {
+    it('returns an employee with valid rarity, no stats field, fresh xpByRole', () => {
         const emp = generateEmployee();
         expect(['common', 'uncommon', 'rare', 'epic', 'legendary']).toContain(emp.rarity);
-        expect(emp.stats.brawn).toBeGreaterThanOrEqual(1);
-        expect(emp.stats.dexterity).toBeGreaterThanOrEqual(1);
-        expect(emp.stats.technical).toBeGreaterThanOrEqual(1);
-        expect(emp.stats.hustle).toBeGreaterThanOrEqual(1);
+        expect('stats' in emp).toBe(false);
+        expect(emp.xpByRole).toEqual({});
         expect(emp.assignedRole).toBeNull();
         expect(emp.id).toBeTruthy();
     });
@@ -43,7 +41,7 @@ describe('generateEmployee', () => {
 describe('getHireCost', () => {
     it('returns the correct cost for each rarity', () => {
         for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const) {
-            const emp: Employee = { id: 'x', name: 'Test', rarity, stats: { brawn: 5, dexterity: 5, technical: 5, hustle: 5 }, xpByRole: {}, assignedRole: null };
+            const emp: Employee = { id: 'x', name: 'Test', rarity, xpByRole: {}, assignedRole: null };
             expect(getHireCost(emp)).toBe(HIRE_COSTS[rarity]);
         }
     });

@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 35 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 36 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
@@ -13,7 +13,6 @@ export interface Employee {
     id: string;
     name: string;
     rarity: Rarity;
-    stats: { brawn: number; dexterity: number; technical: number; hustle: number; };
     xpByRole: Partial<Record<Role, number>>;
     assignedRole: Role | null;
 }
@@ -41,7 +40,6 @@ export function makeCommonEmployee(role: Role, name: string): Employee {
         id: `migrated-${role}-${++_empIdCounter}`,
         name,
         rarity: 'common',
-        stats: { brawn: 5, dexterity: 5, technical: 5, hustle: 5 },
         xpByRole: {},
         assignedRole: role,
     };
@@ -498,13 +496,16 @@ export type SaveV35 = Omit<SaveV34, 'version'> & {
     postedJobs: Partial<Record<Role, boolean>>;
 };
 
-export type LatestSave = SaveV35;
+// v36: stats removed from Employee — now computed from xpByRole + rarity at runtime
+export type SaveV36 = Omit<SaveV35, 'version'> & { version: 36; };
+
+export type LatestSave = SaveV36;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV34();
+        return defaultSaveV36();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1462,8 +1463,20 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 35);
     }
 
-    // Already v35, ensure fields exist
-    const s = raw as Partial<SaveV35>;
+    if (fromVersion === 35) {
+        // v35 → v36: stats removed from Employee — strip from all employee objects
+        const s = raw as Partial<SaveV35>;
+        const stripStats = (e: any) => { const { stats: _s, ...rest } = e; return rest; };
+        return migrateToLatest({
+            ...s,
+            version: 36,
+            employees: (s.employees ?? []).map(stripStats),
+            draftPool: (s.draftPool ?? []).map(stripStats),
+        }, 36);
+    }
+
+    // Already v36, ensure fields exist
+    const s = raw as Partial<SaveV36>;
     const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
     const defaultNpcLevels: Record<NPCId, number> = {
         trader: storyNPCs.traderArrived ? 1 : 0,
@@ -1472,7 +1485,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
     };
     return {
-        version: 35,
+        version: 36,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1701,6 +1714,10 @@ export function defaultSaveV34(): SaveV34 {
 
 export function defaultSaveV35(): SaveV35 {
     return { ...defaultSaveV34(), version: 35, postedJobs: {} };
+}
+
+export function defaultSaveV36(): SaveV36 {
+    return { ...defaultSaveV35(), version: 36 };
 }
 
 export function defaultSaveV2(): SaveV2 {

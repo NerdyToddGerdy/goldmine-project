@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, computeEmployeeStats, STAT_BASE, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -22,41 +22,33 @@ const ROLE_META: Record<Role, { label: string; icon: string; equipment?: string 
 
 const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
 
-function StatPips({ value, max = 10 }: { value: number; max?: number }) {
+function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
     return (
-        <div className="flex gap-0.5">
-            {Array.from({ length: max }, (_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-full ${i < value ? 'bg-amber-500' : 'bg-gray-200'}`} />
-            ))}
+        <div className="flex items-center gap-2">
+            <span className="w-10 shrink-0 text-gray-500">{label}</span>
+            <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
+            </div>
+            <span className="w-8 text-right font-semibold text-gray-700">{value}/{max}</span>
         </div>
     );
 }
 
 function EmployeeCard({ emp, children }: { emp: Employee; children?: React.ReactNode }) {
     const s = RARITY_STYLES[emp.rarity];
+    const stats = computeEmployeeStats(emp);
+    const statMax = STAT_BASE[emp.rarity] + EMPLOYEE_LEVEL_CAPS[emp.rarity];
     return (
         <div className={`p-3 rounded-xl border-2 bg-white space-y-2 ${s.border}`}>
             <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm text-gray-800">{emp.name}</span>
                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full capitalize ${s.badge}`}>{emp.rarity}</span>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                <div className="flex items-center justify-between gap-1">
-                    <span>Brawn</span>
-                    <StatPips value={emp.stats.brawn} />
-                </div>
-                <div className="flex items-center justify-between gap-1">
-                    <span>Dex</span>
-                    <StatPips value={emp.stats.dexterity} />
-                </div>
-                <div className="flex items-center justify-between gap-1">
-                    <span>Tech</span>
-                    <StatPips value={emp.stats.technical} />
-                </div>
-                <div className="flex items-center justify-between gap-1">
-                    <span>Hustle</span>
-                    <StatPips value={emp.stats.hustle} />
-                </div>
+            <div className="space-y-1 text-xs">
+                <StatBar label="Brawn"  value={stats.brawn}     max={statMax} />
+                <StatBar label="Dex"    value={stats.dexterity} max={statMax} />
+                <StatBar label="Tech"   value={stats.technical} max={statMax} />
+                <StatBar label="Hustle" value={stats.hustle}    max={statMax} />
             </div>
             {children}
         </div>
@@ -252,6 +244,7 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
     const postedJobs = useGameStore(s => s.postedJobs);
     const gold = useGameStore(s => s.gold);
+    const [collapsed, setCollapsed] = useState(false);
 
     const bench = employees.filter(e => e.assignedRole === null);
     const activeRoles = roles ?? ROLE_ORDER;
@@ -271,61 +264,82 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
         return false;
     }
 
+    const roleRows = activeRoles.map(role => {
+        const meta = ROLE_META[role];
+        const postingCost = JOB_POSTING_COSTS[role];
+        const needsPosting = !!postingCost && equipmentOwned(role) && !postedJobs[role];
+        const locked = isLocked(role);
+        const slotCount = roleSlots[role];
+        const assigned = employees.filter(e => e.assignedRole === role);
+        const filled = assigned.length;
+
+        if (needsPosting) {
+            return (
+                <div key={role} className="space-y-1.5">
+                    <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
+                    <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-amber-800">📋 Post Job Opening</p>
+                            <p className="text-xs text-amber-600">Enables crew assignment for this role</p>
+                        </div>
+                        <button
+                            onClick={() => gameStore.getState().postJob(role)}
+                            disabled={gold < postingCost}
+                            className="text-xs px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {postingCost.toLocaleString()} oz
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div key={role} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
+                    {!locked && <span className="text-xs text-gray-400">{filled}/{slotCount} slots</span>}
+                </div>
+                {locked ? (
+                    <RoleSlotRow role={role} emp={null} bench={bench} isLocked={true} equipmentReq={meta.equipment} />
+                ) : (
+                    <>
+                        {assigned.map((emp, i) => (
+                            <RoleSlotRow key={i} role={role} emp={emp} bench={bench} isLocked={false} />
+                        ))}
+                        {filled < slotCount && (
+                            <RoleSlotRow key="empty" role={role} emp={null} bench={bench} isLocked={false} />
+                        )}
+                    </>
+                )}
+            </div>
+        );
+    });
+
+    // Inline mine usage: collapsible header with assigned/total summary
+    if (roles) {
+        const totalFilled = activeRoles.reduce((n, r) => n + employees.filter(e => e.assignedRole === r).length, 0);
+        const totalSlots  = activeRoles.reduce((n, r) => n + (roleSlots[r] ?? 0), 0);
+        const label = activeRoles.map(r => ROLE_META[r].icon).join(' ');
+        return (
+            <div>
+                <button
+                    onClick={() => setCollapsed(c => !c)}
+                    className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700 py-0.5 transition-colors"
+                >
+                    <span className="font-semibold">{label} Crew — {totalFilled}/{totalSlots}</span>
+                    <span className="text-gray-400">{collapsed ? '▸' : '▾'}</span>
+                </button>
+                {!collapsed && <div className="space-y-3 mt-2">{roleRows}</div>}
+            </div>
+        );
+    }
+
+    // Full Hiring Hall view
     return (
         <div className="space-y-3">
-            {!roles && <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>}
-            {activeRoles.map(role => {
-                const meta = ROLE_META[role];
-                const postingCost = JOB_POSTING_COSTS[role];
-                const needsPosting = !!postingCost && equipmentOwned(role) && !postedJobs[role];
-                const locked = isLocked(role);
-                const slotCount = roleSlots[role];
-                const assigned = employees.filter(e => e.assignedRole === role);
-                const filled = assigned.length;
-
-                // State 2: equipment owned, job not yet posted
-                if (needsPosting) {
-                    return (
-                        <div key={role} className="space-y-1.5">
-                            <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
-                            <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold text-amber-800">📋 Post Job Opening</p>
-                                    <p className="text-xs text-amber-600">Enables crew assignment for this role</p>
-                                </div>
-                                <button
-                                    onClick={() => gameStore.getState().postJob(role)}
-                                    disabled={gold < postingCost}
-                                    className="text-xs px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {postingCost.toLocaleString()} oz
-                                </button>
-                            </div>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div key={role} className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
-                            {!locked && <span className="text-xs text-gray-400">{filled}/{slotCount} slots</span>}
-                        </div>
-                        {locked ? (
-                            <RoleSlotRow role={role} emp={null} bench={bench} isLocked={true} equipmentReq={meta.equipment} />
-                        ) : (
-                            <>
-                                {assigned.map((emp, i) => (
-                                    <RoleSlotRow key={i} role={role} emp={emp} bench={bench} isLocked={false} />
-                                ))}
-                                {filled < slotCount && (
-                                    <RoleSlotRow key="empty" role={role} emp={null} bench={bench} isLocked={false} />
-                                )}
-                            </>
-                        )}
-                    </div>
-                );
-            })}
+            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>
+            {roleRows}
         </div>
     );
 }
@@ -416,10 +430,7 @@ function Forge() {
                                                 <span className={`text-xs px-1 rounded capitalize ${s.badge}`}>{emp.rarity}</span>
                                             </div>
                                             <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
-                                                <span>Brawn {emp.stats.brawn}</span>
-                                                <span>Dex {emp.stats.dexterity}</span>
-                                                <span>Tech {emp.stats.technical}</span>
-                                                <span>Hustle {emp.stats.hustle}</span>
+                                                {(() => { const st = computeEmployeeStats(emp); return (<><span>Brawn {st.brawn}</span><span>Dex {st.dexterity}</span><span>Tech {st.technical}</span><span>Hustle {st.hustle}</span></>); })()}
                                             </div>
                                         </div>
                                         {isSel && <span className="text-amber-500 font-bold text-sm">✓</span>}
@@ -443,15 +454,15 @@ function Forge() {
 
                     {canForge && targetRarity && (
                         <div className="space-y-1 text-xs text-amber-700">
-                            <div className="grid grid-cols-4 gap-1 font-mono">
-                                {(['brawn', 'dexterity', 'technical', 'hustle'] as const).map(stat => (
-                                    <div key={stat} className="text-center">
-                                        <div className="text-gray-400 capitalize">{stat === 'dexterity' ? 'Dex' : stat === 'technical' ? 'Tech' : stat.charAt(0).toUpperCase() + stat.slice(1)}</div>
-                                        <div className="font-bold text-amber-800">{Math.max(...sel.map(e => e.stats[stat]))}</div>
+                            <div className="flex gap-3 justify-center font-mono">
+                                {(['Brawn', 'Dex', 'Tech', 'Hustle'] as const).map(label => (
+                                    <div key={label} className="text-center">
+                                        <div className="text-gray-400">{label}</div>
+                                        <div className="font-bold text-amber-800">{STAT_BASE[targetRarity]}</div>
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-center text-amber-600">"{sel[0].name}" · {targetRarity}</p>
+                            <p className="text-center text-amber-600">"{sel[0].name}" · {targetRarity} · starts at base {STAT_BASE[targetRarity]}</p>
                         </div>
                     )}
 

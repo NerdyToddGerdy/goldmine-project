@@ -6,7 +6,11 @@ import {
     SLUICE_CONVERSION_RATIO,
     PAYDIRT_YIELD_MULTIPLIER,
     SLUICE_DRAIN_RATE,
+    MINER_DIRT_RATE,
+    PROSPECTOR_PAN_RATE,
+    SLUICE_EXTRACTION_RATE,
     makeCommonEmployee,
+    computeEmployeeStats,
     FLAKES_HAUL_FEE,
 } from '../src/store/gameStore';
 
@@ -68,17 +72,22 @@ describe('stepSimulation accumulator', () => {
 
 describe('miner fill rate per tick', () => {
     it('1 shovel fills bucket at correct rate', () => {
-        // dirtPerTick = (miningPower * MINER_DIRT_RATE) / 60 = (3.75 * 0.8) / 60 = 0.05
-        gameStore.setState({ employees: [makeCommonEmployee('miner', 'Miner')], gold: 9999, bucketFilled: 0 });
+        // common L0: brawn=1, hustle=1 → power=0.75; dirtPerTick = (0.75 * MINER_DIRT_RATE) / 60
+        const emp = makeCommonEmployee('miner', 'Miner');
+        const power = computeEmployeeStats(emp).brawn * 0.5 + computeEmployeeStats(emp).hustle * 0.25;
+        const expected = (power * MINER_DIRT_RATE) / 60;
+        gameStore.setState({ employees: [emp], gold: 9999, bucketFilled: 0 });
         runTicks(1);
-        // Allow for floating point; bucket should be very close to 0.05
-        expect(gameStore.getState().bucketFilled).toBeCloseTo(0.05, 8);
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(expected, 8);
     });
 
     it('two miners double the fill rate', () => {
+        const emp = makeCommonEmployee('miner', 'M');
+        const power = computeEmployeeStats(emp).brawn * 0.5 + computeEmployeeStats(emp).hustle * 0.25;
+        const expected = 2 * (power * MINER_DIRT_RATE) / 60;
         gameStore.setState({ employees: [makeCommonEmployee('miner', 'M1'), makeCommonEmployee('miner', 'M2')], gold: 9999, bucketFilled: 0 });
         runTicks(1);
-        expect(gameStore.getState().bucketFilled).toBeCloseTo(0.10, 8);
+        expect(gameStore.getState().bucketFilled).toBeCloseTo(expected, 8);
     });
 
     it('miners stop filling when bucket is at capacity', () => {
@@ -94,19 +103,31 @@ describe('miner fill rate per tick', () => {
 
 describe('prospector production per tick', () => {
     it('1 pan produces correct gold with no upgrades', () => {
-        // panRate = (3.75 * 0.4) / 60 = 0.025; goldGained = 0.025 * 0.2 * 1 = 0.005
-        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector')], panFilled: 10, gold: 0 });
+        const emp = makeCommonEmployee('prospector', 'Prospector');
+        const { dexterity, hustle } = computeEmployeeStats(emp);
+        const prospPower = dexterity * 0.5 + hustle * 0.25;
+        const panRate = (prospPower * PROSPECTOR_PAN_RATE) / 60;
+        const BASE_EXTRACTION = 0.2;
+        const goldGained = panRate * BASE_EXTRACTION;
+        gameStore.setState({ employees: [emp], panFilled: 10, gold: 0 });
         runTicks(1);
-        expect(gameStore.getState().gold).toBeCloseTo(0.005, 8);
-        expect(gameStore.getState().panFilled).toBeCloseTo(10 - 0.025, 6);
+        expect(gameStore.getState().gold).toBeCloseTo(goldGained, 8);
+        expect(gameStore.getState().panFilled).toBeCloseTo(10 - panRate, 6);
     });
 
     it('sluiceWorkers increase gold yield but do not speed up pan consumption', () => {
-        // panRate = 0.025; extractionRate = 0.2 + 3.75*(4/150)*1 = 0.3
-        // goldGained = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER = 0.025 * 0.3 * 2.5 = 0.01875
-        gameStore.setState({ employees: [makeCommonEmployee('prospector', 'Prospector'), makeCommonEmployee('sluiceOperator', 'Sluice')], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, gold: 0 });
+        const prosp = makeCommonEmployee('prospector', 'Prospector');
+        const sluice = makeCommonEmployee('sluiceOperator', 'Sluice');
+        const { dexterity, hustle: pH } = computeEmployeeStats(prosp);
+        const { technical, hustle: sH } = computeEmployeeStats(sluice);
+        const prospPower = dexterity * 0.5 + pH * 0.25;
+        const sluicePower = technical * 0.5 + sH * 0.25;
+        const panRate = (prospPower * PROSPECTOR_PAN_RATE) / 60;
+        const BASE_EXTRACTION = 0.2;
+        const extractionRate = BASE_EXTRACTION + sluicePower * SLUICE_EXTRACTION_RATE * 1;
+        const expected = panRate * extractionRate * PAYDIRT_YIELD_MULTIPLIER;
+        gameStore.setState({ employees: [prosp, sluice], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, gold: 0 });
         runTicks(1);
-        const expected = 0.025 * 0.3 * PAYDIRT_YIELD_MULTIPLIER;
         expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
     });
 

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
     gameStore,
     getEmployeeLevel,
+    computeEmployeeStats,
+    STAT_BASE,
     EMPLOYEE_LEVEL_CAPS,
     EMPLOYEE_XP_RATE,
     FIXED_DT_MS,
@@ -174,5 +176,50 @@ describe('XP preserved on role reassignment', () => {
         expect(updated.assignedRole).toBe('hauler');
         expect(updated.xpByRole['miner']).toBe(50);
         expect(updated.xpByRole['hauler'] ?? 0).toBe(0);
+    });
+});
+
+// ─── computeEmployeeStats ─────────────────────────────────────────────────────
+
+describe('computeEmployeeStats', () => {
+    it('fresh common employee has all stats at 1', () => {
+        const emp = generateEmployee();
+        emp.rarity = 'common';
+        emp.xpByRole = {};
+        const stats = computeEmployeeStats(emp);
+        expect(stats.brawn).toBe(STAT_BASE['common']);
+        expect(stats.dexterity).toBe(STAT_BASE['common']);
+        expect(stats.technical).toBe(STAT_BASE['common']);
+        expect(stats.hustle).toBe(STAT_BASE['common']);
+    });
+
+    it('common miner at level 5 has brawn=6, hustle=2', () => {
+        const emp = generateEmployee();
+        emp.rarity = 'common';
+        // XP for level 5 = 5^2 * 10 = 250
+        emp.xpByRole = { miner: 250 };
+        const stats = computeEmployeeStats(emp);
+        expect(stats.brawn).toBe(1 + 5);     // base 1 + level 5
+        expect(stats.hustle).toBe(1 + 1);    // base 1 + floor(5/5)=1
+        expect(stats.dexterity).toBe(1);     // no prospector XP
+        expect(stats.technical).toBe(1);     // no tech-role XP
+    });
+
+    it('rare starts at base 3', () => {
+        const emp = generateEmployee();
+        emp.rarity = 'rare';
+        emp.xpByRole = {};
+        const stats = computeEmployeeStats(emp);
+        expect(stats.brawn).toBe(3);
+        expect(stats.hustle).toBe(3);
+    });
+
+    it('hustle grows from total levels across all roles', () => {
+        const emp = generateEmployee();
+        emp.rarity = 'common';
+        // L3 miner (xp=90) + L2 prospector (xp=40) = 5 total levels → +1 hustle
+        emp.xpByRole = { miner: 90, prospector: 40 };
+        const stats = computeEmployeeStats(emp);
+        expect(stats.hustle).toBe(1 + 1); // base + floor(5/5)
     });
 });

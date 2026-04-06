@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.27',
+        date: '2026-04-05',
+        title: 'Stat-driven level growth — earned, not rolled',
+        changes: [
+            'Stats are no longer randomly rolled at hire — every crew member starts at a flat base determined by rarity (Common=1, Uncommon=2, Rare=3, Epic=4, Legendary=5)',
+            'Leveling up in a role now raises the relevant stat: Miners/Haulers grow Brawn, Prospectors grow Dex, technical roles grow Tech',
+            'Hustle grows from total levels across all roles (+1 per 5 combined levels)',
+            'The old 5%-per-level multiplier is removed — stat growth is now the reward',
+            'Crew Forge now starts the merged employee at the new rarity\'s base stats',
+        ],
+    },
+    {
         version: 'v1.26',
         date: '2026-04-05',
         title: 'Moss batch cycle — must empty before refilling',

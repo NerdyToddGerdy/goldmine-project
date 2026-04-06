@@ -14,8 +14,8 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV34, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY, getCommissionCost} from "./schema"
-import type { Employee, Role, RoleSlots, StoryNPCState, NPCId } from './schema';
+import {defaultSaveV36, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY, getCommissionCost} from "./schema"
+import type { Employee, Role, Rarity, RoleSlots, StoryNPCState, NPCId } from './schema';
 export { makeCommonEmployee } from './schema';
 export type { Employee, Role, NPCId } from './schema';
 export { getCommissionCost, getCommissionOptions, NPC_COMMISSION_BASE } from './schema';
@@ -365,16 +365,35 @@ export function getUpgradeCost(baseUpgrade: string, owned: number): number {
 }
 
 // Stat-to-output rates (calibrated so a Common employee at level 0 matches the old per-worker rate).
-// Common employee stats are all 5; primary formula yields 3.75 power units.
-export const MINER_DIRT_RATE = 0.8;            // dirt/sec per power unit   (3.0 / 3.75)
-export const PROSPECTOR_PAN_RATE = 0.4;        // pan/sec per power unit    (1.5 / 3.75)
-export const SLUICE_DRAIN_BOOST_RATE = 2 / 15; // drain multiplier per power unit (0.5 / 3.75)
-export const SLUICE_EXTRACTION_RATE = 4 / 150; // extraction bonus per power unit (0.1 / 3.75)
-export const DETECTOR_PROGRESS_RATE = 2 / 15;  // spots/sec per power unit  (0.5 / 3.75)
+// Common L0: brawn=1, hustle=1 → power = 1*0.5 + 1*0.25 = 0.75. Rates scaled ×4 vs original.
+export const MINER_DIRT_RATE = 3.2;            // dirt/sec per power unit
+export const PROSPECTOR_PAN_RATE = 1.6;        // pan/sec per power unit
+export const SLUICE_DRAIN_BOOST_RATE = 8 / 15; // drain multiplier per power unit
+export const SLUICE_EXTRACTION_RATE = 4 / 37.5;// extraction bonus per power unit
+export const DETECTOR_PROGRESS_RATE = 8 / 15;  // spots/sec per power unit
+
+/** Starting stat value by rarity — all four stats begin at this value */
+export const STAT_BASE: Record<Rarity, number> = {
+    common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5,
+};
+
+/** Compute current stats from xpByRole + rarity (replaces stored stats) */
+export function computeEmployeeStats(emp: Employee) {
+    const base = STAT_BASE[emp.rarity];
+    const lvl = (role: Role) => getEmployeeLevel(emp.xpByRole[role] ?? 0, emp.rarity);
+    const allRoles: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
+    const totalLevels = allRoles.reduce((s, r) => s + lvl(r), 0);
+    return {
+        brawn:     base + Math.max(lvl('miner'), lvl('hauler')),
+        dexterity: base + lvl('prospector'),
+        technical: base + Math.max(lvl('sluiceOperator'), lvl('furnaceOperator'), lvl('detectorOperator'), lvl('certifier')),
+        hustle:    base + Math.floor(totalLevels / 5),
+    };
+}
 
 /** Primary stat power for a given role */
 export function getEmployeeRolePower(e: Employee, role: Role): number {
-    const { brawn, dexterity, technical, hustle } = e.stats;
+    const { brawn, dexterity, technical, hustle } = computeEmployeeStats(e);
     switch (role) {
         case 'miner':
         case 'hauler':
@@ -389,13 +408,13 @@ export function getEmployeeRolePower(e: Employee, role: Role): number {
     }
 }
 
-export const EMPLOYEE_LEVEL_CAPS: Record<import('./schema').Rarity, number> = {
+export const EMPLOYEE_LEVEL_CAPS: Record<Rarity, number> = {
     common: 10, uncommon: 15, rare: 20, epic: 25, legendary: 30,
 };
 
 export const EMPLOYEE_XP_RATE = 1 / 300; // 1 XP per 5 seconds of active work
 
-export function getEmployeeLevel(xp: number, rarity: import('./schema').Rarity): number {
+export function getEmployeeLevel(xp: number, rarity: Rarity): number {
     return Math.min(Math.floor(Math.sqrt(xp / 10)), EMPLOYEE_LEVEL_CAPS[rarity]);
 }
 
@@ -403,11 +422,7 @@ export function getEmployeeLevel(xp: number, rarity: import('./schema').Rarity):
 export function getAssignedPower(employees: Employee[], role: Role): number {
     return employees
         .filter(e => e.assignedRole === role)
-        .reduce((sum, e) => {
-            const level = getEmployeeLevel(e.xpByRole[role] ?? 0, e.rarity);
-            const levelBonus = 1 + level * 0.05;
-            return sum + getEmployeeRolePower(e, role) * levelBonus;
-        }, 0);
+        .reduce((sum, e) => sum + getEmployeeRolePower(e, role), 0);
 }
 
 /** Count of employees assigned to a role */
@@ -417,7 +432,7 @@ export function countAssigned(employees: Employee[], role: Role): number {
 
 // ─── Employee generation (Hiring Hall, #113) ─────────────────────────────────
 
-export const HIRE_COSTS: Record<import('./schema').Rarity, number> = {
+export const HIRE_COSTS: Record<Rarity, number> = {
     common: 25,
     uncommon: 75,
     rare: 200,
@@ -447,20 +462,17 @@ export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
 const _EMP_FIRST_NAMES = ['Jake', 'Clara', 'Hank', 'Mae', 'Buck', 'Ruth', 'Clem', 'Ida', 'Silas', 'Nell', 'Amos', 'Vera', 'Ezra', 'Pearl', 'Jeb', 'Flora', 'Gus', 'Ada', 'Doc', 'Lily'];
 const _EMP_LAST_NAMES = ['Copper', 'Nugget', 'Vane', 'Frost', 'Crane', 'Hollow', 'Pike', 'Stone', 'Wells', 'Ash', 'Colt', 'Ridge', 'Marsh', 'Fox', 'Briggs', 'Slater', 'Quinn', 'Morrow', 'Drake', 'Finch'];
 
-const _RARITY_WEIGHTS: [import('./schema').Rarity, number][] = [
+const _RARITY_WEIGHTS: [Rarity, number][] = [
     ['common', 60], ['uncommon', 25], ['rare', 10], ['epic', 4], ['legendary', 1],
 ];
-const _STAT_RANGES: Record<import('./schema').Rarity, [number, number]> = {
-    common: [2, 6], uncommon: [4, 7], rare: [5, 9], epic: [7, 10], legendary: [8, 10],
-};
 
 let _empGenSeq = 0;
 
-export const RARITY_ORDER: import('./schema').Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const _RARITY_ORDER = RARITY_ORDER;
 
 // Cost to forge 3 crew of rarity N into 1 of rarity N+1
-export const MERGE_COSTS: Record<import('./schema').Rarity, number> = {
+export const MERGE_COSTS: Record<Rarity, number> = {
     common:    0,    // unused — can't merge into common
     uncommon:  50,
     rare:      150,
@@ -468,7 +480,7 @@ export const MERGE_COSTS: Record<import('./schema').Rarity, number> = {
     legendary: 1000,
 };
 
-function _rollRarity(maxRarity: import('./schema').Rarity = 'legendary'): import('./schema').Rarity {
+function _rollRarity(maxRarity: Rarity = 'legendary'): Rarity {
     const maxIdx = _RARITY_ORDER.indexOf(maxRarity);
     const allowed = _RARITY_WEIGHTS.filter(([r]) => _RARITY_ORDER.indexOf(r) <= maxIdx);
     const total = allowed.reduce((s, [, w]) => s + w, 0);
@@ -477,26 +489,21 @@ function _rollRarity(maxRarity: import('./schema').Rarity = 'legendary'): import
     return 'common';
 }
 
-function _ri(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
-export function generateEmployee(maxRarity: import('./schema').Rarity = 'legendary'): Employee {
+export function generateEmployee(maxRarity: Rarity = 'legendary'): Employee {
     const rarity = _rollRarity(maxRarity);
-    const [min, max] = _STAT_RANGES[rarity];
     const first = _EMP_FIRST_NAMES[Math.floor(Math.random() * _EMP_FIRST_NAMES.length)];
     const last = _EMP_LAST_NAMES[Math.floor(Math.random() * _EMP_LAST_NAMES.length)];
     return {
         id: `emp-${Date.now()}-${++_empGenSeq}`,
         name: `${first} ${last}`,
         rarity,
-        stats: { brawn: _ri(min, max), dexterity: _ri(min, max), technical: _ri(min, max), hustle: _ri(min, max) },
         xpByRole: {},
         assignedRole: null,
     };
 }
 
-function _generateDraftPool(maxRarity: import('./schema').Rarity = 'legendary', poolSize = 4): Employee[] {
+function _generateDraftPool(maxRarity: Rarity = 'legendary', poolSize = 4): Employee[] {
     return Array.from({ length: poolSize }, () => generateEmployee(maxRarity));
 }
 
@@ -596,7 +603,7 @@ export const gameStore = createStore<GameState>()(
             goldBarsCertified: 0,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV34().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV36().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -741,7 +748,7 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingBars: 0,
                     driverCapUpgrades: 0,
                     goldBarsCertified: 0,
-                    lastSeenChangelogVersion: defaultSaveV34().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV36().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     _accumulator: 0,
                     devMode: false,
@@ -1106,19 +1113,11 @@ export const gameStore = createStore<GameState>()(
                 const targetRarity = _RARITY_ORDER[rarityIdx + 1];
                 const cost = MERGE_COSTS[targetRarity];
                 if (s.gold < cost) return false;
-                // Best stats from all three inputs
-                const bestStats = {
-                    brawn:      Math.max(a.stats.brawn,      b.stats.brawn,      c.stats.brawn),
-                    dexterity:  Math.max(a.stats.dexterity,  b.stats.dexterity,  c.stats.dexterity),
-                    technical:  Math.max(a.stats.technical,  b.stats.technical,  c.stats.technical),
-                    hustle:     Math.max(a.stats.hustle,     b.stats.hustle,     c.stats.hustle),
-                };
                 const merged: Employee = {
                     id: `emp-${Date.now()}-${++_empGenSeq}`,
                     name: a.name, // first selected keeps their name
                     rarity: targetRarity,
-                    stats: bestStats,
-                    xpByRole: {},
+                    xpByRole: {},   // starts fresh at the new rarity's base stats
                     assignedRole: null,
                 };
                 const remaining = s.employees.filter(e => e.id !== id1 && e.id !== id2 && e.id !== id3);
@@ -1142,7 +1141,7 @@ export const gameStore = createStore<GameState>()(
                 if (!isInitial && s.gold < s.draftPoolRefreshCost) return false;
                 const tavernLevel = s.npcLevels.tavernKeeper;
                 const poolSize = tavernLevel >= 4 ? 6 : tavernLevel >= 2 ? 4 : 2;
-                const maxRarity: import('./schema').Rarity =
+                const maxRarity: Rarity =
                     tavernLevel >= 4 ? 'legendary' : tavernLevel >= 3 ? 'epic' : tavernLevel >= 2 ? 'rare' : 'uncommon';
                 set({
                     gold: isInitial ? s.gold : s.gold - s.draftPoolRefreshCost,
@@ -1869,7 +1868,7 @@ export const gameStore = createStore<GameState>()(
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV34();
+                return defaultSaveV36();
             }
         },
         onRehydrateStorage: ()=> (state) => {
