@@ -450,16 +450,16 @@ export function getHireCost(e: Employee): number {
 // Assayer certification (#116)
 // CERT_FEE is defined above (line ~293). UNCERTIFIED_BAR_PENALTY removed (no penalty in gold-as-currency model).
 
-// Role slot upgrades (#117) — extra slots beyond the defaults (miner:5, hauler:1, prospector:5, sluiceOp:3, furnaceOp:2, detectorOp:2)
-export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 };
+// Role slot upgrades (#117) — all roles start at 1 slot; extras are purchased
+export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 };
 export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
-    miner:            [300,  600, 1200],
-    hauler:           [200,  400,  800],
-    prospector:       [300,  600, 1200],
-    sluiceOperator:   [400,  800],
-    furnaceOperator:  [600, 1200],
-    detectorOperator: [500],
-    certifier:        [1200],
+    miner:            [100, 250, 500, 900, 1400],   // max 6
+    hauler:           [150, 400, 800],               // max 4
+    prospector:       [150, 350, 650, 1100],         // max 5
+    sluiceOperator:   [300, 650, 1200],              // max 4
+    furnaceOperator:  [450, 900],                    // max 3
+    detectorOperator: [400, 800],                    // max 3
+    certifier:        [1000],                        // max 2
 };
 
 const _EMP_FIRST_NAMES = ['Jake', 'Clara', 'Hank', 'Mae', 'Buck', 'Ruth', 'Clem', 'Ida', 'Silas', 'Nell', 'Amos', 'Vera', 'Ezra', 'Pearl', 'Jeb', 'Flora', 'Gus', 'Ada', 'Doc', 'Lily'];
@@ -536,7 +536,7 @@ export const gameStore = createStore<GameState>()(
 
             // Employees (v29)
             employees: [],
-            roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+            roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
             postedJobs: {},
             storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
             seasonNumber: 1,
@@ -703,7 +703,7 @@ export const gameStore = createStore<GameState>()(
                     paydirt: 0,
                     gold: 0,
                     employees: [],
-                    roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+                    roleSlots: { ...DEFAULT_ROLE_SLOTS },
                     postedJobs: {},
                     storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
                     seasonNumber: 1,

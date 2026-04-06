@@ -7,6 +7,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.28',
+        date: '2026-04-05',
+        title: 'Crew slots are now earned — start with one, buy more',
+        changes: [
+            'Every role now starts with exactly 1 slot instead of a generous free pool',
+            'New "＋ slot" buy button appears next to each role in the Hiring Hall',
+            'Slot costs scale up with each purchase (first miner slot: 100 oz, up to 6 miners total)',
+            'Existing saves are unaffected — your current roster slots carry over',
+        ],
+    },
+    {
         version: 'v1.27.1',
         date: '2026-04-05',
         title: 'Crew power balance — soft curve + extraction cap',

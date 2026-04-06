@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, computeEmployeeStats, STAT_BASE, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, computeEmployeeStats, STAT_BASE, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -294,11 +294,27 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
             );
         }
 
+        const extra = slotCount - DEFAULT_ROLE_SLOTS[role];
+        const slotCost = ROLE_SLOT_COSTS[role][extra];
+
         return (
             <div key={role} className="space-y-1.5">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
-                    {!locked && <span className="text-xs text-gray-400">{filled}/{slotCount} slots</span>}
+                    {!locked && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">{filled}/{slotCount} slots</span>
+                            {slotCost !== undefined && (
+                                <button
+                                    onClick={() => gameStore.getState().buyRoleSlot(role)}
+                                    disabled={gold < slotCost}
+                                    className="text-xs px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    +slot {slotCost.toLocaleString()} oz
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
                 {locked ? (
                     <RoleSlotRow role={role} emp={null} bench={bench} isLocked={true} equipmentReq={meta.equipment} />

@@ -142,7 +142,7 @@ describe('assignEmployee', () => {
     it('assigns an unassigned employee to a role', () => {
         const emp = generateEmployee();
         emp.assignedRole = null;
-        gameStore.setState({ employees: [emp], roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2 } });
+        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 } });
 
         const result = gameStore.getState().assignEmployee(emp.id, 'miner');
 
@@ -153,7 +153,7 @@ describe('assignEmployee', () => {
     it('returns false when employee is already assigned', () => {
         const emp = generateEmployee();
         emp.assignedRole = 'hauler';
-        gameStore.setState({ employees: [emp], roleSlots: { miner: 5, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2 } });
+        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 } });
 
         const result = gameStore.getState().assignEmployee(emp.id, 'miner');
 
@@ -166,7 +166,7 @@ describe('assignEmployee', () => {
         const emp2 = { ...generateEmployee(), id: 'e2', assignedRole: null };
         gameStore.setState({
             employees: [emp1, emp2],
-            roleSlots: { miner: 1, hauler: 3, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, banker: 2, detectorOperator: 2 },
+            roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
         });
 
         const result = gameStore.getState().assignEmployee('e2', 'miner');
@@ -189,10 +189,41 @@ describe('unassignEmployee', () => {
     });
 });
 
-// ─── buyRoleSlot (stub) ───────────────────────────────────────────────────────
+// ─── buyRoleSlot ──────────────────────────────────────────────────────────────
+
+import { ROLE_SLOT_COSTS, DEFAULT_ROLE_SLOTS } from '../src/store/gameStore';
 
 describe('buyRoleSlot', () => {
-    it('returns false (stub)', () => {
+    it('returns false when insufficient gold', () => {
+        const cost = ROLE_SLOT_COSTS.miner[0]; // first slot upgrade cost
+        gameStore.setState({ gold: cost - 1 });
         expect(gameStore.getState().buyRoleSlot('miner')).toBe(false);
+        expect(gameStore.getState().roleSlots.miner).toBe(DEFAULT_ROLE_SLOTS.miner);
+    });
+
+    it('buys a slot, deducts gold, increments slot count', () => {
+        const cost = ROLE_SLOT_COSTS.miner[0];
+        gameStore.setState({ gold: cost + 50 });
+        const result = gameStore.getState().buyRoleSlot('miner');
+        expect(result).toBe(true);
+        expect(gameStore.getState().roleSlots.miner).toBe(DEFAULT_ROLE_SLOTS.miner + 1);
+        expect(gameStore.getState().gold).toBe(50);
+    });
+
+    it('costs increase for each additional slot', () => {
+        gameStore.setState({ gold: 99999 });
+        gameStore.getState().buyRoleSlot('miner'); // slot 2
+        gameStore.getState().buyRoleSlot('miner'); // slot 3
+        expect(gameStore.getState().roleSlots.miner).toBe(DEFAULT_ROLE_SLOTS.miner + 2);
+        const spent = 99999 - gameStore.getState().gold;
+        expect(spent).toBe(ROLE_SLOT_COSTS.miner[0] + ROLE_SLOT_COSTS.miner[1]);
+    });
+
+    it('returns false when slot max is reached', () => {
+        gameStore.setState({ gold: 99999 });
+        const maxExtra = ROLE_SLOT_COSTS.miner.length;
+        for (let i = 0; i < maxExtra; i++) gameStore.getState().buyRoleSlot('miner');
+        expect(gameStore.getState().buyRoleSlot('miner')).toBe(false);
+        expect(gameStore.getState().roleSlots.miner).toBe(DEFAULT_ROLE_SLOTS.miner + maxExtra);
     });
 });
