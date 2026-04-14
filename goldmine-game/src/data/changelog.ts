@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.31',
+        date: '2026-04-14',
+        title: 'Trader fuel runs replace oil system',
+        changes: [
+            'Removed oil derrick, crude tank, oil field location, driller/refiner roles, and mechanic NPC — the full oil production chain is gone',
+            'New: send the Trader on a fuel run from the Trading Post (75 oz) — he makes a round trip and returns with a full tank; faster vehicles mean faster runs',
+            'Excavator (×3 mining) and Wash Plant (×2.5 sluice) now purchased from the Blacksmith Equipment tab with gold bars after building a furnace',
+            'Fuel tank still powers engine-based equipment the same as before',
+            'Schema v39 — old saves migrate automatically; oil derrick state and driller/refiner crew assignments are cleaned up on load',
+        ],
+    },
+    {
         version: 'v1.30.2',
         date: '2026-04-14',
         title: 'Fix blank page when returning to backgrounded tab',

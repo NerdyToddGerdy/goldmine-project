@@ -14,7 +14,7 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import {defaultSaveV38, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
+import {defaultSaveV39, type LatestSave, migrateToLatest, SCHEMA_VERSION, STORAGE_KEY} from "./schema"
 import type { Employee, Role, Rarity, RoleSlots, StoryNPCState, NPCId } from './schema';
 export { makeCommonEmployee } from './schema';
 export type { Employee, Role, NPCId } from './schema';
@@ -114,7 +114,7 @@ export type GameState = {
     isPaused: boolean
     tickCount: number // how many fixed ticks have run since start/reset
     timeScale: number // 1 = normal speed, can be tuned later
-    location: 'mine' | 'town' | 'oilField' // current location
+    location: 'mine' | 'town' // current location
 
     // Manual action state
     bucketFilled: number // how much dirt is in the bucket (0 to BUCKET_CAPACITY)
@@ -175,7 +175,7 @@ export type GameState = {
     // Travel state (transient, not persisted)
     isTraveling: boolean
     travelProgress: number       // ticks elapsed of current travel
-    travelDestination: 'mine' | 'town' | 'oilField'
+    travelDestination: 'mine' | 'town'
     driverTripTicks: number      // driver's position in round-trip cycle
 
     // Metal detector
@@ -201,12 +201,11 @@ export type GameState = {
     driverCapUpgrades: number    // Larger Carrier upgrade level (0–3)
     goldBarsCertified: number    // bars certified by Assayer (collect at 1.2× gold bonus)
 
-    // Oil field + fuel-powered machinery (v1.29)
-    hasOilDerrick: boolean    // unlocks oil field location
+    // Engine-powered machinery (v1.29) + trader fuel runs (v1.31)
     hasExcavator: boolean     // mining rate ×3 while fueled
     hasWashplant: boolean     // sluice throughput ×2.5 while fueled
-    crudeTank: number         // raw crude oil (0–CRUDE_TANK_CAP)
-    fuelTank: number          // refined fuel (0–FUEL_TANK_CAP)
+    fuelTank: number          // fuel supply (0–FUEL_TANK_CAP); filled by trader fuel runs
+    traderFuelTripTicks: number // 0 = idle; >0 = trader is on a fuel run
 
     // Changelog tracking (persisted)
     lastSeenChangelogVersion: string  // last changelog version player acknowledged
@@ -250,8 +249,8 @@ export type GameState = {
     detectPatch: () => void // manual action - advances detection progress toward a high-yield patch
     sluiceDirt: () => void // manual action (costs dirt, produces paydirt) - DEPRECATED, use emptyBucket
     panForGold: () => void // manual action (costs paydirt)
-    travelTo: (location: 'mine' | 'town' | 'oilField') => void // instant location change (internal/dev use)
-    startTravel: (destination: 'mine' | 'town' | 'oilField') => void // begins timed travel
+    travelTo: (location: 'mine' | 'town') => void // instant location change (internal/dev use)
+    startTravel: (destination: 'mine' | 'town') => void // begins timed travel
     cancelTravel: () => void // aborts travel, player stays at current location
     buyVehicle: (tier: number) => boolean
     buyDriver: () => boolean
@@ -272,9 +271,10 @@ export type GameState = {
     postedJobs: Partial<Record<Role, boolean>>
     postJob: (role: Role) => boolean
 
-    // Oil field actions (v1.29)
-    drillCrude: () => void  // manual drill click — adds to crudeTank
-    buyFromMechanic: (item: 'oilDerrick' | 'excavator' | 'washplant') => boolean
+    // Heavy equipment (v1.31, purchased from Blacksmith)
+    buyHeavyEquipment: (item: 'excavator' | 'washplant') => boolean
+    // Trader fuel runs (v1.31)
+    sendTraderForFuel: () => boolean
 
     // Toasts
     addToast: (message: string, type?: ToastType) => void
@@ -347,19 +347,16 @@ export const SMELT_RATE_BASE = 1.0;        // oz flakes → bars per second (× 
 export const BASE_EXTRACTION = 0.2; // 20% base gold extraction rate
 export const FLAKES_HAUL_FEE = 0.15; // 15% lost when driver delivers raw flakes — smelt into bars to avoid
 
-// Oil field + fuel-powered machinery (v1.29)
-export const CRUDE_TANK_CAP = 50;
+// Engine-powered machinery (v1.29) + trader fuel runs (v1.31)
 export const FUEL_TANK_CAP = 50;
-export const DRILL_RATE = 1.5;           // crude/sec per power unit
-export const REFINE_RATE = 1.0;          // crude/sec processed per power unit
-export const REFINE_RATIO = 0.6;         // crude → fuel conversion efficiency
 export const EXCAVATOR_FUEL_RATE = 0.4;  // fuel/sec while excavator is running
 export const WASHPLANT_FUEL_RATE = 0.3;  // fuel/sec while washplant is running
 export const EXCAVATOR_MINE_MULT = 3.0;  // dirt rate multiplier when fueled
 export const WASHPLANT_SLUICE_MULT = 2.5;// sluice drain rate multiplier when fueled
-export const OIL_DERRICK_COST_BARS = 15;
 export const EXCAVATOR_COST_BARS = 25;
 export const WASHPLANT_COST_BARS = 30;
+export const TRADER_FUEL_COST = 75;      // gold oz per trader fuel run
+export const TRADER_FUEL_AMOUNT = FUEL_TANK_CAP; // fuel delivered per run (fills tank)
 
 // Trader head-start: oz of gold granted at the start of each new season (indexed by trader level)
 export const TRADER_HEAD_START = [0, 0, 25, 75, 200] as const;
@@ -407,7 +404,7 @@ export const STAT_BASE: Record<Rarity, number> = {
 export function computeEmployeeStats(emp: Employee) {
     const base = STAT_BASE[emp.rarity];
     const lvl = (role: Role) => getEmployeeLevel(emp.xpByRole[role] ?? 0, emp.rarity);
-    const allRoles: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier', 'driller', 'refiner'];
+    const allRoles: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
     const totalLevels = allRoles.reduce((s, r) => s + lvl(r), 0);
     return {
         brawn:     base + Math.max(lvl('miner'), lvl('hauler')),
@@ -433,10 +430,6 @@ export function getEmployeeRolePower(e: Employee, role: Role): number {
         case 'furnaceOperator':
         case 'detectorOperator':
         case 'certifier':
-            return Math.sqrt(technical) * 0.5 + sh * 0.25;
-        case 'driller':
-            return Math.sqrt(brawn) * 0.5 + sh * 0.25;
-        case 'refiner':
             return Math.sqrt(technical) * 0.5 + sh * 0.25;
     }
 }
@@ -481,7 +474,7 @@ export function getHireCost(e: Employee): number {
 // CERT_FEE is defined above (line ~293). UNCERTIFIED_BAR_PENALTY removed (no penalty in gold-as-currency model).
 
 // Role slot upgrades (#117) — all roles start at 1 slot; extras are purchased
-export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, driller: 1, refiner: 1 };
+export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 };
 export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
     miner:            [100, 250, 500, 900, 1400],   // max 6
     hauler:           [150, 400, 800],               // max 4
@@ -490,8 +483,6 @@ export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
     furnaceOperator:  [450, 900],                    // max 3
     detectorOperator: [400, 800],                    // max 3
     certifier:        [1000],                        // max 2
-    driller:          [200, 500],                    // max 3
-    refiner:          [300, 700],                    // max 3
 };
 
 const _EMP_FIRST_NAMES = ['Jake', 'Clara', 'Hank', 'Mae', 'Buck', 'Ruth', 'Clem', 'Ida', 'Silas', 'Nell', 'Amos', 'Vera', 'Ezra', 'Pearl', 'Jeb', 'Flora', 'Gus', 'Ada', 'Doc', 'Lily'];
@@ -599,7 +590,7 @@ export const gameStore = createStore<GameState>()(
 
             // Season / commission system
             runGoldMined: 0,
-            npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0, mechanic: 0 },
+            npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
             pendingCommission: null,
 
             // Money gear upgrades
@@ -638,15 +629,14 @@ export const gameStore = createStore<GameState>()(
             driverCapUpgrades: 0,
             goldBarsCertified: 0,
 
-            // Oil field + machinery
-            hasOilDerrick: false,
+            // Engine-powered machinery
             hasExcavator: false,
             hasWashplant: false,
-            crudeTank: 0,
             fuelTank: 0,
+            traderFuelTripTicks: 0,
 
             // Changelog tracking
-            lastSeenChangelogVersion: defaultSaveV38().lastSeenChangelogVersion,
+            lastSeenChangelogVersion: defaultSaveV39().lastSeenChangelogVersion,
 
             // Lifetime stats
             totalGoldExtracted: 0,
@@ -763,7 +753,7 @@ export const gameStore = createStore<GameState>()(
                     unlockedPanning: false,
                     unlockedTown: false,
                     runGoldMined: 0,
-                    npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0, mechanic: 0 },
+                    npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
                     pendingCommission: null,
                     bucketUpgrades: 0,
                     panCapUpgrades: 0,
@@ -776,11 +766,10 @@ export const gameStore = createStore<GameState>()(
                     driverTripTicks: 0,
                     timePlayed: 0,
                     darkMode: false,
-                    hasOilDerrick: false,
                     hasExcavator: false,
                     hasWashplant: false,
-                    crudeTank: 0,
                     fuelTank: 0,
+                    traderFuelTripTicks: 0,
                     richDirtInBucket: 0,
                     richDirtInSluice: 0,
                     hasMetalDetector: false,
@@ -798,7 +787,7 @@ export const gameStore = createStore<GameState>()(
                     driverCarryingBars: 0,
                     driverCapUpgrades: 0,
                     goldBarsCertified: 0,
-                    lastSeenChangelogVersion: defaultSaveV38().lastSeenChangelogVersion,
+                    lastSeenChangelogVersion: defaultSaveV39().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
                     _accumulator: 0,
                     devMode: false,
@@ -815,6 +804,7 @@ export const gameStore = createStore<GameState>()(
                     tickCount: s.tickCount,
                     timeScale: s.timeScale,
                     location: s.location,
+                    travelDestination: s.travelDestination,
                     bucketFilled: s.bucketFilled,
                     panFilled: s.panFilled,
                     sluiceBoxFilled: s.sluiceBoxFilled,
@@ -870,11 +860,10 @@ export const gameStore = createStore<GameState>()(
                     driverCapUpgrades: s.driverCapUpgrades,
                     goldBarsCertified: s.goldBarsCertified,
                     postedJobs: s.postedJobs,
-                    hasOilDerrick: s.hasOilDerrick,
                     hasExcavator: s.hasExcavator,
                     hasWashplant: s.hasWashplant,
-                    crudeTank: s.crudeTank,
                     fuelTank: s.fuelTank,
+                    traderFuelTripTicks: s.traderFuelTripTicks,
                 };
                 return JSON.stringify(save, null, 2);
             },
@@ -952,11 +941,10 @@ export const gameStore = createStore<GameState>()(
                     driverCapUpgrades: migrated.driverCapUpgrades,
                     goldBarsCertified: migrated.goldBarsCertified,
                     postedJobs: migrated.postedJobs,
-                    hasOilDerrick: migrated.hasOilDerrick,
                     hasExcavator: migrated.hasExcavator,
                     hasWashplant: migrated.hasWashplant,
-                    crudeTank: migrated.crudeTank,
                     fuelTank: migrated.fuelTank,
+                    traderFuelTripTicks: migrated.traderFuelTripTicks,
                 }));
                 // Apply darkMode immediately
                 if (migrated.darkMode) {
@@ -1105,11 +1093,11 @@ export const gameStore = createStore<GameState>()(
                 get().addFloatingNumber('gold', baseGold);
             },
 
-            travelTo: (location: 'mine' | 'town' | 'oilField') => {
+            travelTo: (location: 'mine' | 'town') => {
                 set({ location });
             },
 
-            startTravel: (destination: 'mine' | 'town' | 'oilField') => {
+            startTravel: (destination: 'mine' | 'town') => {
                 const s = get();
                 if (s.isTraveling || s.location === destination) return;
                 set({
@@ -1383,40 +1371,34 @@ export const gameStore = createStore<GameState>()(
                 return false;
             },
 
-            // Oil field actions (v1.29)
-            drillCrude: () => {
-                set((s) => {
-                    if (!s.hasOilDerrick) return s;
-                    if (s.crudeTank >= CRUDE_TANK_CAP) return s;
-                    return { crudeTank: Math.min(s.crudeTank + 1, CRUDE_TANK_CAP) };
-                });
-            },
-
-            buyFromMechanic: (item: 'oilDerrick' | 'excavator' | 'washplant') => {
+            // Heavy equipment — purchased from Blacksmith with gold bars (v1.31)
+            buyHeavyEquipment: (item: 'excavator' | 'washplant') => {
                 const s = get();
-                if (!s.storyNPCs.mechanicArrived) return false;
-                if (item === 'oilDerrick') {
-                    if (s.hasOilDerrick) return false;
-                    if (s.goldBars < OIL_DERRICK_COST_BARS) return false;
-                    set({ goldBars: s.goldBars - OIL_DERRICK_COST_BARS, hasOilDerrick: true });
-                    get().addToast('⛽ Oil Derrick erected — travel to the Oil Field to start drilling!', 'success');
-                    return true;
-                }
                 if (item === 'excavator') {
                     if (s.hasExcavator) return false;
                     if (s.goldBars < EXCAVATOR_COST_BARS) return false;
                     set({ goldBars: s.goldBars - EXCAVATOR_COST_BARS, hasExcavator: true });
-                    get().addToast('🚜 Excavator delivered! Keep the fuel tank topped up for ×3 mining.', 'success');
+                    get().addToast('🚜 Excavator delivered! Send the trader for fuel to run it at ×3 mining.', 'success');
                     return true;
                 }
                 if (item === 'washplant') {
                     if (s.hasWashplant) return false;
                     if (s.goldBars < WASHPLANT_COST_BARS) return false;
                     set({ goldBars: s.goldBars - WASHPLANT_COST_BARS, hasWashplant: true });
-                    get().addToast('🏭 Wash Plant installed! Sluice throughput ×2.5 while fueled.', 'success');
+                    get().addToast('🏭 Wash Plant installed! Send the trader for fuel for ×2.5 sluice throughput.', 'success');
                     return true;
                 }
                 return false;
+            },
+
+            // Trader fuel runs (v1.31)
+            sendTraderForFuel: () => {
+                const s = get();
+                if (s.traderFuelTripTicks > 0) return false; // already on a run
+                if (s.fuelTank >= FUEL_TANK_CAP) return false; // tank full
+                if (s.gold < TRADER_FUEL_COST) return false;
+                set({ gold: s.gold - TRADER_FUEL_COST, traderFuelTripTicks: 1 });
+                return true;
             },
 
             // fireWorker removed — role assignment handled by #114
@@ -1534,11 +1516,10 @@ export const gameStore = createStore<GameState>()(
                     _accumulator: 0,
                     toasts: [],
                     floatingNumbers: [],
-                    hasOilDerrick: false,
                     hasExcavator: false,
                     hasWashplant: false,
-                    crudeTank: 0,
                     fuelTank: 0,
+                    traderFuelTripTicks: 0,
                 });
                 return true;
             },
@@ -1569,23 +1550,15 @@ export const gameStore = createStore<GameState>()(
                     const detectorPower = getAssignedPower(s.employees, 'detectorOperator');
                     const certifierPower = s.npcLevels.assayer >= 2
                         ? getAssignedPower(s.employees, 'certifier') : 0;
-                    const drillerPower = s.hasOilDerrick ? getAssignedPower(s.employees, 'driller') : 0;
-                    const refinerPower = s.hasOilDerrick ? getAssignedPower(s.employees, 'refiner') : 0;
-
-                    // Oil field automation: driller fills crude tank; refiner converts crude → fuel
-                    let newCrudeTank = s.crudeTank;
+                    // Trader fuel run: increment ticks; deposit fuel when round-trip completes
                     let newFuelTank = s.fuelTank;
-                    if (drillerPower > 0 && newCrudeTank < CRUDE_TANK_CAP) {
-                        const crudeGain = (drillerPower * DRILL_RATE) / 60;
-                        newCrudeTank = Math.min(CRUDE_TANK_CAP, newCrudeTank + crudeGain);
-                    }
-                    if (refinerPower > 0 && newCrudeTank > 0 && newFuelTank < FUEL_TANK_CAP) {
-                        const crudeProcessed = Math.min(newCrudeTank, (refinerPower * REFINE_RATE) / 60);
-                        const fuelProduced = crudeProcessed * REFINE_RATIO;
-                        const actualFuel = Math.min(fuelProduced, FUEL_TANK_CAP - newFuelTank);
-                        const actualCrude = actualFuel / REFINE_RATIO;
-                        newCrudeTank = Math.max(0, newCrudeTank - actualCrude);
-                        newFuelTank = Math.min(FUEL_TANK_CAP, newFuelTank + actualFuel);
+                    let newTraderFuelTripTicks = s.traderFuelTripTicks;
+                    if (newTraderFuelTripTicks > 0) {
+                        newTraderFuelTripTicks++;
+                        if (newTraderFuelTripTicks >= 2 * getTravelDurationTicks(s.vehicleTier)) {
+                            newFuelTank = Math.min(FUEL_TANK_CAP, newFuelTank + TRADER_FUEL_AMOUNT);
+                            newTraderFuelTripTicks = 0;
+                        }
                     }
 
                     // Excavator multiplier: ×3 dirt rate when fueled
@@ -1864,12 +1837,6 @@ export const gameStore = createStore<GameState>()(
                         newNpcLevels.assayer = 1;
                         npcArrivals.push('⚖️ An assayer has arrived — he can certify your gold bars.');
                     }
-                    if (!newStoryNPCs.mechanicArrived && s.hasFurnace &&
-                            s.employees.some(e => e.assignedRole === 'furnaceOperator')) {
-                        newStoryNPCs.mechanicArrived = true;
-                        newNpcLevels.mechanic = 1;
-                        npcArrivals.push('⚙️ A mechanic rolls into town — he can get some real machines running.');
-                    }
                     // ─────────────────────────────────────────────────────────────────────
 
                     // ── Employee XP Gain (#118) ───────────────────────────────────────────
@@ -1877,7 +1844,6 @@ export const gameStore = createStore<GameState>()(
                         miner: 'Miner', hauler: 'Hauler', prospector: 'Prospector',
                         sluiceOperator: 'Sluice Operator', furnaceOperator: 'Furnace Operator',
                         detectorOperator: 'Detector Operator', certifier: 'Certifier',
-                        driller: 'Driller', refiner: 'Refiner',
                     };
                     const newEmployees = s.employees.map(e => {
                         if (e.assignedRole === null) return e;
@@ -1945,8 +1911,8 @@ export const gameStore = createStore<GameState>()(
                         npcLevels: newNpcLevels,
                         unlockedTown: s.unlockedTown || townJustUnlocked,
                         driverTripTicks: newDriverTripTicks,
-                        crudeTank: newCrudeTank,
                         fuelTank: newFuelTank,
+                        traderFuelTripTicks: newTraderFuelTripTicks,
                         devLogs: s.devMode && devEvents.length > 0
                             ? [...devEvents, ...s.devLogs].slice(0, 100)
                             : s.devLogs,
@@ -2032,18 +1998,17 @@ export const gameStore = createStore<GameState>()(
             driverCarryingBars: state.driverCarryingBars,
             driverCapUpgrades: state.driverCapUpgrades,
             goldBarsCertified: state.goldBarsCertified,
-            hasOilDerrick: state.hasOilDerrick,
             hasExcavator: state.hasExcavator,
             hasWashplant: state.hasWashplant,
-            crudeTank: state.crudeTank,
             fuelTank: state.fuelTank,
+            traderFuelTripTicks: state.traderFuelTripTicks,
         }),
         migrate: (persisted, fromVersion) => {
             try {
                 return migrateToLatest(persisted, fromVersion ?? undefined);
             } catch (e) {
                 console.warn("Migration failed; using default save.", e);
-                return defaultSaveV38();
+                return defaultSaveV39();
             }
         },
         onRehydrateStorage: ()=> (state) => {

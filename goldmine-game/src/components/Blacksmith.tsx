@@ -1,8 +1,37 @@
-import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, getEffectiveMaxToolTier, getEffectiveMaxGearLevel } from '../store/gameStore';
+import { gameStore, useGameStore, EQUIPMENT, UPGRADES, getUpgradeCost, SHOVEL_TIER_COSTS, PAN_TIER_COSTS, MAX_TOOL_TIER, BUCKET_UPGRADE_COSTS, PAN_CAP_UPGRADE_COSTS, PAN_SPEED_UPGRADE_COSTS, MAX_GEAR_UPGRADE_LEVEL, BUCKET_CAPACITY, PAN_CAPACITY, getEffectiveMaxToolTier, getEffectiveMaxGearLevel, EXCAVATOR_COST_BARS, WASHPLANT_COST_BARS, EXCAVATOR_MINE_MULT, WASHPLANT_SLUICE_MULT } from '../store/gameStore';
 import { UpgradeButton } from './ui';
 import { useState } from 'react';
 
 type SmithTab = 'gear' | 'equipment';
+
+function HeavyEquipButton({ name, icon, description, costBars, goldBars, onBuy }: {
+    name: string; icon: string; description: string; costBars: number; goldBars: number; onBuy: () => void;
+}) {
+    const canAfford = goldBars >= costBars;
+    const shortage = canAfford ? 0 : costBars - goldBars;
+    return (
+        <button
+            onClick={onBuy}
+            disabled={!canAfford}
+            className="w-full p-4 frontier-card border-2 hover:border-frontier-ember dark:hover:border-frontier-ember rounded-sm text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-frontier-coal dark:text-frontier-bone flex items-center gap-2">
+                        <span>{icon}</span><span>{name}</span>
+                    </div>
+                    <div className="text-sm text-frontier-dust mt-0.5">{description}</div>
+                    {shortage > 0 && (
+                        <div className="text-xs text-frontier-rust dark:text-red-400 mt-1">Need {shortage} bars more</div>
+                    )}
+                </div>
+                <div className={`text-base font-bold flex-shrink-0 ${canAfford ? 'text-frontier-sage' : 'text-frontier-rust'}`}>
+                    {costBars} bars
+                </div>
+            </div>
+        </button>
+    );
+}
 
 export function Blacksmith() {
     const [tab, setTab] = useState<SmithTab>('gear');
@@ -14,6 +43,9 @@ export function Blacksmith() {
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
     const hasMotherlode = useGameStore(s => s.hasMotherlode);
+    const goldBars = useGameStore(s => s.goldBars);
+    const hasExcavator = useGameStore(s => s.hasExcavator);
+    const hasWashplant = useGameStore(s => s.hasWashplant);
     const sluiceGear = useGameStore(s => s.sluiceGear);
     const furnaceGear = useGameStore(s => s.furnaceGear);
     const bucketUpgrades = useGameStore(s => s.bucketUpgrades);
@@ -225,6 +257,26 @@ export function Blacksmith() {
                             playerMoney={gold}
                             onBuy={() => buyUpgrade('motherlode')}
                             icon="🌋"
+                        />
+                    )}
+                    {hasFurnace && !hasExcavator && (
+                        <HeavyEquipButton
+                            name="Excavator"
+                            icon="🚜"
+                            description={`Triples dirt rate (×${EXCAVATOR_MINE_MULT}) while fueled. Requires trader fuel runs from town.`}
+                            costBars={EXCAVATOR_COST_BARS}
+                            goldBars={goldBars}
+                            onBuy={() => gameStore.getState().buyHeavyEquipment('excavator')}
+                        />
+                    )}
+                    {hasExcavator && !hasWashplant && (
+                        <HeavyEquipButton
+                            name="Wash Plant"
+                            icon="🏭"
+                            description={`Boosts sluice throughput ×${WASHPLANT_SLUICE_MULT} while fueled. Requires excavator.`}
+                            costBars={WASHPLANT_COST_BARS}
+                            goldBars={goldBars}
+                            onBuy={() => gameStore.getState().buyHeavyEquipment('washplant')}
                         />
                     )}
                 </div>

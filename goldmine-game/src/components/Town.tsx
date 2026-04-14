@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, useGameStore, VEHICLE_TIERS, DRIVER_COST, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY } from "../store/gameStore";
+import { gameStore, getUpgradeCost, useGameStore, VEHICLE_TIERS, DRIVER_COST, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY, TRADER_FUEL_COST, FUEL_TANK_CAP } from "../store/gameStore";
 import { useState } from "react";
 import { HiringHall } from "./HiringHall";
 import { TownMap, type TownPanel } from "./TownMap";
@@ -32,6 +32,10 @@ export function Town() {
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
     const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
+    const fuelTank = useGameStore((s) => s.fuelTank);
+    const traderFuelTripTicks = useGameStore((s) => s.traderFuelTripTicks);
+    const hasExcavator = useGameStore((s) => s.hasExcavator);
+    const hasWashplant = useGameStore((s) => s.hasWashplant);
 
     const tierData = VEHICLE_TIERS[vehicleTier as 0|1|2|3];
 
@@ -145,6 +149,43 @@ export function Town() {
                                 icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
                             />
                         )}
+
+                        {/* Trader Fuel Runs — visible once excavator or washplant is owned */}
+                        {(hasExcavator || hasWashplant) && (() => {
+                            const tripDuration = 2 * getTravelDurationTicks(vehicleTier);
+                            const tripPct = traderFuelTripTicks > 0 ? Math.min(100, (traderFuelTripTicks / tripDuration) * 100) : 0;
+                            const tankFull = fuelTank >= FUEL_TANK_CAP;
+                            const onRun = traderFuelTripTicks > 0;
+                            return (
+                                <div className="p-3 rounded-sm border border-frontier-hide/40 bg-frontier-parchment/30 dark:bg-frontier-coal/30 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-frontier-bone">⛽ Fuel Supply</span>
+                                        <span className="text-xs text-frontier-dust">{fuelTank.toFixed(1)} / {FUEL_TANK_CAP} gal</span>
+                                    </div>
+                                    <div className="h-2 rounded-sm bg-frontier-iron/30 overflow-hidden">
+                                        <div className="h-full rounded-sm bg-amber-500 transition-all duration-500" style={{ width: `${Math.min(100, (fuelTank / FUEL_TANK_CAP) * 100)}%` }} />
+                                    </div>
+                                    {onRun ? (
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-frontier-dust">Trader fetching fuel…</p>
+                                            <div className="h-1.5 rounded-sm bg-frontier-iron/30 overflow-hidden">
+                                                <div className="h-full rounded-sm bg-frontier-nugget transition-all duration-300" style={{ width: `${tripPct}%` }} />
+                                            </div>
+                                        </div>
+                                    ) : tankFull ? (
+                                        <p className="text-xs text-frontier-iron text-center">Tank is full</p>
+                                    ) : (
+                                        <button
+                                            onClick={() => gameStore.getState().sendTraderForFuel()}
+                                            disabled={gold < TRADER_FUEL_COST}
+                                            className="w-full frontier-btn-primary text-xs py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Send Trader for Fuel ({TRADER_FUEL_COST} oz)
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 

@@ -18,11 +18,9 @@ const ROLE_META: Record<Role, { label: string; icon: string; equipment?: string 
     furnaceOperator:  { label: 'Furnace Operator',   icon: '⚗️', equipment: 'Furnace'        },
     detectorOperator: { label: 'Detector Operator',  icon: '🔍', equipment: 'Metal Detector' },
     certifier:        { label: 'Certifier',          icon: '⚖️', equipment: 'Assayer Level 2' },
-    driller:          { label: 'Driller',            icon: '⛽', equipment: 'Oil Derrick'    },
-    refiner:          { label: 'Refiner',            icon: '🏭', equipment: 'Oil Derrick'    },
 };
 
-const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier', 'driller', 'refiner'];
+const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
 
 function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
     return (
@@ -242,7 +240,6 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
-    const hasOilDerrick = useGameStore(s => s.hasOilDerrick);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
     const postedJobs = useGameStore(s => s.postedJobs);
     const gold = useGameStore(s => s.gold);
@@ -263,7 +260,6 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
         if (role === 'furnaceOperator') return !hasFurnace || !postedJobs.furnaceOperator;
         if (role === 'detectorOperator') return !hasMetalDetector || !postedJobs.detectorOperator;
         if (role === 'certifier') return assayerLevel < 2;
-        if (role === 'driller' || role === 'refiner') return !hasOilDerrick;
         return false;
     }
 

@@ -8,7 +8,6 @@ const NPC_META: Record<NPCId, { emoji: string; name: string }> = {
     tavernKeeper: { emoji: '🍺', name: 'Tavern Keeper' },
     assayer:      { emoji: '⚖️', name: 'Assayer' },
     blacksmith:   { emoji: '🔨', name: 'Blacksmith' },
-    mechanic:     { emoji: '⚙️', name: 'Mechanic' },
 };
 
 export type TownPanel = 'shop' | 'tavern' | 'assayer' | 'blacksmith';
