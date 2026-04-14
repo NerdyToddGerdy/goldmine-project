@@ -3,11 +3,11 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 36 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 37 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
-export type NPCId = 'trader' | 'tavernKeeper' | 'assayer' | 'blacksmith';
+export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier' | 'driller' | 'refiner';
+export type NPCId = 'trader' | 'tavernKeeper' | 'assayer' | 'blacksmith' | 'mechanic';
 
 export interface Employee {
     id: string;
@@ -25,6 +25,8 @@ export interface RoleSlots {
     furnaceOperator: number;
     detectorOperator: number;
     certifier: number;
+    driller: number;
+    refiner: number;
 }
 
 export interface StoryNPCState {
@@ -32,6 +34,7 @@ export interface StoryNPCState {
     tavernBuilt: boolean;
     assayerArrived: boolean;
     blacksmithArrived: boolean;
+    mechanicArrived?: boolean;  // v37+
 }
 
 let _empIdCounter = 0;
@@ -499,13 +502,24 @@ export type SaveV35 = Omit<SaveV34, 'version'> & {
 // v36: stats removed from Employee — now computed from xpByRole + rarity at runtime
 export type SaveV36 = Omit<SaveV35, 'version'> & { version: 36; };
 
-export type LatestSave = SaveV36;
+// v37: Mechanic NPC + Oil Field + fuel-powered machinery
+export type SaveV37 = Omit<SaveV36, 'version' | 'location'> & {
+    version: 37;
+    location: 'mine' | 'town' | 'oilField';
+    hasOilDerrick: boolean;
+    hasExcavator: boolean;
+    hasWashplant: boolean;
+    crudeTank: number;
+    fuelTank: number;
+};
+
+export type LatestSave = SaveV37;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV36();
+        return defaultSaveV37();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1420,6 +1434,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
             tavernKeeper: npcs.tavernBuilt ? 1 : 0,
             assayer: npcs.assayerArrived ? 1 : 0,
             blacksmith: npcs.blacksmithArrived ? 1 : 0,
+            mechanic: 0,
         };
         return migrateToLatest({
             ...rest,
@@ -1475,17 +1490,32 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 36);
     }
 
-    // Already v36, ensure fields exist
-    const s = raw as Partial<SaveV36>;
+    if (fromVersion === 36) {
+        // v36 → v37: Mechanic NPC + Oil Field + fuel-powered machinery
+        const s = raw as Partial<SaveV36>;
+        return migrateToLatest({
+            ...s,
+            version: 37,
+            hasOilDerrick: false,
+            hasExcavator: false,
+            hasWashplant: false,
+            crudeTank: 0,
+            fuelTank: 0,
+        }, 37);
+    }
+
+    // Already v37, ensure fields exist
+    const s = raw as Partial<SaveV37>;
     const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
     const defaultNpcLevels: Record<NPCId, number> = {
         trader: storyNPCs.traderArrived ? 1 : 0,
         tavernKeeper: storyNPCs.tavernBuilt ? 1 : 0,
         assayer: storyNPCs.assayerArrived ? 1 : 0,
         blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
+        mechanic: storyNPCs.mechanicArrived ? 1 : 0,
     };
     return {
-        version: 36,
+        version: 37,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1542,6 +1572,8 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
             furnaceOperator: s.roleSlots?.furnaceOperator ?? 1,
             detectorOperator: s.roleSlots?.detectorOperator ?? 1,
             certifier: s.roleSlots?.certifier ?? 1,
+            driller: s.roleSlots?.driller ?? 1,
+            refiner: s.roleSlots?.refiner ?? 1,
         },
         storyNPCs,
         seasonNumber: s.seasonNumber ?? 1,
@@ -1551,6 +1583,11 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         npcLevels: s.npcLevels ?? defaultNpcLevels,
         pendingCommission: s.pendingCommission ?? null,
         postedJobs: s.postedJobs ?? {},
+        hasOilDerrick: s.hasOilDerrick ?? false,
+        hasExcavator: s.hasExcavator ?? false,
+        hasWashplant: s.hasWashplant ?? false,
+        crudeTank: s.crudeTank ?? 0,
+        fuelTank: s.fuelTank ?? 0,
     };
 }
 
@@ -1623,7 +1660,7 @@ export function defaultSaveV31(): SaveV31 {
         vaultBars: 0,
         goldBarsCertified: 0,
         employees: [],
-        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
+        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, driller: 1, refiner: 1 },
         storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
         seasonNumber: 1,
         npcsRetained: 0,
@@ -1690,13 +1727,13 @@ export function defaultSaveV32(): SaveV32 {
         vaultBars: 0,
         goldBarsCertified: 0,
         employees: [],
-        roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+        roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1, driller: 1, refiner: 1 },
         storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
         seasonNumber: 1,
         npcsRetained: 0,
         draftPool: [],
         draftPoolRefreshCost: 10,
-        npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0 },
+        npcLevels: { trader: 0, tavernKeeper: 0, assayer: 0, blacksmith: 0, mechanic: 0 },
         pendingCommission: null,
     };
 }
@@ -1718,6 +1755,18 @@ export function defaultSaveV35(): SaveV35 {
 
 export function defaultSaveV36(): SaveV36 {
     return { ...defaultSaveV35(), version: 36 };
+}
+
+export function defaultSaveV37(): SaveV37 {
+    return {
+        ...defaultSaveV36(),
+        version: 37,
+        hasOilDerrick: false,
+        hasExcavator: false,
+        hasWashplant: false,
+        crudeTank: 0,
+        fuelTank: 0,
+    };
 }
 
 export function defaultSaveV2(): SaveV2 {
@@ -2155,6 +2204,7 @@ export const NPC_COMMISSION_BASE: Record<NPCId, number> = {
     tavernKeeper: 750,
     assayer: 1000,
     blacksmith: 600,
+    mechanic: 800,
 };
 
 export function getCommissionCost(npcId: NPCId, currentLevel: number): number {
@@ -2167,6 +2217,7 @@ export function getCommissionOptions(storyNPCs: StoryNPCState, npcLevels: Record
     if (storyNPCs.tavernBuilt) arrived.push('tavernKeeper');
     if (storyNPCs.assayerArrived) arrived.push('assayer');
     if (storyNPCs.blacksmithArrived) arrived.push('blacksmith');
+    if (storyNPCs.mechanicArrived) arrived.push('mechanic');
     // Sort by current level ascending, take up to 3
     return arrived
         .sort((a, b) => (npcLevels[a] ?? 0) - (npcLevels[b] ?? 0))

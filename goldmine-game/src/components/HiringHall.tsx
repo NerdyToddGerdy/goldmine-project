@@ -3,11 +3,11 @@ import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployee
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
-    common:    { border: 'border-gray-300',    badge: 'bg-gray-100 text-gray-600',     text: 'text-gray-600'     },
-    uncommon:  { border: 'border-green-400',   badge: 'bg-green-100 text-green-700',   text: 'text-green-700'    },
-    rare:      { border: 'border-blue-400',    badge: 'bg-blue-100 text-blue-700',     text: 'text-blue-700'     },
-    epic:      { border: 'border-purple-400',  badge: 'bg-purple-100 text-purple-700', text: 'text-purple-700'   },
-    legendary: { border: 'border-amber-400',   badge: 'bg-amber-100 text-amber-700',   text: 'text-amber-700'    },
+    common:    { border: 'border-frontier-aged',   badge: 'frontier-badge-common',    text: 'text-frontier-dust'    },
+    uncommon:  { border: 'border-frontier-sage',   badge: 'frontier-badge-uncommon',  text: 'text-frontier-sage'    },
+    rare:      { border: 'border-blue-500',         badge: 'frontier-badge-rare',      text: 'text-blue-400'         },
+    epic:      { border: 'border-purple-500',       badge: 'frontier-badge-epic',      text: 'text-purple-400'       },
+    legendary: { border: 'border-frontier-nugget', badge: 'frontier-badge-legendary', text: 'text-frontier-nugget'  },
 };
 
 const ROLE_META: Record<Role, { label: string; icon: string; equipment?: string }> = {
@@ -18,18 +18,20 @@ const ROLE_META: Record<Role, { label: string; icon: string; equipment?: string 
     furnaceOperator:  { label: 'Furnace Operator',   icon: '⚗️', equipment: 'Furnace'        },
     detectorOperator: { label: 'Detector Operator',  icon: '🔍', equipment: 'Metal Detector' },
     certifier:        { label: 'Certifier',          icon: '⚖️', equipment: 'Assayer Level 2' },
+    driller:          { label: 'Driller',            icon: '⛽', equipment: 'Oil Derrick'    },
+    refiner:          { label: 'Refiner',            icon: '🏭', equipment: 'Oil Derrick'    },
 };
 
-const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
+const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier', 'driller', 'refiner'];
 
 function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
     return (
         <div className="flex items-center gap-2">
-            <span className="w-10 shrink-0 text-gray-500">{label}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
+            <span className="w-10 shrink-0 text-frontier-dust">{label}</span>
+            <div className="flex-1 h-1.5 rounded-sm bg-frontier-iron/30 overflow-hidden">
+                <div className="h-full rounded-sm bg-frontier-nugget" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
             </div>
-            <span className="w-8 text-right font-semibold text-gray-700">{value}/{max}</span>
+            <span className="w-8 text-right font-semibold text-frontier-bone">{value}/{max}</span>
         </div>
     );
 }
@@ -39,10 +41,10 @@ function EmployeeCard({ emp, children }: { emp: Employee; children?: React.React
     const stats = computeEmployeeStats(emp);
     const statMax = STAT_BASE[emp.rarity] + EMPLOYEE_LEVEL_CAPS[emp.rarity];
     return (
-        <div className={`p-3 rounded-xl border-2 bg-white space-y-2 ${s.border}`}>
+        <div className={`has-texture p-3 rounded-sm border-2 space-y-2 bg-frontier-parchment dark:bg-frontier-dirt ${s.border}`}>
             <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-gray-800">{emp.name}</span>
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full capitalize ${s.badge}`}>{emp.rarity}</span>
+                <span className="font-semibold text-sm text-frontier-coal dark:text-frontier-bone">{emp.name}</span>
+                <span className={`text-xs font-bold capitalize ${s.badge}`}>{emp.rarity}</span>
             </div>
             <div className="space-y-1 text-xs">
                 <StatBar label="Brawn"  value={stats.brawn}     max={statMax} />
@@ -62,7 +64,6 @@ function DraftPool() {
     const draftPool = useGameStore(s => s.draftPool);
     const refreshCost = useGameStore(s => s.draftPoolRefreshCost);
 
-    // Auto-populate on first mount
     useEffect(() => {
         if (draftPool.length === 0) {
             gameStore.getState().refreshDraftPool();
@@ -72,18 +73,18 @@ function DraftPool() {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Candidates</h4>
+                <h4 className="frontier-label">Candidates</h4>
                 <button
                     onClick={() => gameStore.getState().refreshDraftPool()}
                     disabled={gold < refreshCost}
-                    className="text-xs px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold border border-amber-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="frontier-btn-ghost text-xs px-3 py-1 border border-frontier-hide/40"
                 >
                     Refresh Pool ({refreshCost} oz)
                 </button>
             </div>
 
             {draftPool.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Generating candidates…</p>
+                <p className="text-xs text-frontier-dust text-center py-4">Generating candidates…</p>
             ) : (
                 <div className="space-y-2">
                     {draftPool.map(emp => {
@@ -92,11 +93,12 @@ function DraftPool() {
                         return (
                             <EmployeeCard key={emp.id} emp={emp}>
                                 <div className="flex items-center justify-between pt-1">
-                                    <span className="text-xs text-gray-500">Hire: <span className="font-semibold text-gray-700">{cost} oz</span></span>
+                                    <span className="text-xs text-frontier-dust">Hire: <span className="font-semibold text-frontier-bone">{cost} oz</span></span>
                                     <button
                                         onClick={() => gameStore.getState().hireEmployee(emp.id)}
                                         disabled={!canAfford}
-                                        className="text-xs px-3 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="frontier-btn-primary text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{ background: 'linear-gradient(to bottom, var(--fw-sage), var(--fw-pine))', borderColor: 'var(--fw-pine)' }}
                                     >
                                         Hire
                                     </button>
@@ -118,9 +120,9 @@ function Bench() {
 
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Your Crew (Unassigned)</h4>
+            <h4 className="frontier-label">Your Crew (Unassigned)</h4>
             {bench.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">No idle crew. Hire someone or unassign a worker.</p>
+                <p className="text-xs text-frontier-dust text-center py-4">No idle crew. Hire someone or unassign a worker.</p>
             ) : (
                 <div className="space-y-2">
                     {bench.map(emp => (
@@ -128,7 +130,7 @@ function Bench() {
                             <div className="flex items-center justify-end pt-1">
                                 <button
                                     onClick={() => gameStore.getState().dismissEmployee(emp.id)}
-                                    className="text-xs px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-semibold border border-red-300 transition-all"
+                                    className="frontier-btn-danger text-xs px-3 py-1"
                                 >
                                     Dismiss
                                 </button>
@@ -155,11 +157,11 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
 
     if (isLocked) {
         return (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-dashed border-gray-200 opacity-60">
+            <div className="flex items-center gap-2 p-2 rounded-sm bg-frontier-coal/20 border border-dashed border-frontier-iron/40 opacity-60">
                 <span className="text-base">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-gray-500">{meta.label}</span>
-                    {equipmentReq && <span className="text-xs text-gray-400 ml-1">— requires {equipmentReq}</span>}
+                    <span className="text-xs font-semibold text-frontier-dust">{meta.label}</span>
+                    {equipmentReq && <span className="text-xs text-frontier-iron ml-1">— requires {equipmentReq}</span>}
                 </div>
             </div>
         );
@@ -175,27 +177,27 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
         const xpForNext = (level + 1) * (level + 1) * 10;
         const xpPct = level >= cap ? 100 : Math.min(100, ((xp - xpForLevel) / (xpForNext - xpForLevel)) * 100);
         return (
-            <div className={`flex items-center gap-2 p-2 rounded-lg border-2 bg-white ${s.border}`}>
+            <div className={`flex items-center gap-2 p-2 rounded-sm border-2 bg-frontier-parchment dark:bg-frontier-dirt ${s.border}`}>
                 <span className="text-base">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-gray-800 truncate">{emp.name}</span>
-                        <span className={`text-xs px-1 rounded capitalize ${s.badge}`}>{emp.rarity}</span>
-                        <span className="text-xs text-gray-500">L{level}{level >= cap ? ' ★' : ''}</span>
+                        <span className="text-xs font-semibold text-frontier-coal dark:text-frontier-bone truncate">{emp.name}</span>
+                        <span className={`text-xs px-1 rounded-sm capitalize ${s.badge}`}>{emp.rarity}</span>
+                        <span className="text-xs text-frontier-dust">L{level}{level >= cap ? ' ★' : ''}</span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="flex-1 h-1 rounded-sm bg-frontier-iron/30 overflow-hidden">
                             <div
-                                className={`h-full rounded-full transition-all duration-500 ${level >= cap ? 'bg-amber-400' : 'bg-blue-400'}`}
+                                className={`h-full rounded-sm transition-all duration-500 ${level >= cap ? 'bg-frontier-nugget' : 'bg-blue-400'}`}
                                 style={{ width: `${xpPct}%` }}
                             />
                         </div>
-                        <span className="text-xs text-gray-400 shrink-0">Pwr {power.toFixed(1)}</span>
+                        <span className="text-xs text-frontier-dust shrink-0">Pwr {power.toFixed(1)}</span>
                     </div>
                 </div>
                 <button
                     onClick={() => gameStore.getState().unassignEmployee(emp.id)}
-                    className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300 transition-all"
+                    className="frontier-btn-ghost text-xs px-2 py-1"
                 >
                     ✕
                 </button>
@@ -205,28 +207,28 @@ function RoleSlotRow({ role, emp, bench, isLocked, equipmentReq }: {
 
     return (
         <div className="space-y-1">
-            <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+            <div className="flex items-center gap-2 p-2 rounded-sm border border-dashed border-frontier-iron/50 bg-frontier-coal/20">
                 <span className="text-base opacity-40">{meta.icon}</span>
-                <span className="text-xs text-gray-400 flex-1">Empty slot</span>
+                <span className="text-xs text-frontier-dust flex-1">Empty slot</span>
                 <button
                     onClick={() => setPicking(p => !p)}
                     disabled={bench.length === 0}
-                    className="text-xs px-2 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300 font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="frontier-btn-ghost text-xs px-2 py-1 border border-frontier-hide/40"
                 >
                     Assign
                 </button>
             </div>
             {picking && (
-                <div className="ml-6 space-y-1 border-l-2 border-amber-200 pl-2">
+                <div className="ml-6 space-y-1 border-l-2 border-frontier-hide/40 pl-2">
                     {bench.map(b => (
                         <button
                             key={b.id}
                             onClick={() => { gameStore.getState().assignEmployee(b.id, role); setPicking(false); }}
-                            className="w-full text-left text-xs px-2 py-1.5 rounded bg-white hover:bg-amber-50 border border-amber-200 text-gray-700 transition-all"
+                            className="w-full text-left text-xs px-2 py-1.5 rounded-sm bg-frontier-parchment dark:bg-frontier-coal hover:bg-frontier-aged dark:hover:bg-frontier-dirt border border-frontier-hide/40 text-frontier-coal dark:text-frontier-bone transition-all"
                         >
                             <span className="font-semibold">{b.name}</span>
                             <span className={`ml-1 capitalize text-xs ${RARITY_STYLES[b.rarity].text}`}>{b.rarity}</span>
-                            <span className="ml-1 text-gray-400">· Power {getEmployeeRolePower(b, role).toFixed(1)}</span>
+                            <span className="ml-1 text-frontier-dust">· Power {getEmployeeRolePower(b, role).toFixed(1)}</span>
                         </button>
                     ))}
                 </div>
@@ -241,6 +243,7 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
+    const hasOilDerrick = useGameStore(s => s.hasOilDerrick);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
     const postedJobs = useGameStore(s => s.postedJobs);
     const gold = useGameStore(s => s.gold);
@@ -261,6 +264,7 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
         if (role === 'furnaceOperator') return !hasFurnace || !postedJobs.furnaceOperator;
         if (role === 'detectorOperator') return !hasMetalDetector || !postedJobs.detectorOperator;
         if (role === 'certifier') return assayerLevel < 2;
+        if (role === 'driller' || role === 'refiner') return !hasOilDerrick;
         return false;
     }
 
@@ -269,23 +273,23 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
         const postingCost = JOB_POSTING_COSTS[role];
         const needsPosting = !!postingCost && equipmentOwned(role) && !postedJobs[role];
         const locked = isLocked(role);
-        const slotCount = roleSlots[role];
+        const slotCount = roleSlots[role] ?? DEFAULT_ROLE_SLOTS[role];
         const assigned = employees.filter(e => e.assignedRole === role);
         const filled = assigned.length;
 
         if (needsPosting) {
             return (
                 <div key={role} className="space-y-1.5">
-                    <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
-                    <div className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-amber-300 bg-amber-50">
+                    <span className="text-xs font-semibold text-frontier-dust">{meta.icon} {meta.label}</span>
+                    <div className="flex items-center gap-2 p-2 rounded-sm border border-dashed border-frontier-ember/40 bg-frontier-ember/5">
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-amber-800">📋 Post Job Opening</p>
-                            <p className="text-xs text-amber-600">Enables crew assignment for this role</p>
+                            <p className="text-xs font-semibold text-frontier-bone">📋 Post Job Opening</p>
+                            <p className="text-xs text-frontier-dust">Enables crew assignment for this role</p>
                         </div>
                         <button
                             onClick={() => gameStore.getState().postJob(role)}
                             disabled={gold < postingCost}
-                            className="text-xs px-2 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="frontier-btn-primary text-xs px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                             {postingCost.toLocaleString()} oz
                         </button>
@@ -300,15 +304,15 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
         return (
             <div key={role} className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600">{meta.icon} {meta.label}</span>
+                    <span className="text-xs font-semibold text-frontier-dust">{meta.icon} {meta.label}</span>
                     {!locked && (
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">{filled}/{slotCount} slots</span>
+                            <span className="text-xs text-frontier-iron">{filled}/{slotCount} slots</span>
                             {slotCost !== undefined && (
                                 <button
                                     onClick={() => gameStore.getState().buyRoleSlot(role)}
                                     disabled={gold < slotCost}
-                                    className="text-xs px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    className="frontier-btn-ghost text-xs px-1.5 py-0.5"
                                 >
                                     +slot {slotCost.toLocaleString()} oz
                                 </button>
@@ -341,10 +345,10 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
             <div>
                 <button
                     onClick={() => setCollapsed(c => !c)}
-                    className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-700 py-0.5 transition-colors"
+                    className="w-full flex items-center justify-between text-xs text-frontier-dust hover:text-frontier-bone py-0.5 transition-colors"
                 >
                     <span className="font-semibold">{label} Crew — {totalFilled}/{totalSlots}</span>
-                    <span className="text-gray-400">{collapsed ? '▸' : '▾'}</span>
+                    <span className="text-frontier-iron">{collapsed ? '▸' : '▾'}</span>
                 </button>
                 {!collapsed && <div className="space-y-3 mt-2">{roleRows}</div>}
             </div>
@@ -354,7 +358,7 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     // Full Hiring Hall view
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Work Assignments</h4>
+            <h4 className="frontier-label">Work Assignments</h4>
             {roleRows}
         </div>
     );
@@ -373,7 +377,6 @@ function Forge() {
         setSelected(prev => {
             if (prev.includes(id)) return prev.filter(x => x !== id);
             const emp = bench.find(e => e.id === id)!;
-            // Only allow selecting same rarity as already-selected
             const firstSelected = bench.find(e => e.id === prev[0]);
             if (firstSelected && firstSelected.rarity !== emp.rarity) return prev;
             if (prev.length >= 3) return prev;
@@ -401,10 +404,10 @@ function Forge() {
 
     return (
         <div className="space-y-4">
-            <p className="text-xs text-gray-500">Select 3 unassigned crew of the same rarity to forge them into one of the next tier.</p>
+            <p className="text-xs text-frontier-dust">Select 3 unassigned crew of the same rarity to forge them into one of the next tier.</p>
 
             {bench.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-6">No unassigned crew available.</p>
+                <p className="text-xs text-frontier-dust text-center py-6">No unassigned crew available.</p>
             )}
 
             {rarityGroups.map(({ rarity, members }) => {
@@ -416,10 +419,10 @@ function Forge() {
                         <div className="flex items-center justify-between">
                             <span className={`text-xs font-bold uppercase tracking-wider ${s.text}`}>{rarity}</span>
                             {!isMaxRarity && members.length >= 3 && (
-                                <span className="text-xs text-gray-400">{members.length} available — {Math.floor(members.length / 3)} merge{Math.floor(members.length / 3) !== 1 ? 's' : ''} possible</span>
+                                <span className="text-xs text-frontier-dust">{members.length} available — {Math.floor(members.length / 3)} merge{Math.floor(members.length / 3) !== 1 ? 's' : ''} possible</span>
                             )}
                             {!isMaxRarity && members.length < 3 && (
-                                <span className="text-xs text-gray-400">{members.length}/3</span>
+                                <span className="text-xs text-frontier-dust">{members.length}/3</span>
                             )}
                         </div>
                         <div className="space-y-1">
@@ -432,24 +435,24 @@ function Forge() {
                                         key={emp.id}
                                         onClick={() => !isDisabled && toggle(emp.id)}
                                         disabled={!!isDisabled}
-                                        className={`w-full flex items-center gap-2 p-2 rounded-lg border-2 text-left transition-all ${
+                                        className={`w-full flex items-center gap-2 p-2 rounded-sm border-2 text-left transition-all ${
                                             isSel
-                                                ? `${s.border} bg-white shadow-sm ring-2 ring-offset-1 ring-amber-400`
+                                                ? `${s.border} bg-frontier-parchment dark:bg-frontier-dirt shadow-sm ring-2 ring-offset-1 ring-frontier-nugget`
                                                 : isDisabled
-                                                    ? 'border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed'
-                                                    : `border-gray-200 bg-white hover:${s.border} hover:bg-gray-50`
+                                                    ? 'border-frontier-iron/30 bg-frontier-coal/20 opacity-40 cursor-not-allowed'
+                                                    : `border-frontier-iron/30 bg-frontier-parchment/50 dark:bg-frontier-coal/40 hover:border-frontier-hide`
                                         }`}
                                     >
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-xs font-semibold text-gray-800">{emp.name}</span>
-                                                <span className={`text-xs px-1 rounded capitalize ${s.badge}`}>{emp.rarity}</span>
+                                                <span className="text-xs font-semibold text-frontier-coal dark:text-frontier-bone">{emp.name}</span>
+                                                <span className={`text-xs px-1 rounded-sm capitalize ${s.badge}`}>{emp.rarity}</span>
                                             </div>
-                                            <div className="flex gap-2 mt-0.5 text-xs text-gray-400">
+                                            <div className="flex gap-2 mt-0.5 text-xs text-frontier-dust">
                                                 {(() => { const st = computeEmployeeStats(emp); return (<><span>Brawn {st.brawn}</span><span>Dex {st.dexterity}</span><span>Tech {st.technical}</span><span>Hustle {st.hustle}</span></>); })()}
                                             </div>
                                         </div>
-                                        {isSel && <span className="text-amber-500 font-bold text-sm">✓</span>}
+                                        {isSel && <span className="text-frontier-nugget font-bold text-sm">✓</span>}
                                     </button>
                                 );
             })}
@@ -460,32 +463,32 @@ function Forge() {
 
             {/* Forge action panel */}
             {sel.length > 0 && (
-                <div className="sticky bottom-0 p-3 rounded-xl border-2 border-amber-300 bg-amber-50 space-y-2">
+                <div className="sticky bottom-0 frontier-panel space-y-2">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-amber-800">
+                        <span className="text-xs font-bold text-frontier-bone">
                             {sel.length}/3 selected{targetRarity ? ` → ${targetRarity}` : ''}
                         </span>
-                        <button onClick={() => setSelected([])} className="text-xs text-amber-500 hover:text-amber-700">Clear</button>
+                        <button onClick={() => setSelected([])} className="frontier-btn-ghost text-xs">Clear</button>
                     </div>
 
                     {canForge && targetRarity && (
-                        <div className="space-y-1 text-xs text-amber-700">
-                            <div className="flex gap-3 justify-center font-mono">
+                        <div className="space-y-1 text-xs text-frontier-aged">
+                            <div className="flex gap-3 justify-center font-body">
                                 {(['Brawn', 'Dex', 'Tech', 'Hustle'] as const).map(label => (
                                     <div key={label} className="text-center">
-                                        <div className="text-gray-400">{label}</div>
-                                        <div className="font-bold text-amber-800">{STAT_BASE[targetRarity]}</div>
+                                        <div className="text-frontier-dust">{label}</div>
+                                        <div className="font-bold text-frontier-nugget">{STAT_BASE[targetRarity]}</div>
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-center text-amber-600">"{sel[0].name}" · {targetRarity} · starts at base {STAT_BASE[targetRarity]}</p>
+                            <p className="text-center text-frontier-dust">"{sel[0].name}" · {targetRarity} · starts at base {STAT_BASE[targetRarity]}</p>
                         </div>
                     )}
 
                     <button
                         onClick={doForge}
                         disabled={!canForge || !canAfford}
-                        className="w-full py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full frontier-btn-primary py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {!canForge
                             ? `Select ${3 - sel.length} more`
@@ -509,18 +512,14 @@ export function HiringHall() {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-green-800">🏗️ Hiring Hall</h3>
+            <h3 className="font-display text-base text-frontier-bone tracking-wide">🏗️ Hiring Hall</h3>
 
-            <div className="flex gap-1 border-b-2 border-gray-200">
+            <div className="frontier-tab-bar">
                 {([['draft', '📋 Candidates'], ['bench', '👥 Crew'], ['roster', '📌 Assignments'], ['forge', '⚒️ Forge']] as [HallTab, string][]).map(([id, label]) => (
                     <button
                         key={id}
                         onClick={() => setTab(id)}
-                        className={`flex-1 px-2 py-2 text-xs font-semibold rounded-t-lg transition-all border-2 ${
-                            tab === id
-                                ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
-                                : 'bg-white/50 text-gray-600 hover:bg-white/80 border-transparent'
-                        }`}
+                        className={tab === id ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                     >
                         {label}
                     </button>

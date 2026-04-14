@@ -16,7 +16,7 @@ type FlagKey = typeof FLAGS[number]['key'];
 
 function card(children: React.ReactNode) {
     return (
-        <div className="p-4 bg-white dark:bg-gray-800 border-2 border-zinc-200 dark:border-zinc-700 rounded-xl space-y-3">
+        <div className="p-3 bg-frontier-coal/60 border border-frontier-iron/60 rounded-sm space-y-3">
             {children}
         </div>
     );
@@ -24,7 +24,7 @@ function card(children: React.ReactNode) {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
     return (
-        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <h3 className="frontier-label">
             {children}
         </h3>
     );
@@ -82,10 +82,10 @@ export function DevPanel() {
 
     return (
         <div className="space-y-4">
-            <h2 className="font-arcade text-sm text-zinc-700 dark:text-zinc-300">🛠️ Dev Tools</h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Press <kbd className="px-1 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono text-xs">Ctrl+Shift+D</kbd> to toggle dev mode.</p>
+            <h2 className="font-display text-base text-frontier-bone tracking-wide">🛠️ Dev Tools</h2>
+            <p className="text-xs text-frontier-dust font-body">Press <kbd className="px-1 py-0.5 rounded-sm bg-frontier-iron/40 border border-frontier-iron font-mono text-xs text-frontier-bone">Ctrl+Shift+D</kbd> to toggle dev mode.</p>
 
-            {/* Speed (#26) */}
+            {/* Speed */}
             {card(
                 <>
                     <SectionHeader>⚡ Tick Speed</SectionHeader>
@@ -94,10 +94,10 @@ export function DevPanel() {
                             <button
                                 key={s}
                                 onClick={() => gameStore.getState().setTimeScale(s)}
-                                className={`px-3 py-1.5 rounded-lg font-mono text-sm font-bold border-2 transition-all ${
+                                className={`px-3 py-1.5 rounded-sm font-mono text-sm font-bold border-2 transition-all ${
                                     timeScale === s
-                                        ? 'bg-amber-400 border-amber-600 text-white'
-                                        : 'bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 hover:border-amber-400'
+                                        ? 'bg-frontier-nugget/20 border-frontier-nugget text-frontier-nugget'
+                                        : 'bg-frontier-coal/40 border-frontier-iron/60 text-frontier-dust hover:border-frontier-dust'
                                 }`}
                             >
                                 {s}×
@@ -107,55 +107,55 @@ export function DevPanel() {
                 </>
             )}
 
-            {/* Add Resources (#25) */}
+            {/* Add Resources */}
             {card(
                 <>
                     <SectionHeader>💰 Add Resources</SectionHeader>
                     <div className="space-y-2">
                         {/* Gold */}
                         <div className="flex items-center gap-2">
-                            <span className="w-20 text-xs text-zinc-600 dark:text-zinc-400">Gold (oz)</span>
+                            <span className="w-20 text-xs text-frontier-dust font-body">Gold (oz)</span>
                             <input
                                 type="number"
                                 value={goldAmount}
                                 onChange={e => setGoldAmount(e.target.value)}
-                                className="w-24 px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-sm font-mono text-zinc-900 dark:text-zinc-100"
+                                className="frontier-input w-24 text-xs font-mono py-1"
                             />
                             <button
                                 onClick={() => gameStore.setState({ gold: gold + (parseFloat(goldAmount) || 0) })}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 transition-all"
+                                className="frontier-btn-ghost text-xs px-3 py-1 border border-frontier-nugget/50 text-frontier-nugget hover:bg-frontier-nugget/10"
                             >
                                 + Add
                             </button>
                         </div>
                         {/* Bucket fill */}
                         <div className="flex items-center gap-2">
-                            <span className="w-20 text-xs text-zinc-600 dark:text-zinc-400">Bucket</span>
+                            <span className="w-20 text-xs text-frontier-dust font-body">Bucket</span>
                             <input
                                 type="number"
                                 value={bucketAmount}
                                 onChange={e => setBucketAmount(e.target.value)}
-                                className="w-24 px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-sm font-mono text-zinc-900 dark:text-zinc-100"
+                                className="frontier-input w-24 text-xs font-mono py-1"
                             />
                             <button
                                 onClick={() => gameStore.setState({ bucketFilled: Math.min(parseFloat(bucketAmount) || 0, bucketCap) })}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-stone-100 dark:bg-stone-900/30 border border-stone-400 text-stone-800 dark:text-stone-300 hover:bg-stone-200 transition-all"
+                                className="frontier-btn-ghost text-xs px-3 py-1 border border-frontier-iron/60 text-frontier-dust hover:bg-frontier-iron/20"
                             >
                                 Set
                             </button>
                         </div>
                         {/* Pan fill */}
                         <div className="flex items-center gap-2">
-                            <span className="w-20 text-xs text-zinc-600 dark:text-zinc-400">Pan</span>
+                            <span className="w-20 text-xs text-frontier-dust font-body">Pan</span>
                             <input
                                 type="number"
                                 value={panAmount}
                                 onChange={e => setPanAmount(e.target.value)}
-                                className="w-24 px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-sm font-mono text-zinc-900 dark:text-zinc-100"
+                                className="frontier-input w-24 text-xs font-mono py-1"
                             />
                             <button
                                 onClick={() => gameStore.setState({ panFilled: Math.min(parseFloat(panAmount) || 0, panCap) })}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 border border-blue-400 text-blue-800 dark:text-blue-300 hover:bg-blue-200 transition-all"
+                                className="frontier-btn-ghost text-xs px-3 py-1 border border-frontier-iron/60 text-frontier-dust hover:bg-frontier-iron/20"
                             >
                                 Set
                             </button>
@@ -164,7 +164,7 @@ export function DevPanel() {
                 </>
             )}
 
-            {/* Unlock Flags (#28) */}
+            {/* Unlock Flags */}
             {card(
                 <>
                     <div className="flex items-center justify-between">
@@ -175,7 +175,7 @@ export function DevPanel() {
                                 hasSluiceBox: true,
                                 hasFurnace: true, hasDriver: true,
                             })}
-                            className="px-3 py-1 rounded-lg text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 border border-purple-400 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-all"
+                            className="frontier-btn-ghost text-xs px-2 py-1 border border-frontier-iron/60 text-frontier-dust"
                         >
                             Unlock All
                         </button>
@@ -187,10 +187,10 @@ export function DevPanel() {
                                 <button
                                     key={key}
                                     onClick={() => gameStore.setState({ [key]: !active })}
-                                    className={`px-2 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all text-left ${
+                                    className={`px-2 py-1.5 rounded-sm text-xs font-semibold border-2 transition-all text-left font-body ${
                                         active
-                                            ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-400 text-emerald-800 dark:text-emerald-300'
-                                            : 'bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400'
+                                            ? 'bg-frontier-sage/20 border-frontier-sage text-frontier-sage'
+                                            : 'bg-frontier-coal/40 border-frontier-iron/60 text-frontier-iron hover:border-frontier-dust'
                                     }`}
                                 >
                                     {label}
@@ -201,38 +201,38 @@ export function DevPanel() {
                 </>
             )}
 
-            {/* State Inspector (#27) */}
+            {/* State Inspector */}
             {card(
                 <>
                     <SectionHeader>🔬 State Inspector</SectionHeader>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-xs">
                         {inspectorRows.map(([k, v]) => (
                             <>
-                                <span key={`k-${k}`} className="text-zinc-500 dark:text-zinc-400 truncate">{k}</span>
-                                <span key={`v-${k}`} className="text-zinc-900 dark:text-zinc-100 font-semibold truncate">{v}</span>
+                                <span key={`k-${k}`} className="text-frontier-iron truncate">{k}</span>
+                                <span key={`v-${k}`} className="text-frontier-bone font-semibold truncate">{v}</span>
                             </>
                         ))}
                     </div>
                 </>
             )}
 
-            {/* Event Log (#29) */}
+            {/* Event Log */}
             {card(
                 <>
                     <div className="flex items-center justify-between">
                         <SectionHeader>📋 Event Log</SectionHeader>
                         <button
                             onClick={() => gameStore.setState({ devLogs: [] })}
-                            className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                            className="text-xs text-frontier-iron hover:text-frontier-dust transition-colors font-body"
                         >
                             Clear
                         </button>
                     </div>
-                    <div className="h-40 overflow-y-auto font-mono text-xs space-y-0.5 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-2">
+                    <div className="h-40 overflow-y-auto font-mono text-xs space-y-0.5 bg-frontier-coal border border-frontier-iron/40 rounded-sm p-2">
                         {devLogs.length === 0
-                            ? <span className="text-zinc-400">No events yet. Driver sales, gold price changes, and risk events will appear here.</span>
+                            ? <span className="text-frontier-iron">No events yet. Driver sales, gold price changes, and risk events will appear here.</span>
                             : devLogs.map((line, i) => (
-                                <div key={i} className="text-zinc-700 dark:text-zinc-300 leading-relaxed">{line}</div>
+                                <div key={i} className="text-frontier-dust leading-relaxed">{line}</div>
                             ))
                         }
                     </div>

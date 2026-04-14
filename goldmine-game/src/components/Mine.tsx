@@ -42,7 +42,6 @@ export function Mine() {
     const settlementName = getSettlementStage(seasonNumber).name;
     const effectiveBucketCap = getEffectiveBucketCapacity(bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(panCapUpgrades);
-    // Travel progress bar calculations
     const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
     const totalTravelTicks = getTravelDurationTicks(vehicleTier);
     const travelPct = totalTravelTicks > 0 ? Math.min(100, (travelProgress / totalTravelTicks) * 100) : 0;
@@ -59,7 +58,6 @@ export function Mine() {
     const collectBars = () => gameStore.getState().collectBars();
     const travelToTown = () => gameStore.getState().startTravel('town');
 
-    // Manual actions now benefit from gear upgrades
     let extractionRate = BASE_EXTRACTION;
     extractionRate += getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear;
 
@@ -70,10 +68,9 @@ export function Mine() {
     const panHasRoomForBucket = panFilled + bucketFilled <= effectivePanCap;
     const sluiceIsDraining = sluiceBoxFilled > 0;
     const sluiceHasSpace = sluiceBoxFilled + bucketFilled <= effectivePanCap;
-    const mossCapacity = effectivePanCap; // same formula as pan
+    const mossCapacity = effectivePanCap;
     const mossIsFull = minersMossFilled >= mossCapacity;
 
-    // Pulse ring — single most-actionable button at any progression stage (#86)
     const miners = countAssigned(employees, 'miner');
     type PulseTarget = 'scoop' | 'empty' | 'pan' | 'travel' | null;
     let pulseTarget: PulseTarget = null;
@@ -84,38 +81,38 @@ export function Mine() {
         else if (gold > 0.5 && !unlockedTown) pulseTarget = 'travel';
     }
     const pulse = (t: PulseTarget) =>
-        pulseTarget === t ? ' ring-2 ring-amber-400 ring-offset-2 motion-safe:animate-pulse' : '';
+        pulseTarget === t ? ' ring-2 ring-frontier-nugget ring-offset-1 ring-offset-frontier-coal/50 motion-safe:animate-pulse' : '';
 
 
     return (
         <div className="space-y-6">
-            <h2 className="font-arcade text-sm text-amber-900">⛏️ The Mine</h2>
+            <h2 className="font-display text-base text-frontier-bone">⛏️ The Mine</h2>
 
-            {/* Travel to Town — shown once player has panned gold; transforms into progress bar while traveling */}
+            {/* Travel to Town */}
             {(unlockedTown || gold > 0) && (
-                <div className="p-3 bg-white border border-green-200 rounded-xl">
+                <div className="frontier-panel p-3">
                     {isTraveling && travelDestination === 'town' ? (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <span className="font-semibold text-green-900 text-sm">
+                                <span className="font-semibold text-frontier-bone text-sm">
                                     {vehicleEmoji} To {settlementName}… ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].name})
                                 </span>
                                 <button
                                     onClick={() => gameStore.getState().cancelTravel()}
-                                    className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                                    className="frontier-btn-danger text-xs px-3 py-1"
                                 >
                                     Cancel
                                 </button>
                             </div>
                             <div className="relative h-7">
-                                <div className="absolute inset-0 bg-green-100 rounded-full border border-green-300 overflow-hidden">
+                                <div className="absolute inset-0 frontier-progress-track rounded-sm overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-100"
+                                        className="h-full frontier-progress-fill-sage transition-all duration-100"
                                         style={{ width: `${travelPct}%` }}
                                     />
                                 </div>
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-xs font-bold text-green-900 drop-shadow-sm">{secsRemaining}s</span>
+                                    <span className="text-xs font-bold text-frontier-bone drop-shadow-sm">{secsRemaining}s</span>
                                 </div>
                                 <div
                                     className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
@@ -130,7 +127,8 @@ export function Mine() {
                             <button
                                 onClick={travelToTown}
                                 disabled={isTraveling}
-                                className={`w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed${pulse('travel')}`}
+                                className={`w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed${pulse('travel')}`}
+                                style={{ background: 'linear-gradient(to bottom, var(--fw-sage), var(--fw-pine))', borderColor: 'var(--fw-pine)' }}
                             >
                                 🏘️ Travel to {settlementName} ({VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s)
                             </button>
@@ -141,25 +139,23 @@ export function Mine() {
 
             {/* Metal Detector Section */}
             {hasMetalDetector && (
-                <div className="p-4 bg-white border-2 border-violet-300 rounded-xl space-y-3">
-                    <h3 className="text-sm font-semibold text-violet-900">🔍 Metal Detector</h3>
+                <div className="frontier-panel space-y-3">
+                    <h3 className="text-sm font-semibold text-frontier-dust">🔍 Metal Detector</h3>
 
                     {patchActive ? (
-                        /* Active patch: show remaining rich dirt */
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-semibold text-violet-800">⛏️ Rich Patch Found!</span>
-                                <span className="text-sm font-semibold text-violet-700">{patchRemaining.toFixed(1)} / {patchCapacity} remaining</span>
+                                <span className="text-sm font-semibold text-frontier-bone">⛏️ Rich Patch Found!</span>
+                                <span className="text-sm font-semibold text-frontier-dust">{patchRemaining.toFixed(1)} / {patchCapacity} remaining</span>
                             </div>
                             <ProgressBar value={patchCapacity - patchRemaining} max={patchCapacity} color="violet" isActive={true} />
-                            <p className="text-xs text-violet-600 text-center">Scoop to harvest rich dirt — miners prioritize this patch</p>
+                            <p className="text-xs text-frontier-dust text-center">Scoop to harvest rich dirt — miners prioritize this patch</p>
                         </div>
                     ) : (
-                        /* Detection phase: progress bar + detect button */
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-semibold text-violet-800">Searching…</span>
-                                <span className="text-sm font-semibold text-violet-700">
+                                <span className="text-sm font-semibold text-frontier-bone">Searching…</span>
+                                <span className="text-sm font-semibold text-frontier-dust">
                                     {detectTarget === 0 ? '? clicks' : `${detectProgress.toFixed(1)} / ${detectTarget}`}
                                 </span>
                             </div>
@@ -172,13 +168,14 @@ export function Mine() {
                             <button
                                 onClick={detectPatch}
                                 disabled={isTraveling}
-                                className="w-full px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-md hover:shadow-lg active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                className="w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                style={{ background: 'linear-gradient(to bottom, var(--fw-dust), var(--fw-iron))', borderColor: 'var(--fw-iron)' }}
                             >
                                 🔍 Detect{detectTarget === 0 ? ' — Start Search' : ' (+1)'}
                             </button>
                         </div>
                     )}
-                    <div className="pt-1 border-t border-violet-100">
+                    <div className="pt-1 border-t border-frontier-iron/20">
                         <Roster roles={['detectorOperator']} />
                     </div>
                 </div>
@@ -198,12 +195,12 @@ export function Mine() {
                     : '💤 Waiting for gold…';
                 const barValue = isOutbound ? driverTripTicks : isReturning ? driverTripTicks - tripDuration : 0;
                 return (
-                    <div className="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-xl space-y-2">
+                    <div className="frontier-panel border-frontier-nugget/50 space-y-2">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-yellow-900">🚗 Driver</h3>
-                            <span className="text-xs text-yellow-700">{capacity} oz cap · {tripSecs}s trip</span>
+                            <h3 className="text-sm font-semibold text-frontier-bone">🚗 Driver</h3>
+                            <span className="text-xs text-frontier-dust">{capacity} oz cap · {tripSecs}s trip</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-yellow-800">
+                        <div className="flex items-center justify-between text-xs text-frontier-aged">
                             <span>{phaseLabel}</span>
                             {isOutbound && (driverCarryingBars > 0 || driverCarryingFlakes > 0) && (
                                 <span className="font-semibold">
@@ -212,7 +209,7 @@ export function Mine() {
                                     {driverCarryingFlakes > 0 && (
                                         <span>
                                             {formatNumber(driverCarryingFlakes)} oz flakes
-                                            <span className="text-red-600 ml-1">(−{(FLAKES_HAUL_FEE * 100).toFixed(0)}%)</span>
+                                            <span className="text-frontier-rust ml-1">(−{(FLAKES_HAUL_FEE * 100).toFixed(0)}%)</span>
                                         </span>
                                     )}
                                 </span>
@@ -232,46 +229,44 @@ export function Mine() {
 
             {/* Manual Actions */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-amber-800">Actions</h3>
+                <h3 className="font-display text-sm text-frontier-bone tracking-wide">Actions</h3>
 
-                {/* Bucket Section - Combined UI */}
-                <div className="p-4 bg-white border-2 border-amber-300 rounded-xl space-y-3">
-                    {/* Bucket Progress Bar */}
+                {/* Bucket Section */}
+                <div className="frontier-panel space-y-3">
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-amber-900">🪣 Bucket</span>
-                            <span className="text-sm font-semibold text-amber-700">
+                            <span className="text-sm font-semibold text-frontier-bone">🪣 Bucket</span>
+                            <span className="text-sm font-semibold text-frontier-ember">
                                 {bucketFilled.toFixed(1)} / {effectiveBucketCap}
                             </span>
                         </div>
                         <ProgressBar value={bucketFilled} max={effectiveBucketCap} color="amber" isActive={countAssigned(employees, 'miner') > 0 && !bucketIsFull} isFull={bucketIsFull} />
                         <div className="h-5 mt-1 flex items-center justify-center">
                             {isTraveling
-                                ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
+                                ? <span className="text-xs text-frontier-dust font-semibold">🚗 Locked while traveling</span>
                                 : bucketIsFull
-                                    ? <span className="text-xs text-amber-700 font-semibold">Bucket is full! Empty it to continue scooping.</span>
+                                    ? <span className="text-xs text-frontier-ember font-semibold">Bucket is full! Empty it to continue scooping.</span>
                                     : patchActive && richDirtInBucket > 0
-                                        ? <span className="text-xs text-violet-700 font-semibold">✨ {richDirtInBucket.toFixed(1)} rich dirt in bucket</span>
+                                        ? <span className="text-xs text-frontier-nugget font-semibold">✨ {richDirtInBucket.toFixed(1)} rich dirt in bucket</span>
                                         : null
                             }
                         </div>
                     </div>
 
-                    {/* Scoop Button */}
                     <button
                         onClick={scoopDirt}
                         disabled={bucketIsFull || isTraveling}
-                        className={`w-full px-6 py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('scoop')}`}
+                        className={`w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed${pulse('scoop')}`}
                     >
                         🪨 Scoop Dirt (+{scoopPower.toFixed(1)}){patchActive ? ' ✨ Rich' : ''}
                     </button>
 
-                    {/* Empty Bucket Button */}
                     {unlockedPanning && (
                         <button
                             onClick={emptyBucket}
                             disabled={bucketFilled === 0 || isTraveling || (hasSluiceBox ? !sluiceHasSpace : !panHasRoomForBucket)}
-                            className={`w-full px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('empty')}`}
+                            className={`w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed${pulse('empty')}`}
+                            style={{ background: 'linear-gradient(to bottom, var(--fw-hide), var(--fw-dirt))', borderColor: 'var(--fw-dirt)' }}
                         >
                             {hasSluiceBox
                                 ? `🪣 Empty Bucket → Sluice (+${bucketFilled.toFixed(1)})`
@@ -280,53 +275,50 @@ export function Mine() {
                         </button>
                     )}
 
-                    <div className="pt-1 border-t border-amber-100">
+                    <div className="pt-1 border-t border-frontier-iron/20">
                         <Roster roles={['miner', 'hauler']} />
                     </div>
                 </div>
 
                 {/* Sluice Box Section */}
                 {unlockedPanning && hasSluiceBox && (
-                    <div className="p-4 bg-white border-2 border-cyan-300 rounded-xl space-y-3">
-                        {/* Sluice Drain Bar */}
+                    <div className="frontier-panel space-y-3">
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <Tooltip content={<>Sluice gear ×{sluiceGear} — adds {(getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear).toFixed(4)} to extraction rate per sluice operator power</>}>
-                                    <span className="text-sm font-semibold text-cyan-900 underline decoration-dotted cursor-help">🚿 Sluice Box</span>
+                                    <span className="text-sm font-semibold text-frontier-bone underline decoration-dotted cursor-help">🚿 Sluice Box</span>
                                 </Tooltip>
-                                <span className="text-sm font-semibold text-cyan-700">
+                                <span className="text-sm font-semibold text-frontier-dust">
                                     {sluiceBoxFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
                             <ProgressBar value={sluiceBoxFilled} max={effectivePanCap} color="cyan" isActive={sluiceIsDraining} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {sluiceIsDraining
-                                    ? <span className="text-xs text-cyan-700 font-semibold">Draining… collecting paydirt in moss</span>
-                                    : <span className="text-xs text-gray-400">Empty bucket into sluice to start</span>
+                                    ? <span className="text-xs text-frontier-dust font-semibold">Draining… collecting paydirt in moss</span>
+                                    : <span className="text-xs text-frontier-iron">Empty bucket into sluice to start</span>
                                 }
                             </div>
                         </div>
 
-                        {/* Miner's Moss Bar */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-amber-900">🌿 Miner's Moss</span>
-                                <span className="text-sm font-semibold text-amber-700">
+                                <span className="text-sm font-semibold text-frontier-bone">🌿 Miner's Moss</span>
+                                <span className="text-sm font-semibold text-frontier-dust">
                                     {minersMossFilled.toFixed(1)} / {mossCapacity}
                                 </span>
                             </div>
                             <ProgressBar value={minersMossFilled} max={mossCapacity} color="amber" isActive={sluiceIsDraining} isFull={mossIsFull} />
                         </div>
 
-                        {/* Clean Moss Button */}
                         <button
                             onClick={cleanMoss}
                             disabled={minersMossFilled === 0 || panIsFull || isTraveling}
-                            className="w-full px-6 py-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             🌿 Clean Moss → Pan (+3 paydirt)
                         </button>
-                        <div className="pt-1 border-t border-cyan-100">
+                        <div className="pt-1 border-t border-frontier-iron/20">
                             <Roster roles={['sluiceOperator']} />
                         </div>
                     </div>
@@ -334,46 +326,45 @@ export function Mine() {
 
                 {/* Pan Section */}
                 {unlockedPanning && (
-                    <div className="p-4 bg-white border-2 border-yellow-300 rounded-xl space-y-3">
-                        {/* Pan Progress Bar */}
+                    <div className="frontier-panel space-y-3">
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <Tooltip content={<>Pan power ×{panPower.toFixed(2)} — scales gold per pan click. Base extract: {BASE_EXTRACTION.toFixed(3)}</>}>
-                                    <span className="text-sm font-semibold text-yellow-900 underline decoration-dotted cursor-help">
+                                    <span className="text-sm font-semibold text-frontier-bone underline decoration-dotted cursor-help">
                                         🥘 Pan
                                     </span>
                                 </Tooltip>
-                                <span className="text-sm font-semibold text-yellow-700">
+                                <span className="text-sm font-semibold text-frontier-dust">
                                     {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
                             <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" isActive={countAssigned(employees, 'prospector') > 0 && !panIsFull} isFull={panIsFull} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {isTraveling
-                                    ? <span className="text-xs text-gray-500 font-semibold">🚗 Locked while traveling</span>
+                                    ? <span className="text-xs text-frontier-dust font-semibold">🚗 Locked while traveling</span>
                                     : panIsFull
-                                        ? <span className="text-xs text-yellow-700 font-semibold">Pan is full! Start panning to make room.</span>
+                                        ? <span className="text-xs text-frontier-ember font-semibold">Pan is full! Start panning to make room.</span>
                                         : !hasSluiceBox && !panHasRoomForBucket && bucketFilled > 0
-                                            ? <span className="text-xs text-yellow-700 font-semibold">Pan needs {(panFilled + bucketFilled - effectivePanCap).toFixed(1)} more space — pan some dirt first.</span>
+                                            ? <span className="text-xs text-frontier-ember font-semibold">Pan needs {(panFilled + bucketFilled - effectivePanCap).toFixed(1)} more space — pan some dirt first.</span>
                                             : null
                                 }
                             </div>
                         </div>
 
-                        {/* Pan for Gold Button */}
                         <button
                             onClick={panForGold}
                             disabled={panFilled <= 0 || isTraveling}
-                            className={`w-full px-6 py-4 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed${pulse('pan')}`}
+                            className={`w-full frontier-btn-primary disabled:opacity-50 disabled:cursor-not-allowed${pulse('pan')}`}
+                            style={{ background: 'linear-gradient(to bottom, var(--fw-nugget), var(--fw-hide))', borderColor: 'var(--fw-hide)' }}
                         >
                             ✨ Pan for Gold (-1,{' '}
                             <Tooltip content={<>Pan power ×{panPower.toFixed(2)} · base extract {BASE_EXTRACTION.toFixed(3)}{extractionRate > BASE_EXTRACTION ? ` + sluice ${(extractionRate - BASE_EXTRACTION).toFixed(3)}` : ''}</>}>
-                                <span className="underline decoration-dotted decoration-white/60 cursor-help">+{goldPerPan.toFixed(2)} gold</span>
+                                <span className="underline decoration-dotted decoration-frontier-bone/60 cursor-help">+{goldPerPan.toFixed(2)} gold</span>
                             </Tooltip>
                             )
                         </button>
 
-                        <div className="pt-1 border-t border-yellow-100">
+                        <div className="pt-1 border-t border-frontier-iron/20">
                             <Roster roles={['prospector']} />
                         </div>
                     </div>
@@ -381,75 +372,71 @@ export function Mine() {
 
                 {/* Furnace Section */}
                 {hasFurnace && (
-                    <div className="p-4 bg-white border-2 border-orange-300 rounded-xl space-y-3">
+                    <div className="frontier-panel space-y-3">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-orange-900">🔥 Furnace</h3>
+                            <h3 className="text-sm font-semibold text-frontier-bone">🔥 Furnace</h3>
                             <Tooltip content={<>Smelt rate: {SMELT_RATE_BASE} base × {furnaceGear} gear = {SMELT_RATE_BASE * furnaceGear} oz/sec</>}>
-                                <span className="text-xs text-orange-600 underline decoration-dotted cursor-help">
+                                <span className="text-xs text-frontier-ember underline decoration-dotted cursor-help">
                                     {SMELT_RATE_BASE * furnaceGear} oz/sec
                                 </span>
                             </Tooltip>
                         </div>
 
-                        {/* Flakes → Bars value note */}
-                        <p className="text-xs text-orange-500">
+                        <p className="text-xs text-frontier-dust">
                             ✨ Flakes → 🧱 Bars — bars avoid the {(FLAKES_HAUL_FEE * 100).toFixed(0)}% driver haul fee
                         </p>
 
-                        {/* Furnace fill progress bar */}
                         <div>
                             <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-orange-700 font-semibold">Smelting</span>
-                                <span className="text-xs text-orange-700 font-semibold">{furnaceFilled.toFixed(1)} / {FURNACE_CAPACITY} oz</span>
+                                <span className="text-xs text-frontier-ember font-semibold">Smelting</span>
+                                <span className="text-xs text-frontier-ember font-semibold">{furnaceFilled.toFixed(1)} / {FURNACE_CAPACITY} oz</span>
                             </div>
                             <ProgressBar value={furnaceFilled} max={FURNACE_CAPACITY} color="amber" isActive={furnaceRunning} isFull={furnaceFilled >= FURNACE_CAPACITY} />
                         </div>
 
-                        {/* Load and switch buttons */}
                         <div className="flex gap-2">
                             <button
                                 onClick={loadFurnace}
                                 disabled={isTraveling || gold <= 0 || furnaceFilled >= FURNACE_CAPACITY}
-                                className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-all bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex-1 frontier-btn-secondary text-sm"
                             >
                                 🔥 Load flakes ({Math.min(gold, FURNACE_CAPACITY - furnaceFilled).toFixed(1)} oz)
                             </button>
                             <button
                                 onClick={toggleFurnace}
                                 disabled={isTraveling || furnaceFilled <= 0}
-                                className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                className={`px-4 py-2 text-sm font-semibold rounded-sm border transition-all disabled:opacity-40 disabled:cursor-not-allowed font-body ${
                                     furnaceRunning
-                                        ? 'bg-red-100 hover:bg-red-200 text-red-800 border-red-300'
-                                        : 'bg-green-100 hover:bg-green-200 text-green-800 border-green-300'
+                                        ? 'frontier-btn-danger'
+                                        : 'frontier-btn-secondary'
                                 }`}
+                                style={!furnaceRunning ? { color: 'var(--fw-sage)' } : {}}
                             >
                                 {furnaceRunning ? '⏹ Off' : '▶ On'}
                             </button>
                         </div>
 
-                        {/* Gold flakes available */}
                         {gold > 0 && (
-                            <p className="text-xs text-orange-600 text-center">
+                            <p className="text-xs text-frontier-dust text-center">
                                 {gold.toFixed(2)} oz flakes on hand
                             </p>
                         )}
 
-                        {/* Bars ready to carry / certify / collect */}
                         {(furnaceBars > 0 || goldBars > 0 || goldBarsCertified > 0) && (
-                            <div className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                <div className="text-sm font-semibold text-amber-800">
+                            <div className="flex items-center justify-between p-2 bg-frontier-nugget/10 border border-frontier-nugget/30 rounded-sm">
+                                <div className="text-sm font-semibold text-frontier-bone">
                                     <div>🧱 {(furnaceBars + goldBars).toFixed(2)} oz bars</div>
                                     {goldBarsCertified > 0 && (
-                                        <div className="text-xs text-amber-600">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz</div>
+                                        <div className="text-xs text-frontier-nugget">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz</div>
                                     )}
                                     {goldBars > 0 && hasDriver && (
-                                        <div className="text-xs text-green-600">Driver will carry bars at full value</div>
+                                        <div className="text-xs text-frontier-sage">Driver will carry bars at full value</div>
                                     )}
                                 </div>
                                 <button
                                     onClick={collectBars}
                                     disabled={isTraveling}
-                                    className="px-3 py-1 text-sm font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="frontier-btn-primary text-sm px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     Collect
                                 </button>
@@ -457,11 +444,11 @@ export function Mine() {
                         )}
 
                         {countAssigned(employees, 'furnaceOperator') > 0 && (
-                            <p className="text-xs text-orange-500 text-center">
+                            <p className="text-xs text-frontier-dust text-center">
                                 Furnace Operators are auto-loading, smelting &amp; collecting
                             </p>
                         )}
-                        <div className="pt-1 border-t border-orange-100">
+                        <div className="pt-1 border-t border-frontier-iron/20">
                             <Roster roles={['furnaceOperator']} />
                         </div>
                     </div>
@@ -496,10 +483,10 @@ export function Mine() {
                     const tip = tips.find(t => t.show);
                     if (!tip) return null;
                     return (
-                        <div className={`text-sm italic text-center p-3 rounded-xl ${
+                        <div className={`text-sm italic text-center p-3 rounded-sm ${
                             tip.amber
-                                ? 'text-amber-700'
-                                : 'text-blue-700 bg-blue-50 border border-blue-200'
+                                ? 'text-frontier-ember'
+                                : 'text-frontier-aged bg-frontier-dirt/40 border border-frontier-iron/60'
                         }`}>
                             {tip.text}
                         </div>
@@ -507,19 +494,19 @@ export function Mine() {
                 })()}
             </div>
 
-            {/* Dev debug overlay (#30) */}
+            {/* Dev debug overlay */}
             {devMode && (
-                <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-dashed border-zinc-400 dark:border-zinc-600 rounded-xl space-y-3 text-xs font-mono">
-                    <h3 className="font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide text-xs">🛠️ Debug</h3>
+                <div className="p-4 bg-frontier-coal/80 border-2 border-dashed border-frontier-iron rounded-sm space-y-3 text-xs font-body">
+                    <h3 className="font-bold text-frontier-dust uppercase tracking-wide text-xs">🛠️ Debug</h3>
                     <div>
-                        <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                        <div className="flex justify-between mb-1 text-frontier-iron">
                             <span>Bucket</span>
                             <span>{bucketFilled.toFixed(2)} / {effectiveBucketCap}</span>
                         </div>
                         <ProgressBar value={bucketFilled} max={effectiveBucketCap} />
                     </div>
                     <div>
-                        <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                        <div className="flex justify-between mb-1 text-frontier-iron">
                             <span>Pan</span>
                             <span>{panFilled.toFixed(2)} / {effectivePanCap}</span>
                         </div>
@@ -527,17 +514,17 @@ export function Mine() {
                     </div>
                     {hasDriver && (
                         <div>
-                            <div className="flex justify-between mb-1 text-zinc-600 dark:text-zinc-400">
+                            <div className="flex justify-between mb-1 text-frontier-iron">
                                 <span>Driver Trip</span>
                                 <span>{driverTripTicks} / {getTravelDurationTicks(vehicleTier)}</span>
                             </div>
                             <ProgressBar value={driverTripTicks} max={getTravelDurationTicks(vehicleTier)} />
                         </div>
                     )}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-zinc-600 dark:text-zinc-400">
-                        <span>Tick</span><span className="text-zinc-900 dark:text-zinc-100">{tickCount}</span>
-                        <span>Gold (oz)</span><span className="text-zinc-900 dark:text-zinc-100">{gold.toFixed(3)}</span>
-                        <span>Paused</span><span className="text-zinc-900 dark:text-zinc-100">{isPaused ? 'yes' : 'no'}</span>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-frontier-iron">
+                        <span>Tick</span><span className="text-frontier-bone">{tickCount}</span>
+                        <span>Gold (oz)</span><span className="text-frontier-bone">{gold.toFixed(3)}</span>
+                        <span>Paused</span><span className="text-frontier-bone">{isPaused ? 'yes' : 'no'}</span>
                     </div>
                 </div>
             )}

@@ -2,60 +2,60 @@ type ProgressBarColor = 'amber' | 'yellow' | 'green' | 'blue' | 'red' | 'cyan' |
 
 const COLOR = {
     amber: {
-        track: 'bg-amber-100 border-amber-300',
-        fill: 'from-amber-500 to-amber-600',
-        fillMid: 'from-amber-500 to-orange-500',
-        fillFull: 'from-orange-500 to-red-500',
-        glow: 'ring-2 ring-amber-400',
-        text: 'text-amber-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-amber',
+        fillMid: 'frontier-progress-fill-amber',
+        fillFull: 'frontier-progress-fill-rust',
+        glow: 'ring-2 ring-frontier-nugget/70',
+        text: 'text-frontier-nugget',
     },
     yellow: {
-        track: 'bg-yellow-100 border-yellow-300',
-        fill: 'from-yellow-500 to-yellow-600',
-        fillMid: 'from-yellow-500 to-yellow-600',
-        fillFull: 'from-yellow-500 to-yellow-600',
-        glow: 'ring-2 ring-yellow-400',
-        text: 'text-yellow-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-amber',
+        fillMid: 'frontier-progress-fill-amber',
+        fillFull: 'frontier-progress-fill-rust',
+        glow: 'ring-2 ring-frontier-nugget/70',
+        text: 'text-frontier-nugget',
     },
     green: {
-        track: 'bg-green-100 border-green-300',
-        fill: 'from-green-500 to-green-600',
-        fillMid: 'from-green-500 to-green-600',
-        fillFull: 'from-green-500 to-green-600',
-        glow: 'ring-2 ring-green-400',
-        text: 'text-green-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-sage',
+        fillMid: 'frontier-progress-fill-sage',
+        fillFull: 'frontier-progress-fill-sage',
+        glow: 'ring-2 ring-frontier-sage/70',
+        text: 'text-frontier-sage',
     },
     blue: {
-        track: 'bg-blue-100 border-blue-300',
-        fill: 'from-blue-500 to-blue-600',
-        fillMid: 'from-blue-500 to-blue-600',
-        fillFull: 'from-blue-500 to-blue-600',
-        glow: 'ring-2 ring-blue-400',
-        text: 'text-blue-700',
+        track: 'frontier-progress-track',
+        fill: 'bg-gradient-to-r from-blue-600 to-blue-700 h-full transition-all duration-150',
+        fillMid: 'bg-gradient-to-r from-blue-600 to-blue-700 h-full transition-all duration-150',
+        fillFull: 'bg-gradient-to-r from-blue-600 to-blue-700 h-full transition-all duration-150',
+        glow: 'ring-2 ring-blue-500/70',
+        text: 'text-blue-400',
     },
     red: {
-        track: 'bg-red-100 border-red-300',
-        fill: 'from-red-500 to-red-600',
-        fillMid: 'from-red-500 to-red-600',
-        fillFull: 'from-red-500 to-red-600',
-        glow: 'ring-2 ring-red-400',
-        text: 'text-red-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-rust',
+        fillMid: 'frontier-progress-fill-rust',
+        fillFull: 'frontier-progress-fill-rust',
+        glow: 'ring-2 ring-frontier-rust/70',
+        text: 'text-frontier-rust',
     },
     cyan: {
-        track: 'bg-cyan-100 border-cyan-300',
-        fill: 'from-cyan-500 to-cyan-600',
-        fillMid: 'from-cyan-500 to-cyan-600',
-        fillFull: 'from-cyan-500 to-cyan-600',
-        glow: 'ring-2 ring-cyan-400',
-        text: 'text-cyan-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-mud',
+        fillMid: 'frontier-progress-fill-mud',
+        fillFull: 'frontier-progress-fill-mud',
+        glow: 'ring-2 ring-frontier-dust/70',
+        text: 'text-frontier-dust',
     },
     violet: {
-        track: 'bg-violet-100 border-violet-300',
-        fill: 'from-violet-500 to-violet-600',
-        fillMid: 'from-violet-500 to-purple-500',
-        fillFull: 'from-purple-500 to-fuchsia-500',
-        glow: 'ring-2 ring-violet-400',
-        text: 'text-violet-700',
+        track: 'frontier-progress-track',
+        fill: 'frontier-progress-fill-iron',
+        fillMid: 'frontier-progress-fill-iron',
+        fillFull: 'frontier-progress-fill-iron',
+        glow: 'ring-2 ring-frontier-iron/70',
+        text: 'text-frontier-dust',
     },
 };
 
@@ -88,14 +88,14 @@ export function ProgressBar({
                     {label}
                 </div>
             )}
-            <div className={`w-full ${c.track} rounded-full h-5 overflow-hidden border transition-shadow duration-300 ${isFull ? `${c.glow} animate-pulse` : ''}`}>
+            <div className={`w-full ${c.track} rounded-sm h-5 overflow-hidden border transition-shadow duration-300 ${isFull ? `${c.glow} animate-pulse` : ''}`}>
                 <div
-                    className={`relative h-full bg-gradient-to-r ${fillClass} transition-all duration-150 flex items-center justify-center text-white text-xs font-bold overflow-hidden`}
+                    className={`relative h-full ${fillClass} flex items-center justify-center text-frontier-bone text-xs font-bold overflow-hidden`}
                     style={{ width: `${pct}%` }}
                 >
                     {showPercent && pct > 15 && `${pct.toFixed(0)}%`}
                     {isActive && (
-                        <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+                        <div className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
                     )}
                 </div>
             </div>

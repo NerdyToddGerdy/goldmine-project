@@ -43,31 +43,31 @@ export function Town() {
 
     return (
         <div className="space-y-6">
-            <h2 className="font-arcade text-sm text-green-900">🏘️ Town</h2>
+            <h2 className="font-display text-base text-frontier-bone">🏘️ Town</h2>
 
-            {/* Travel progress bar — only shown while traveling to mine */}
+            {/* Travel progress bar — shown while traveling to mine */}
             {isTraveling && travelDestination === 'mine' && (
-                <div className="p-3 bg-white border border-amber-200 rounded-xl space-y-2">
+                <div className="frontier-panel p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                        <span className="font-semibold text-amber-900 text-sm">
+                        <span className="font-semibold text-frontier-bone text-sm">
                             {vehicleEmoji} To Mine… ({tierData.name})
                         </span>
                         <button
                             onClick={() => gameStore.getState().cancelTravel()}
-                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition-all"
+                            className="frontier-btn-danger text-xs px-3 py-1"
                         >
                             Cancel
                         </button>
                     </div>
                     <div className="relative h-7">
-                        <div className="absolute inset-0 bg-amber-100 rounded-full border border-amber-300 overflow-hidden flex">
+                        <div className="absolute inset-0 frontier-progress-track rounded-sm overflow-hidden flex">
                             <div
-                                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-100 ml-auto"
+                                className="h-full frontier-progress-fill-amber transition-all duration-100 ml-auto"
                                 style={{ width: `${travelPct}%` }}
                             />
                         </div>
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-xs font-bold text-amber-900 drop-shadow-sm">{secsRemaining}s</span>
+                            <span className="text-xs font-bold text-frontier-bone drop-shadow-sm">{secsRemaining}s</span>
                         </div>
                         <div
                             className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
@@ -84,40 +84,38 @@ export function Town() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setOpenPanel(null)}
-                        className="text-xs px-2 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 border border-green-300 font-semibold transition-all"
+                        className="frontier-btn-ghost text-xs px-2 py-1"
                     >
                         ← Town
                     </button>
-                    <span className="font-semibold text-green-800 text-sm">{PANEL_LABELS[openPanel]}</span>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Lv {npcLevels[PANEL_NPC[openPanel]]}</span>
+                    <span className="font-semibold text-frontier-bone text-sm">{PANEL_LABELS[openPanel]}</span>
+                    <span className="text-xs text-frontier-dust bg-frontier-iron/20 px-2 py-0.5 rounded-sm">Lv {npcLevels[PANEL_NPC[openPanel]]}</span>
                 </div>
             )}
 
             {/* Main content */}
             <div>
-                {/* Town Map — default view */}
                 {!openPanel && (
                     <TownMap onOpenPanel={setOpenPanel} />
                 )}
 
-                {/* Trading Post panel — Transport only (Gear & Equipment moved to Blacksmith) */}
+                {/* Trading Post panel */}
                 {openPanel === 'shop' && (
                     <div className={`space-y-3${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
-                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800">
+                        <div className="p-3 bg-frontier-nugget/10 rounded-sm border border-frontier-nugget/30 text-sm text-frontier-bone">
                             Current: <span className="font-semibold">{VEHICLE_TIERS[vehicleTier as 0|1|2|3].name}</span> — {VEHICLE_TIERS[vehicleTier as 0|1|2|3].travelSecs}s travel time
                         </div>
                         {(VEHICLE_TIERS.slice(1) as readonly { name: string; travelSecs: number; cost: number }[]).map((tier, i) => {
                             const tierIndex = i + 1;
                             const owned = vehicleTier >= tierIndex;
                             const isNext = tierIndex === vehicleTier + 1;
-                            // Trader level required: tier 1 = lvl 1, tier 2 = lvl 2, tier 3 = lvl 3
                             const requiredTraderLevel = tierIndex as 1 | 2 | 3;
                             const traderUnlocked = traderLevel >= requiredTraderLevel;
                             if (!owned && !traderUnlocked) {
                                 return (
-                                    <div key={tierIndex} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-dashed border-gray-200 opacity-60">
+                                    <div key={tierIndex} className="flex items-center gap-2 p-2 rounded-sm bg-frontier-coal/20 border border-dashed border-frontier-iron/40 opacity-60">
                                         <span className="text-base">🔒</span>
-                                        <span className="text-xs text-gray-400">{tier.name} — requires Trader Level {requiredTraderLevel}</span>
+                                        <span className="text-xs text-frontier-dust">{tier.name} — requires Trader Level {requiredTraderLevel}</span>
                                     </div>
                                 );
                             }
@@ -150,7 +148,7 @@ export function Town() {
                     </div>
                 )}
 
-                {/* Tavern panel — Hiring Hall + Driver */}
+                {/* Tavern panel */}
                 {openPanel === 'tavern' && (
                     <div className={`space-y-4${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
                         <HiringHall />

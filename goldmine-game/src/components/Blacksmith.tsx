@@ -32,18 +32,14 @@ export function Blacksmith() {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">🔨 Blacksmith</h3>
+            <h3 className="font-display text-base text-frontier-bone tracking-wide">🔨 Blacksmith</h3>
 
-            <div className="flex gap-1 border-b-2 border-gray-200">
+            <div className="frontier-tab-bar">
                 {([['gear', '⛏️ Gear'], ['equipment', '🔧 Equipment']] as [SmithTab, string][]).map(([id, label]) => (
                     <button
                         key={id}
                         onClick={() => setTab(id)}
-                        className={`flex-1 px-2 py-2 text-xs font-semibold rounded-t-lg transition-all border-2 ${
-                            tab === id
-                                ? 'bg-gray-100 text-gray-900 border-gray-200 border-b-0'
-                                : 'bg-white/50 text-gray-600 hover:bg-white/80 border-transparent'
-                        }`}
+                        className={tab === id ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                     >
                         {label}
                     </button>
@@ -54,7 +50,7 @@ export function Blacksmith() {
             {tab === 'gear' && (
                 <div className="space-y-4">
                     <div>
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">⛏️ Tools</h4>
+                        <h4 className="frontier-label mb-2 px-1">⛏️ Tools</h4>
                         <div className="space-y-2">
                             <UpgradeButton
                                 name="Shovel Upgrade"
@@ -94,7 +90,7 @@ export function Blacksmith() {
                     </div>
 
                     <div>
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">📦 Capacity & Speed</h4>
+                        <h4 className="frontier-label mb-2 px-1">📦 Capacity & Speed</h4>
                         <div className="space-y-2">
                             <UpgradeButton
                                 name="Larger Bucket"
@@ -152,7 +148,7 @@ export function Blacksmith() {
 
                     {(hasSluiceBox || hasFurnace) && (
                         <div>
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 px-1">⚙️ Machinery Upgrades</h4>
+                            <h4 className="frontier-label mb-2 px-1">⚙️ Machinery Upgrades</h4>
                             <div className="space-y-2">
                                 {hasSluiceBox && blacksmithLevel >= 2 && (
                                     <UpgradeButton

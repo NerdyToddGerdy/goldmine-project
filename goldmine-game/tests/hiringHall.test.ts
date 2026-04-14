@@ -142,7 +142,7 @@ describe('assignEmployee', () => {
     it('assigns an unassigned employee to a role', () => {
         const emp = generateEmployee();
         emp.assignedRole = null;
-        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 } });
+        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, driller: 1, refiner: 1 } });
 
         const result = gameStore.getState().assignEmployee(emp.id, 'miner');
 
@@ -153,7 +153,7 @@ describe('assignEmployee', () => {
     it('returns false when employee is already assigned', () => {
         const emp = generateEmployee();
         emp.assignedRole = 'hauler';
-        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 } });
+        gameStore.setState({ employees: [emp], roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, driller: 1, refiner: 1 } });
 
         const result = gameStore.getState().assignEmployee(emp.id, 'miner');
 
@@ -166,7 +166,7 @@ describe('assignEmployee', () => {
         const emp2 = { ...generateEmployee(), id: 'e2', assignedRole: null };
         gameStore.setState({
             employees: [emp1, emp2],
-            roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
+            roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, driller: 1, refiner: 1 },
         });
 
         const result = gameStore.getState().assignEmployee('e2', 'miner');

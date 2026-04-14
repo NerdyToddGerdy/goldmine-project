@@ -8,7 +8,25 @@ export default {
   theme: {
     extend: {
         fontFamily: {
-            arcade: ['"Press Start 2P"', 'cursive']
+            display: ['"Rye"', 'serif'],
+            body:    ['"Special Elite"', 'serif'],
+        },
+        colors: {
+            frontier: {
+                parchment: '#f0e0b6',
+                aged:      '#d4b896',
+                hide:      '#8b6914',
+                rust:      '#7a3b1e',
+                coal:      '#1c1208',
+                ember:     '#c87941',
+                nugget:    '#c9960c',
+                dirt:      '#5c4033',
+                dust:      '#9b8060',
+                pine:      '#2d4a1e',
+                sage:      '#4a6741',
+                iron:      '#3a3530',
+                bone:      '#ede0c4',
+            },
         },
         keyframes: {
             'slide-in': {

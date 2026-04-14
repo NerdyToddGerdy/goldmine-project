@@ -1,25 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Custom Properties ── */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --fw-parchment: #f0e0b6;
+  --fw-aged:      #d4b896;
+  --fw-hide:      #8b6914;
+  --fw-rust:      #7a3b1e;
+  --fw-coal:      #1c1208;
+  --fw-ember:     #c87941;
+  --fw-nugget:    #c9960c;
+  --fw-dirt:      #5c4033;
+  --fw-dust:      #9b8060;
+  --fw-pine:      #2d4a1e;
+  --fw-sage:      #4a6741;
+  --fw-iron:      #3a3530;
+  --fw-bone:      #ede0c4;
+
+  font-family: 'Special Elite', serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--fw-coal);
+  background-color: var(--fw-parchment);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
 }
 
 body {
@@ -29,43 +38,314 @@ body {
   width: 100%;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  font-family: 'Special Elite', serif;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* ── App Background Patterns ── */
+.frontier-bg-mine {
+  background-color: var(--fw-coal);
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      rgba(92,64,51,0.07) 3px,
+      rgba(92,64,51,0.07) 6px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 24px,
+      rgba(28,18,8,0.10) 24px,
+      rgba(28,18,8,0.10) 25px
+    );
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.frontier-bg-town {
+  background-color: #111a0a;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      rgba(45,74,30,0.09) 3px,
+      rgba(45,74,30,0.09) 6px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 24px,
+      rgba(17,26,10,0.12) 24px,
+      rgba(17,26,10,0.12) 25px
+    );
+}
+
+/* ── Parchment Texture ── */
+.has-texture {
+  position: relative;
+  overflow: hidden;
+}
+.has-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 150px 150px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+  z-index: 0;
+}
+.has-texture > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Shared Component Classes ── */
+@layer components {
+
+  /* Panels / Cards */
+  .frontier-panel {
+    @apply has-texture;
+    background-color: var(--fw-parchment);
+    border: 2px solid var(--fw-hide);
+    outline: 1px solid var(--fw-aged);
+    outline-offset: 2px;
+    @apply rounded-sm p-4;
+    color: var(--fw-coal);
+  }
+  .dark .frontier-panel {
+    background-color: var(--fw-dirt);
+    border-color: var(--fw-iron);
+    outline-color: color-mix(in srgb, var(--fw-iron) 60%, transparent);
+    color: var(--fw-bone);
+  }
+
+  .frontier-card {
+    @apply has-texture rounded-sm p-3;
+    background-color: var(--fw-parchment);
+    border: 1px solid color-mix(in srgb, var(--fw-hide) 60%, transparent);
+    color: var(--fw-coal);
+  }
+  .dark .frontier-card {
+    background-color: color-mix(in srgb, var(--fw-coal) 80%, transparent);
+    border-color: var(--fw-iron);
+    color: var(--fw-bone);
+  }
+
+  /* Buttons */
+  .frontier-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm font-body font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-px;
+    @apply px-6 py-3 text-sm;
+    color: var(--fw-bone);
+    background: linear-gradient(to bottom, var(--fw-ember), var(--fw-rust));
+    border: 2px solid var(--fw-rust);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 3px 6px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .frontier-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #d4894f, var(--fw-ember));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 8px rgba(0,0,0,0.5);
+  }
+  .frontier-btn-primary:active:not(:disabled) {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .frontier-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm font-body font-semibold transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:translate-y-px;
+    @apply px-4 py-2 text-sm;
+    color: var(--fw-dirt);
+    background: linear-gradient(to bottom, var(--fw-aged), var(--fw-parchment));
+    border: 2px solid var(--fw-hide);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .dark .frontier-btn-secondary {
+    color: var(--fw-bone);
+    background: linear-gradient(to bottom, var(--fw-dirt), var(--fw-coal));
+    border-color: var(--fw-iron);
+  }
+  .frontier-btn-secondary:hover:not(:disabled) {
+    background: linear-gradient(to bottom, var(--fw-parchment), var(--fw-aged));
+  }
+  .dark .frontier-btn-secondary:hover:not(:disabled) {
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--fw-dirt) 80%, white), var(--fw-dirt));
+  }
+
+  .frontier-btn-danger {
+    @apply frontier-btn-secondary;
+    color: var(--fw-rust) !important;
+    border-color: color-mix(in srgb, var(--fw-rust) 60%, transparent) !important;
+  }
+  .dark .frontier-btn-danger {
+    color: #f87171 !important;
+    border-color: #7f1d1d !important;
+  }
+
+  .frontier-btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-sm font-body text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply px-3 py-1.5 border border-transparent;
+    color: var(--fw-dust);
+  }
+  .frontier-btn-ghost:hover:not(:disabled) {
+    color: var(--fw-hide);
+    border-color: color-mix(in srgb, var(--fw-aged) 60%, transparent);
+  }
+  .dark .frontier-btn-ghost {
+    color: var(--fw-aged);
+  }
+  .dark .frontier-btn-ghost:hover:not(:disabled) {
+    color: var(--fw-bone);
+  }
+
+  /* Tab Navigation */
+  .frontier-tab-bar {
+    @apply flex gap-0.5;
+    border-bottom: 2px solid var(--fw-hide);
+  }
+  .dark .frontier-tab-bar {
+    border-bottom-color: var(--fw-iron);
+  }
+
+  .frontier-tab-active {
+    @apply flex-1 px-3 py-2.5 font-display text-xs tracking-wide rounded-t-sm;
+    background-color: var(--fw-parchment);
+    color: var(--fw-coal);
+    border: 2px solid var(--fw-hide);
+    border-bottom: none;
+    margin-bottom: -2px;
+  }
+  .dark .frontier-tab-active {
+    background-color: var(--fw-dirt);
+    color: var(--fw-bone);
+    border-color: var(--fw-iron);
+  }
+
+  .frontier-tab-inactive {
+    @apply flex-1 px-3 py-2.5 font-display text-xs tracking-wide rounded-t-sm transition-colors;
+    @apply border-2 border-transparent;
+    background-color: color-mix(in srgb, var(--fw-aged) 25%, transparent);
+    color: var(--fw-dust);
+  }
+  .frontier-tab-inactive:hover {
+    background-color: color-mix(in srgb, var(--fw-aged) 40%, transparent);
+  }
+  .dark .frontier-tab-inactive {
+    background-color: color-mix(in srgb, var(--fw-coal) 60%, transparent);
+  }
+
+  /* Typography */
+  .frontier-heading {
+    @apply font-display tracking-wide;
+    color: var(--fw-coal);
+  }
+  .dark .frontier-heading {
+    color: var(--fw-bone);
+  }
+
+  .frontier-label {
+    @apply font-body text-xs font-semibold uppercase tracking-widest;
+    color: var(--fw-dirt);
+  }
+  .dark .frontier-label {
+    color: var(--fw-dust);
+  }
+
+  /* Rarity Badges */
+  .frontier-badge-common {
+    @apply px-1.5 py-0.5 rounded-sm text-xs font-semibold;
+    background-color: color-mix(in srgb, var(--fw-aged) 40%, transparent);
+    color: var(--fw-dirt);
+  }
+  .frontier-badge-uncommon {
+    @apply px-1.5 py-0.5 rounded-sm text-xs font-semibold;
+    background-color: color-mix(in srgb, var(--fw-sage) 20%, transparent);
+    color: var(--fw-sage);
+  }
+  .frontier-badge-rare {
+    @apply px-1.5 py-0.5 rounded-sm text-xs font-semibold bg-blue-900/20 text-blue-300;
+  }
+  .frontier-badge-epic {
+    @apply px-1.5 py-0.5 rounded-sm text-xs font-semibold bg-purple-900/20 text-purple-300;
+  }
+  .frontier-badge-legendary {
+    @apply px-1.5 py-0.5 rounded-sm text-xs font-semibold;
+    background-color: color-mix(in srgb, var(--fw-nugget) 20%, transparent);
+    color: var(--fw-nugget);
+  }
+
+  /* Divider */
+  .frontier-divider {
+    @apply relative flex items-center my-3;
+  }
+  .frontier-divider::before,
+  .frontier-divider::after {
+    content: '';
+    @apply flex-1 h-px;
+    background-color: color-mix(in srgb, var(--fw-hide) 40%, transparent);
+  }
+  .dark .frontier-divider::before,
+  .dark .frontier-divider::after {
+    background-color: color-mix(in srgb, var(--fw-iron) 60%, transparent);
+  }
+  .frontier-divider-text {
+    @apply px-3 text-xs font-body uppercase tracking-widest;
+    color: var(--fw-dust);
+  }
+
+  /* Progress Bar */
+  .frontier-progress-track {
+    @apply h-5 rounded-sm overflow-hidden;
+    border: 1px solid color-mix(in srgb, var(--fw-hide) 50%, transparent);
+    background: linear-gradient(to bottom, #2a1a0a, #3d2a18);
+  }
+  .dark .frontier-progress-track {
+    border-color: var(--fw-iron);
+    background: linear-gradient(to bottom, #0e0804, #1c1208);
+  }
+
+  .frontier-progress-fill-amber {
+    @apply h-full transition-all duration-150;
+    background: linear-gradient(to right, var(--fw-nugget), var(--fw-ember));
+  }
+  .frontier-progress-fill-sage {
+    @apply h-full transition-all duration-150;
+    background: linear-gradient(to right, var(--fw-sage), var(--fw-pine));
+  }
+  .frontier-progress-fill-rust {
+    @apply h-full transition-all duration-150;
+    background: linear-gradient(to right, var(--fw-rust), #7f1d1d);
+  }
+  .frontier-progress-fill-mud {
+    @apply h-full transition-all duration-150;
+    background: linear-gradient(to right, var(--fw-dust), var(--fw-hide));
+  }
+  .frontier-progress-fill-iron {
+    @apply h-full transition-all duration-150;
+    background: linear-gradient(to right, var(--fw-iron), #1c1208);
+  }
+
+  /* Toast Notifications */
+  .frontier-toast-success { background-color: var(--fw-pine); border-color: var(--fw-sage); }
+  .frontier-toast-info    { background-color: var(--fw-dirt); border-color: var(--fw-dust); }
+  .frontier-toast-warning { background-color: var(--fw-rust); border-color: var(--fw-ember); }
+  .frontier-toast-error   { @apply bg-red-900 border-red-700; }
+
+  /* Input */
+  .frontier-input {
+    @apply px-3 py-2 rounded-sm font-body text-sm focus:outline-none;
+    background-color: var(--fw-bone);
+    border: 1px solid var(--fw-hide);
+    color: var(--fw-coal);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .dark .frontier-input {
+    background-color: var(--fw-coal);
+    border-color: var(--fw-iron);
+    color: var(--fw-bone);
+  }
+  .frontier-input:focus {
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 2px color-mix(in srgb, var(--fw-ember) 50%, transparent);
+  }
+}

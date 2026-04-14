@@ -34,29 +34,29 @@ export function UpgradeButton({
         <button
             onClick={onBuy}
             disabled={disabled}
-            className="w-full p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
+            className="w-full p-4 frontier-card border-2 hover:border-frontier-ember dark:hover:border-frontier-ember rounded-sm text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <div className="font-semibold text-frontier-coal dark:text-frontier-bone flex items-center gap-2">
                         {icon && <span>{icon}</span>}
                         <span>{name}</span>
                         {currentLevel !== undefined && (
-                            <span className="text-xs text-gray-500 font-normal">
+                            <span className="text-xs text-frontier-dust font-normal">
                                 Lv {currentLevel}{maxLevel ? `/${maxLevel}` : ''}
                             </span>
                         )}
-                        {maxed && <span className="text-xs text-amber-600 font-semibold">MAX</span>}
+                        {maxed && <span className="text-xs text-frontier-nugget font-semibold">MAX</span>}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{description}</div>
+                    <div className="text-sm text-frontier-dust mt-0.5">{description}</div>
                     {shortage > 0 && (
-                        <div className="text-xs text-red-500 dark:text-red-400 mt-1">
+                        <div className="text-xs text-frontier-rust dark:text-red-400 mt-1">
                             Need {formatNumber(shortage)} oz more
                         </div>
                     )}
                 </div>
                 {!maxed && !locked && (
-                    <div className={`text-base font-bold flex-shrink-0 ${canAfford ? 'text-green-600' : 'text-red-500'}`}>
+                    <div className={`text-base font-bold flex-shrink-0 ${canAfford ? 'text-frontier-sage' : 'text-frontier-rust'}`}>
                         {formatNumber(cost)} oz
                     </div>
                 )}

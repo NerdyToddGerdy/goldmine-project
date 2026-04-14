@@ -7,6 +7,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.29',
+        date: '2026-04-12',
+        title: 'Western frontier visual redesign',
+        changes: [
+            'Full UI retheme to 1849 California gold rush aesthetic — parchment, dark wood, stamped metal',
+            'New typography: Rye (western display serif) for headings, Special Elite (typewriter) for body',
+            'Frontier color palette: coal/ember/nugget/pine/sage/bone across all panels and buttons',
+            'All rounded corners squared off to frontier-plank style (rounded-xl → rounded-sm)',
+            'Parchment grain texture on cards via CSS SVG noise filter',
+            'Wood-grain CSS gradient backgrounds for Mine and Town views',
+            'Stamped/embossed button style with gradient depth shadows',
+            'Both light and dark modes remapped to frontier palette',
+        ],
+    },
+    {
         version: 'v1.28',
         date: '2026-04-05',
         title: 'Crew slots are now earned — start with one, buy more',

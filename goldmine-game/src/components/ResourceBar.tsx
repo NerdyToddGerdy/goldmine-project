@@ -10,7 +10,6 @@ export function ResourceBar() {
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const panFilled = useGameStore((s) => s.panFilled);
 
-    // Stat-driven gold production rate (prospectors only produce when pan has material)
     const prospectsIdle = panFilled < 1;
     const prospectorPower = prospectsIdle ? 0 : getAssignedPower(employees, 'prospector');
     const sluiceOpPower = getAssignedPower(employees, 'sluiceOperator');
@@ -33,7 +32,7 @@ export function ResourceBar() {
                         color="yellow"
                     />
                     {goldFloats.map((f: FloatingNumber) => (
-                        <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-yellow-500 animate-float-up pointer-events-none">
+                        <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-frontier-nugget animate-float-up pointer-events-none">
                             +{formatNumber(f.amount)}
                         </span>
                     ))}
@@ -67,43 +66,39 @@ function ResourceCard({
 }) {
     const colorClasses = {
         amber: {
-            bg: 'bg-amber-50 dark:bg-amber-900/20',
-            border: 'border-amber-200 dark:border-amber-800',
-            textLabel: 'text-amber-600 dark:text-amber-400',
-            textValue: 'text-amber-900 dark:text-amber-100'
+            border: 'border-frontier-nugget/40',
+            textLabel: 'text-frontier-nugget',
+            textValue: 'text-frontier-bone',
         },
         cyan: {
-            bg: 'bg-cyan-50 dark:bg-cyan-900/20',
-            border: 'border-cyan-200 dark:border-cyan-800',
-            textLabel: 'text-cyan-600 dark:text-cyan-400',
-            textValue: 'text-cyan-900 dark:text-cyan-100'
+            border: 'border-frontier-dust/40',
+            textLabel: 'text-frontier-dust',
+            textValue: 'text-frontier-bone',
         },
         yellow: {
-            bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-            border: 'border-yellow-200 dark:border-yellow-800',
-            textLabel: 'text-yellow-600 dark:text-yellow-400',
-            textValue: 'text-yellow-900 dark:text-yellow-100'
+            border: 'border-frontier-nugget/40',
+            textLabel: 'text-frontier-nugget',
+            textValue: 'text-frontier-bone',
         },
         green: {
-            bg: 'bg-green-50 dark:bg-green-900/20',
-            border: 'border-green-200 dark:border-green-800',
-            textLabel: 'text-green-600 dark:text-green-400',
-            textValue: 'text-green-900 dark:text-green-100'
-        }
+            border: 'border-frontier-sage/40',
+            textLabel: 'text-frontier-sage',
+            textValue: 'text-frontier-bone',
+        },
     };
 
     const colors = colorClasses[color];
 
     const rateColor = rate > 0
-        ? 'text-green-600 dark:text-green-400'
+        ? 'text-frontier-sage'
         : rate < 0
-        ? 'text-red-600 dark:text-red-400'
-        : 'text-gray-500 dark:text-gray-400';
+        ? 'text-frontier-rust'
+        : 'text-frontier-dust';
 
     return (
-        <div className={`rounded-xl border ${colors.border} shadow-sm overflow-hidden ${colors.bg}`}>
+        <div className={`rounded-sm border ${colors.border} overflow-hidden bg-frontier-coal/30 dark:bg-frontier-coal/60 shadow-sm`}>
             <div className="p-2">
-                <div className={`font-arcade text-[9px] ${colors.textLabel}`}>
+                <div className={`font-display text-[9px] tracking-wide ${colors.textLabel}`}>
                     {label}
                 </div>
                 <div className={`text-base font-semibold tabular-nums ${colors.textValue}`}>
@@ -116,4 +111,3 @@ function ResourceCard({
         </div>
     );
 }
-

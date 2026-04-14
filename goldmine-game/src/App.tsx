@@ -56,28 +56,21 @@ function App() {
         if (tab === 'settings' || tab === 'dev') {
             setActiveTab(tab);
         } else if (location === tab) {
-            setActiveTab(tab); // already here — just switch display tab (no travel needed)
+            setActiveTab(tab);
         } else {
-            handleTravelClick(tab); // tab will sync via useEffect when travel completes
+            handleTravelClick(tab);
         }
     }
 
-    const bgGradient = ({
-        mine: 'bg-gradient-to-b from-amber-50 to-stone-100 dark:from-gray-900 dark:to-stone-900',
-        town: 'bg-gradient-to-b from-green-50 to-emerald-100 dark:from-gray-900 dark:to-emerald-950',
-        settings: 'bg-gradient-to-b from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800',
-        dev: 'bg-gradient-to-b from-slate-50 to-zinc-100 dark:from-gray-900 dark:to-zinc-900',
-    } as Record<Tab, string>)[activeTab];
-
-    const headerBg = ({
-        mine: 'bg-amber-50 dark:bg-gray-900',
-        town: 'bg-green-50 dark:bg-gray-900',
-        settings: 'bg-gray-50 dark:bg-gray-900',
-        dev: 'bg-slate-50 dark:bg-gray-900',
+    const bgClass = ({
+        mine:     'frontier-bg-mine',
+        town:     'frontier-bg-town',
+        settings: 'frontier-bg-mine',
+        dev:      'frontier-bg-mine',
     } as Record<Tab, string>)[activeTab];
 
     return (
-    <div className={`w-full h-screen overflow-y-scroll transition-colors duration-500 ${bgGradient}`}>
+    <div className={`w-full h-screen overflow-y-scroll transition-colors duration-500 ${bgClass}`}>
         <ToastContainer />
         {showWhatsNew && (
             <WhatsNewModal
@@ -86,56 +79,40 @@ function App() {
             />
         )}
 
-        {/* Sticky header — shares scrollbar context with content, so widths always match */}
-        <div className={`sticky top-0 z-10 transition-colors duration-500 ${headerBg}`}>
+        {/* Sticky header */}
+        <div className="sticky top-0 z-10 bg-frontier-coal border-b border-frontier-iron/60 shadow-lg">
             <div className="w-full max-w-4xl mx-auto px-4 pt-4 pb-0">
-                <h1 className="font-arcade text-base text-amber-900 dark:text-amber-100 mb-2">💎 Gold Mine Tycoon</h1>
+                <h1 className="font-display text-base text-frontier-nugget tracking-widest uppercase mb-2">⛏ Gold Mine Tycoon</h1>
 
                 {/* Global Resources */}
                 <ResourceBar />
 
                 {/* Tabs */}
-                <div className="mt-3 flex gap-2 border-b-2 border-amber-200 dark:border-gray-700">
+                <div className="mt-3 frontier-tab-bar">
                     <button
                         onClick={() => handleTabClick('mine')}
-                        className={`flex-1 px-6 py-3 font-semibold rounded-t-xl transition-all border-2 ${
-                            activeTab === 'mine'
-                                ? 'bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-gray-700 border-b-0'
-                                : 'bg-white/50 dark:bg-gray-800/50 text-amber-700 dark:text-amber-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
-                        }`}
+                        className={activeTab === 'mine' ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                     >
                         ⛏️ Mine
                     </button>
                     {unlockedTown && (
                         <button
                             onClick={() => handleTabClick('town')}
-                            className={`flex-1 px-6 py-3 font-semibold rounded-t-xl transition-all border-2 ${
-                                activeTab === 'town'
-                                    ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 border-green-200 dark:border-gray-700 border-b-0'
-                                    : 'bg-white/50 dark:bg-gray-800/50 text-green-700 dark:text-green-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
-                            }`}
+                            className={activeTab === 'town' ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                         >
                             🏘️ Town
                         </button>
                     )}
                     <button
                         onClick={() => handleTabClick('settings')}
-                        className={`px-6 py-3 font-semibold rounded-t-xl transition-all ml-auto border-2 ${
-                            activeTab === 'settings'
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700 border-b-0'
-                                : 'bg-white/50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
-                        }`}
+                        className={`${activeTab === 'settings' ? 'frontier-tab-active' : 'frontier-tab-inactive'} ml-auto`}
                     >
                         ⚙️ Settings
                     </button>
                     {devMode && (
                         <button
                             onClick={() => setActiveTab('dev')}
-                            className={`px-4 py-3 font-semibold rounded-t-xl transition-all ml-1 border-2 text-xs ${
-                                activeTab === 'dev'
-                                    ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-600 border-b-0'
-                                    : 'bg-white/50 dark:bg-gray-800/50 text-zinc-600 dark:text-zinc-400 hover:bg-white/80 dark:hover:bg-gray-800/80 border-transparent'
-                            }`}
+                            className={activeTab === 'dev' ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                         >
                             🛠️ Dev
                         </button>
@@ -144,9 +121,8 @@ function App() {
             </div>
         </div>
 
-        {/* Content — same scrolling context as header, so no width mismatch */}
+        {/* Content */}
         <div className="w-full max-w-4xl mx-auto px-4 py-4 space-y-4">
-            {/* Tab content */}
             <div key={activeTab} className="motion-safe:animate-tab-enter">
                 {activeTab === 'mine' && <Mine />}
                 {activeTab === 'town' && <Town />}

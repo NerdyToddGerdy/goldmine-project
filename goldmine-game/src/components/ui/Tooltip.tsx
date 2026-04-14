@@ -43,9 +43,9 @@ export function Tooltip({ content, children }: TooltipProps) {
         >
             {children}
             {visible && (
-                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[200px] rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs text-white shadow-xl leading-tight">
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[200px] rounded-sm bg-frontier-coal border border-frontier-iron px-2.5 py-1.5 text-xs text-frontier-bone shadow-xl leading-tight">
                     {content}
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-frontier-coal" />
                 </span>
             )}
         </span>

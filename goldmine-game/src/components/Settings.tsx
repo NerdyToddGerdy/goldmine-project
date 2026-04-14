@@ -11,29 +11,29 @@ function ChangelogSection() {
         <div className="space-y-3">
             <button
                 onClick={() => setOpen((o) => !o)}
-                className="w-full flex items-center justify-between text-lg font-semibold text-gray-800 dark:text-gray-200 text-left"
+                className="w-full flex items-center justify-between text-sm font-semibold text-frontier-bone text-left"
             >
-                <span>📋 Changelog</span>
-                <span className="text-sm text-gray-400">{open ? '▲ Hide' : '▼ Show'}</span>
+                <span className="font-display tracking-wide">📋 Changelog</span>
+                <span className="text-xs text-frontier-dust font-body">{open ? '▲ Hide' : '▼ Show'}</span>
             </button>
 
             {open && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {CHANGELOG.map((entry) => (
                         <div
                             key={entry.version}
-                            className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl"
+                            className="frontier-card border-2 rounded-sm p-3 space-y-2"
                         >
-                            <div className="flex items-baseline justify-between gap-2 mb-2">
-                                <span className="font-bold text-gray-900 dark:text-gray-100">
+                            <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-semibold font-body">
                                     {entry.version} — {entry.title}
                                 </span>
-                                <span className="text-xs text-gray-400 flex-shrink-0">{entry.date}</span>
+                                <span className="text-xs text-frontier-dust flex-shrink-0 font-body">{entry.date}</span>
                             </div>
                             <ul className="space-y-1">
                                 {entry.changes.map((change, i) => (
-                                    <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
-                                        <span className="text-gray-400 flex-shrink-0">•</span>
+                                    <li key={i} className="text-xs text-frontier-dust flex gap-2 font-body">
+                                        <span className="text-frontier-dust flex-shrink-0">•</span>
                                         <span>{change}</span>
                                     </li>
                                 ))}
@@ -121,48 +121,48 @@ export function Settings() {
 
     return (
         <div className="space-y-6">
-            <h2 className="font-arcade text-sm text-gray-900 dark:text-gray-100">⚙️ Settings</h2>
+            <h2 className="font-display text-base text-frontier-bone tracking-wide">⚙️ Settings</h2>
 
             {/* Stats */}
-            <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Game Info</h3>
-                <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Time Played</span>
-                    <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{formatTimePlayed(timePlayed)}</span>
+            <div className="frontier-card border-2 rounded-sm p-3 space-y-2">
+                <h3 className="frontier-label">Game Info</h3>
+                <div className="flex justify-between text-xs">
+                    <span className="text-frontier-dust font-body">Time Played</span>
+                    <span className="font-mono font-semibold">{formatTimePlayed(timePlayed)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Save Version</span>
-                    <span className="font-mono text-gray-500 dark:text-gray-400">v{SCHEMA_VERSION}</span>
+                <div className="flex justify-between text-xs">
+                    <span className="text-frontier-dust font-body">Save Version</span>
+                    <span className="font-mono text-frontier-dust">v{SCHEMA_VERSION}</span>
                 </div>
             </div>
 
             {/* Lifetime Stats */}
-            <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Lifetime Stats</h3>
-                <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Total Gold Extracted</span>
-                    <span className="font-semibold tabular-nums text-yellow-700 dark:text-yellow-400">✨ {formatNumber(totalGoldExtracted)} oz</span>
+            <div className="frontier-card border-2 rounded-sm p-3 space-y-2">
+                <h3 className="frontier-label">Lifetime Stats</h3>
+                <div className="flex justify-between text-xs">
+                    <span className="text-frontier-dust font-body">Total Gold Extracted</span>
+                    <span className="font-semibold tabular-nums text-frontier-nugget font-body">✨ {formatNumber(totalGoldExtracted)} oz</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Season</span>
-                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">❄️ {seasonNumber}</span>
+                <div className="flex justify-between text-xs">
+                    <span className="text-frontier-dust font-body">Season</span>
+                    <span className="font-semibold tabular-nums text-frontier-ember font-body">❄️ {seasonNumber}</span>
                 </div>
             </div>
 
             {/* Appearance */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Appearance</h3>
-                <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl">
+                <h3 className="font-display text-sm text-frontier-bone tracking-wide">Appearance</h3>
+                <div className="frontier-card border-2 rounded-sm p-3">
                     <div className="flex items-center justify-between">
                         <div>
-                            <div className="font-semibold text-gray-900 dark:text-gray-100">Theme</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                            <div className="text-xs font-semibold font-body">Theme</div>
+                            <div className="text-xs text-frontier-dust font-body">
                                 {darkMode ? 'Dark Mode' : 'Light Mode'}
                             </div>
                         </div>
                         <button
                             onClick={handleToggleDark}
-                            className="px-4 py-2 rounded-xl shadow border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all"
+                            className="frontier-btn-secondary text-xs px-3 py-1.5"
                         >
                             {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
                         </button>
@@ -172,18 +172,18 @@ export function Settings() {
 
             {/* Save Management */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Save File</h3>
-                <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl space-y-3">
+                <h3 className="font-display text-sm text-frontier-bone tracking-wide">Save File</h3>
+                <div className="frontier-card border-2 rounded-sm p-3 space-y-3">
                     <div className="flex gap-3">
                         <button
                             onClick={handleExport}
-                            className="flex-1 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all font-semibold"
+                            className="flex-1 frontier-btn-secondary text-xs px-3 py-2"
                         >
                             ⬇️ Export Save
                         </button>
                         <button
                             onClick={handleImportClick}
-                            className="flex-1 px-4 py-2 rounded-xl border border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50 transition-all font-semibold"
+                            className="flex-1 frontier-btn-secondary text-xs px-3 py-2"
                         >
                             ⬆️ Import Save
                         </button>
@@ -196,12 +196,12 @@ export function Settings() {
                         />
                     </div>
                     {importSuccess && (
-                        <div className="text-sm text-green-700 dark:text-green-400 text-center font-semibold">
+                        <div className="text-xs text-frontier-sage text-center font-semibold font-body">
                             ✅ Save imported successfully!
                         </div>
                     )}
                     {importError && (
-                        <div className="text-sm text-red-600 dark:text-red-400 text-center font-semibold">
+                        <div className="text-xs text-frontier-rust text-center font-semibold font-body">
                             ❌ {importError}
                         </div>
                     )}
@@ -213,24 +213,24 @@ export function Settings() {
 
             {/* Reset Options */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Reset Options</h3>
-                <div className="p-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl space-y-4">
+                <h3 className="font-display text-sm text-frontier-bone tracking-wide">Reset Options</h3>
+                <div className="frontier-card border-2 rounded-sm p-3 space-y-4">
                     <div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Soft Reset</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <div className="text-xs font-semibold mb-1 font-body">Soft Reset</div>
+                        <div className="text-xs text-frontier-dust mb-2 font-body">
                             Clears current run progress, keeps settings and time played.
                         </div>
                         <button
                             onClick={handleSoftReset}
-                            className="px-4 py-2 rounded-xl shadow border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all"
+                            className="frontier-btn-secondary text-xs px-3 py-1.5"
                         >
                             🔄 Soft Reset
                         </button>
                     </div>
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <div className="font-semibold text-red-700 dark:text-red-400 mb-1">Hard Reset</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <div className="border-t border-frontier-hide/40 pt-4">
+                        <div className="text-xs font-semibold text-frontier-rust mb-1 font-body">Hard Reset</div>
+                        <div className="text-xs text-frontier-dust mb-2 font-body">
                             Deletes ALL progress. Type <span className="font-mono font-bold">RESET</span> to confirm.
                         </div>
                         <div className="flex gap-2">
@@ -239,12 +239,12 @@ export function Settings() {
                                 value={hardResetInput}
                                 onChange={(e) => setHardResetInput(e.target.value)}
                                 placeholder="Type RESET"
-                                className="flex-1 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm font-mono"
+                                className="frontier-input flex-1 text-xs font-mono"
                             />
                             <button
                                 onClick={handleHardReset}
                                 disabled={hardResetInput !== 'RESET'}
-                                className="px-4 py-2 rounded-xl shadow border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+                                className="frontier-btn-danger text-xs px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 ⚠️ Hard Reset
                             </button>
@@ -254,10 +254,10 @@ export function Settings() {
             </div>
 
             {/* Dev mode toggle */}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 text-center">
+            <div className="pt-2 border-t border-frontier-iron/40 text-center">
                 <button
                     onClick={() => gameStore.getState().toggleDevMode()}
-                    className="text-xs text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                    className="text-xs text-frontier-dust hover:text-frontier-aged transition-colors font-body"
                 >
                     {devMode ? '🛠️ Dev mode ON — Ctrl+Shift+D to toggle' : '🛠️ Enable dev mode'}
                 </button>
