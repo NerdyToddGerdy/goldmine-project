@@ -3,6 +3,7 @@ import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
+    const goldAtMine = useGameStore((s) => s.goldAtMine);
     const goldBars = useGameStore((s) => s.goldBars);
 
     const employees = useGameStore((s) => s.employees);
@@ -20,16 +21,19 @@ export function ResourceBar() {
     const floatingNumbers = useGameStore((s) => s.floatingNumbers);
     const goldFloats = floatingNumbers.filter((f) => f.resource === 'gold');
 
+    const pendingTotal = goldAtMine + goldBars;
+
     return (
         <div className="space-y-1.5">
             <div className="grid gap-2 grid-cols-2">
                 <div className="relative">
                     <ResourceCard
-                        label="Gold"
+                        label="Gold (Wallet)"
                         value={gold}
                         rate={goldRate}
                         icon="✨"
                         color="yellow"
+                        pendingLine={pendingTotal > 0 ? `⛰️ ${formatNumber(pendingTotal)} oz at mine` : undefined}
                     />
                     {goldFloats.map((f: FloatingNumber) => (
                         <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-frontier-nugget animate-float-up pointer-events-none">
@@ -57,12 +61,14 @@ function ResourceCard({
     rate,
     icon,
     color,
+    pendingLine,
 }: {
     label: string;
     value: number;
     rate: number;
     icon: string;
     color: 'amber' | 'cyan' | 'yellow' | 'green';
+    pendingLine?: string;
 }) {
     const colorClasses = {
         amber: {
@@ -107,6 +113,11 @@ function ResourceCard({
                 <div className={`text-xs font-semibold tabular-nums ${rateColor}`}>
                     {formatRate(rate)}
                 </div>
+                {pendingLine && (
+                    <div className="text-[9px] text-frontier-dust tabular-nums mt-0.5">
+                        {pendingLine}
+                    </div>
+                )}
             </div>
         </div>
     );

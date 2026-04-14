@@ -7,6 +7,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.30',
+        date: '2026-04-14',
+        title: 'Meaningful travel — gold delivery loop',
+        changes: [
+            'Gold earned at the mine now stays there as mine stock (goldAtMine) — unspendable until delivered',
+            'Traveling to Town auto-deposits all mine stock to wallet; toast confirms the sale amount',
+            'Driver hauls from mine stock (flakes at 15% fee, bars at full value) — delivery tracks season progress',
+            'Furnace "Collect" renamed to "Pull from Furnace" — bars now sit at mine until delivered',
+            'ResourceBar shows pending oz at mine beneath wallet balance',
+            'Mine panel shows undelivered flakes and bars with delivery guidance',
+        ],
+    },
+    {
         version: 'v1.29',
         date: '2026-04-12',
         title: 'Western frontier visual redesign',

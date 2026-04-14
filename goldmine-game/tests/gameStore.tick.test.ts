@@ -111,9 +111,10 @@ describe('prospector production per tick', () => {
         const panRate = (prospPower * PROSPECTOR_PAN_RATE) / 60;
         const BASE_EXTRACTION = 0.2;
         const goldGained = panRate * BASE_EXTRACTION;
-        gameStore.setState({ employees: [emp], panFilled: 10, gold: 0 });
+        gameStore.setState({ employees: [emp], panFilled: 10, goldAtMine: 0 });
         runTicks(1);
-        expect(gameStore.getState().gold).toBeCloseTo(goldGained, 8);
+        // Gold earned goes to goldAtMine (mine stock) until delivered to town
+        expect(gameStore.getState().goldAtMine).toBeCloseTo(goldGained, 8);
         expect(gameStore.getState().panFilled).toBeCloseTo(10 - panRate, 6);
     });
 
@@ -128,9 +129,10 @@ describe('prospector production per tick', () => {
         const BASE_EXTRACTION = 0.2;
         const extractionRate = Math.min(BASE_EXTRACTION + sluicePower * SLUICE_EXTRACTION_RATE * 1, 0.8);
         const expected = panRate * extractionRate * PAYDIRT_YIELD_MULTIPLIER;
-        gameStore.setState({ employees: [prosp, sluice], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, gold: 0 });
+        gameStore.setState({ employees: [prosp, sluice], hasSluiceBox: true, sluiceGear: 1, panFilled: 10, goldAtMine: 0 });
         runTicks(1);
-        expect(gameStore.getState().gold).toBeCloseTo(expected, 8);
+        // Gold earned goes to goldAtMine (mine stock) until delivered to town
+        expect(gameStore.getState().goldAtMine).toBeCloseTo(expected, 8);
     });
 
     it('prospectors go idle when panFilled is 0 — no gold produced', () => {
@@ -237,14 +239,14 @@ describe('driver gold deposit', () => {
     it('driver loads raw flakes and deposits at (1 - FLAKES_HAUL_FEE) on return', () => {
         const tripDuration = getTravelDurationTicks(1); // 8s * 60 = 480 ticks
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 10, goldBars: 0,
+            hasDriver: true, vehicleTier: 1, goldAtMine: 10, gold: 0, goldBars: 0,
             hasFurnace: false,
             driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             employees: [],
         });
         runTicks(tripDuration);
-        // Driver loads 10 flakes at tick 1 (gold→0), deposits 10*(1-0.15)=8.5 at tick tripDuration
+        // Driver loads 10 flakes from goldAtMine at tick 1, deposits 10*(1-0.15)=8.5 to wallet at tripDuration
         expect(gameStore.getState().gold).toBeCloseTo(10 * (1 - FLAKES_HAUL_FEE), 6);
         expect(gameStore.getState().driverCarryingFlakes).toBeCloseTo(0, 6);
     });
@@ -252,31 +254,31 @@ describe('driver gold deposit', () => {
     it('driver prioritizes bars over flakes when loading (capacity=10)', () => {
         const tripDuration = getTravelDurationTicks(1);
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 8, goldBars: 6,
+            hasDriver: true, vehicleTier: 1, goldAtMine: 8, gold: 0, goldBars: 6,
             hasFurnace: true,
             driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             employees: [],
         });
         runTicks(tripDuration);
-        // capacity=10: 6 bars + 4 flakes loaded; gold was 8-4=4, bars 6-6=0
-        // deposit: 6*1.0 + 4*(1-0.15) = 6 + 3.4 = 9.4 → gold = 4 + 9.4 = 13.4
+        // capacity=10: 6 bars + 4 flakes loaded; goldAtMine 8-4=4 remaining, bars 6-6=0
+        // deposit: 6*1.0 + 4*(1-0.15) = 6 + 3.4 = 9.4 → gold (wallet) = 0 + 9.4
         expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
-        expect(gameStore.getState().gold).toBeCloseTo(4 + 6 + 4 * (1 - FLAKES_HAUL_FEE), 6);
+        expect(gameStore.getState().gold).toBeCloseTo(6 + 4 * (1 - FLAKES_HAUL_FEE), 6);
         expect(gameStore.getState().driverCarryingBars).toBeCloseTo(0, 6);
     });
 
     it('driver delivers bars at full value (no fee)', () => {
         const tripDuration = getTravelDurationTicks(1);
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 0, goldBars: 10,
+            hasDriver: true, vehicleTier: 1, goldAtMine: 0, gold: 0, goldBars: 10,
             hasFurnace: true,
             driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             employees: [],
         });
         runTicks(tripDuration);
-        // capacity=10: 10 bars loaded; deposit = 10*1.0 = 10; gold = 0 + 10 = 10
+        // capacity=10: 10 bars loaded; deposit = 10*1.0 = 10; gold (wallet) = 0 + 10 = 10
         expect(gameStore.getState().gold).toBeCloseTo(10, 6);
         expect(gameStore.getState().goldBars).toBeCloseTo(0, 6);
     });
@@ -284,29 +286,30 @@ describe('driver gold deposit', () => {
     it('driver does not deposit before trip duration completes', () => {
         const tripDuration = getTravelDurationTicks(1);
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 10, goldBars: 0,
+            hasDriver: true, vehicleTier: 1, goldAtMine: 10, gold: 0, goldBars: 0,
             hasFurnace: false,
             driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             employees: [],
         });
         runTicks(tripDuration - 1);
-        // Loaded at tick 1 (gold→0), deposit hasn't happened yet
+        // Loaded at tick 1 (goldAtMine→0), deposit hasn't happened yet; wallet stays 0
         expect(gameStore.getState().gold).toBeCloseTo(0, 6);
     });
 
     it('driver only carries up to capacity (base 10 oz)', () => {
         const tripDuration = getTravelDurationTicks(1);
         gameStore.setState({
-            hasDriver: true, vehicleTier: 1, gold: 25, goldBars: 0,
+            hasDriver: true, vehicleTier: 1, goldAtMine: 25, gold: 0, goldBars: 0,
             hasFurnace: false,
             driverTripTicks: 0,
             driverCarryingFlakes: 0, driverCarryingBars: 0, driverCapUpgrades: 0,
             employees: [],
         });
-        // After load tick: gold = 15 (25-10). After return: gold = 15+10 = 25
+        // After load tick: goldAtMine = 15 (25-10 loaded). Deposit hasn't happened yet.
         runTicks(tripDuration - 1);
-        expect(gameStore.getState().gold).toBeCloseTo(15, 6); // capacity 10 loaded
+        expect(gameStore.getState().goldAtMine).toBeCloseTo(15, 6); // 15 oz still at mine
+        expect(gameStore.getState().gold).toBeCloseTo(0, 6); // wallet still empty
     });
 });
 

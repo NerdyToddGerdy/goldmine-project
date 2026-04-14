@@ -35,49 +35,49 @@ describe('panForGold', () => {
     it('does nothing when panFilled is 0', () => {
         gameStore.setState({ panFilled: 0 });
         gameStore.getState().panForGold();
-        expect(gameStore.getState().gold).toBe(0);
+        expect(gameStore.getState().goldAtMine).toBe(0);
         expect(gameStore.getState().panFilled).toBe(0);
     });
 
     it('pans partial amounts (panFilled < 1) yielding proportional gold', () => {
-        // panFilled=0.5, panClickAmount=1 → materialUsed=0.5, gold=0.5*1*0.2=0.1
+        // panFilled=0.5, panClickAmount=1 → materialUsed=0.5, goldAtMine=0.5*1*0.2=0.1
         gameStore.setState({ panFilled: 0.5 });
         gameStore.getState().panForGold();
-        expect(gameStore.getState().gold).toBeCloseTo(0.1, 10);
+        expect(gameStore.getState().goldAtMine).toBeCloseTo(0.1, 10);
         expect(gameStore.getState().panFilled).toBeCloseTo(0, 10);
     });
 
     it('produces gold and reduces panFilled at base extraction rate', () => {
-        // panFilled=10, no boosts → materialUsed=1, extractionRate=0.2, gold=1*1*0.2*1=0.2
+        // panFilled=10, no boosts → materialUsed=1, extractionRate=0.2, goldAtMine=1*1*0.2*1=0.2
         gameStore.setState({ panFilled: 10 });
         gameStore.getState().panForGold();
-        const { gold, panFilled } = gameStore.getState();
-        expect(gold).toBeCloseTo(0.2, 10);
+        const { goldAtMine, panFilled } = gameStore.getState();
+        expect(goldAtMine).toBeCloseTo(0.2, 10);
         expect(panFilled).toBeCloseTo(9, 10);
     });
 
     it('panSpeedUpgrades increases material consumed per click', () => {
-        // panSpeedUpgrades=2 → clickAmount = 1 + 0.5*2 = 2 → gold = 2*0.2 = 0.4
+        // panSpeedUpgrades=2 → clickAmount = 1 + 0.5*2 = 2 → goldAtMine = 2*0.2 = 0.4
         gameStore.setState({ panFilled: 10, panSpeedUpgrades: 2 });
         gameStore.getState().panForGold();
         expect(gameStore.getState().panFilled).toBeCloseTo(8, 10);
-        expect(gameStore.getState().gold).toBeCloseTo(0.4, 10);
+        expect(gameStore.getState().goldAtMine).toBeCloseTo(0.4, 10);
     });
 
     it('increments totalGoldExtracted by the amount panned', () => {
         gameStore.setState({ panFilled: 10, totalGoldExtracted: 5 });
         gameStore.getState().panForGold();
-        const { totalGoldExtracted, gold } = gameStore.getState();
-        expect(totalGoldExtracted).toBeCloseTo(5 + gold, 10);
+        const { totalGoldExtracted, goldAtMine } = gameStore.getState();
+        expect(totalGoldExtracted).toBeCloseTo(5 + goldAtMine, 10);
     });
 
     it('adds a floating number for gold', () => {
         gameStore.setState({ panFilled: 10 });
         gameStore.getState().panForGold();
-        const { floatingNumbers, gold } = gameStore.getState();
+        const { floatingNumbers, goldAtMine } = gameStore.getState();
         expect(floatingNumbers).toHaveLength(1);
         expect(floatingNumbers[0].resource).toBe('gold');
-        expect(floatingNumbers[0].amount).toBeCloseTo(gold, 10);
+        expect(floatingNumbers[0].amount).toBeCloseTo(goldAtMine, 10);
     });
 });
 
@@ -86,40 +86,40 @@ describe('panForGold', () => {
 
 describe('loadFurnace', () => {
     it('does nothing without hasFurnace', () => {
-        gameStore.setState({ gold: 5, hasFurnace: false });
+        gameStore.setState({ goldAtMine: 5, hasFurnace: false });
         gameStore.getState().loadFurnace();
         expect(gameStore.getState().furnaceFilled).toBe(0);
-        expect(gameStore.getState().gold).toBe(5);
+        expect(gameStore.getState().goldAtMine).toBe(5);
     });
 
     it('does nothing when no gold', () => {
-        gameStore.setState({ gold: 0, hasFurnace: true });
+        gameStore.setState({ goldAtMine: 0, hasFurnace: true });
         gameStore.getState().loadFurnace();
         expect(gameStore.getState().furnaceFilled).toBe(0);
     });
 
     it('transfers gold into furnace up to capacity', () => {
-        gameStore.setState({ gold: 5, hasFurnace: true, furnaceFilled: 0 });
+        gameStore.setState({ goldAtMine: 5, hasFurnace: true, furnaceFilled: 0 });
         gameStore.getState().loadFurnace();
         const s = gameStore.getState();
         expect(s.furnaceFilled).toBeCloseTo(5, 8);
-        expect(s.gold).toBeCloseTo(0, 8);
+        expect(s.goldAtMine).toBeCloseTo(0, 8);
     });
 
     it('caps at FURNACE_CAPACITY', () => {
-        // gold=20, furnaceFilled=0, FURNACE_CAPACITY=10 → transfer=10
-        gameStore.setState({ gold: 20, hasFurnace: true, furnaceFilled: 0 });
+        // goldAtMine=20, furnaceFilled=0, FURNACE_CAPACITY=10 → transfer=10
+        gameStore.setState({ goldAtMine: 20, hasFurnace: true, furnaceFilled: 0 });
         gameStore.getState().loadFurnace();
         const s = gameStore.getState();
         expect(s.furnaceFilled).toBe(10);
-        expect(s.gold).toBeCloseTo(10, 8);
+        expect(s.goldAtMine).toBeCloseTo(10, 8);
     });
 
     it('does nothing when furnace already full', () => {
-        gameStore.setState({ gold: 5, hasFurnace: true, furnaceFilled: 10 });
+        gameStore.setState({ goldAtMine: 5, hasFurnace: true, furnaceFilled: 10 });
         gameStore.getState().loadFurnace();
         expect(gameStore.getState().furnaceFilled).toBe(10);
-        expect(gameStore.getState().gold).toBe(5);
+        expect(gameStore.getState().goldAtMine).toBe(5);
     });
 });
 
@@ -154,28 +154,29 @@ describe('toggleFurnace', () => {
 // ─── collectBars ──────────────────────────────────────────────────────────────
 
 describe('collectBars', () => {
-    it('does nothing when all bar fields are 0', () => {
-        gameStore.setState({ furnaceBars: 0, goldBars: 0, goldBarsCertified: 0, gold: 5 });
+    it('does nothing when furnaceBars is 0', () => {
+        gameStore.setState({ furnaceBars: 0, goldBars: 1.0, gold: 5 });
         gameStore.getState().collectBars();
+        // gold and goldBars unchanged when furnaceBars is 0
         expect(gameStore.getState().gold).toBe(5);
+        expect(gameStore.getState().goldBars).toBe(1.0);
     });
 
-    it('converts furnaceBars + goldBars to gold', () => {
-        gameStore.setState({ furnaceBars: 3.5, goldBars: 1.0, goldBarsCertified: 0, gold: 0 });
+    it('pulls furnaceBars into goldBars (mine stock), does not convert to wallet gold', () => {
+        gameStore.setState({ furnaceBars: 3.5, goldBars: 1.0, gold: 0 });
         gameStore.getState().collectBars();
         const s = gameStore.getState();
-        expect(s.gold).toBeCloseTo(4.5, 8);
+        // furnaceBars moved to goldBars; wallet gold unchanged
+        expect(s.goldBars).toBeCloseTo(4.5, 8);
         expect(s.furnaceBars).toBe(0);
-        expect(s.goldBars).toBe(0);
+        expect(s.gold).toBe(0);
     });
 
-    it('certified bars yield 1.2× gold when collected', () => {
-        gameStore.setState({ furnaceBars: 0, goldBars: 0, goldBarsCertified: 5, gold: 0 });
+    it('accumulates goldBars from multiple collects', () => {
+        gameStore.setState({ furnaceBars: 2.0, goldBars: 3.0 });
         gameStore.getState().collectBars();
-        const s = gameStore.getState();
-        // 5 certified bars * 1.2 = 6.0
-        expect(s.gold).toBeCloseTo(6.0, 8);
-        expect(s.goldBarsCertified).toBe(0);
+        expect(gameStore.getState().goldBars).toBeCloseTo(5.0, 8);
+        expect(gameStore.getState().furnaceBars).toBe(0);
     });
 });
 
@@ -381,7 +382,7 @@ describe('exportSave and importSave', () => {
     it('exportSave returns valid JSON with current schema version', () => {
         const json = gameStore.getState().exportSave();
         const parsed = JSON.parse(json);
-        expect(parsed.version).toBe(37);
+        expect(parsed.version).toBe(38);
     });
 
     it('exportSave round-trips through importSave', () => {

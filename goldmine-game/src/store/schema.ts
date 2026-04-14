@@ -3,7 +3,7 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 37 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 38 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier' | 'driller' | 'refiner';
@@ -513,13 +513,19 @@ export type SaveV37 = Omit<SaveV36, 'version' | 'location'> & {
     fuelTank: number;
 };
 
-export type LatestSave = SaveV37;
+// v38: goldAtMine — earned gold at the mine, undelivered and unspendable until brought to town
+export type SaveV38 = Omit<SaveV37, 'version'> & {
+    version: 38;
+    goldAtMine: number;
+};
+
+export type LatestSave = SaveV38;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV37();
+        return defaultSaveV38();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1504,8 +1510,14 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 37);
     }
 
-    // Already v37, ensure fields exist
-    const s = raw as Partial<SaveV37>;
+    if (fromVersion === 37) {
+        // v37 → v38: goldAtMine — gold earned at mine is now undelivered until travel to town
+        const s = raw as Partial<SaveV37>;
+        return migrateToLatest({ ...s, version: 38, goldAtMine: 0 }, 38);
+    }
+
+    // Already v38, ensure fields exist
+    const s = raw as Partial<SaveV38>;
     const storyNPCs = s.storyNPCs ?? { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false };
     const defaultNpcLevels: Record<NPCId, number> = {
         trader: storyNPCs.traderArrived ? 1 : 0,
@@ -1515,7 +1527,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         mechanic: storyNPCs.mechanicArrived ? 1 : 0,
     };
     return {
-        version: 37,
+        version: 38,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1524,6 +1536,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         dirt: s.dirt ?? 0,
         paydirt: s.paydirt ?? 0,
         gold: s.gold ?? 0,
+        goldAtMine: s.goldAtMine ?? 0,
         carts: s.carts ?? 0,
         hasSluiceBox: s.hasSluiceBox ?? false,
         hasFurnace: s.hasFurnace ?? false,
@@ -1766,6 +1779,14 @@ export function defaultSaveV37(): SaveV37 {
         hasWashplant: false,
         crudeTank: 0,
         fuelTank: 0,
+    };
+}
+
+export function defaultSaveV38(): SaveV38 {
+    return {
+        ...defaultSaveV37(),
+        version: 38,
+        goldAtMine: 0,
     };
 }
 

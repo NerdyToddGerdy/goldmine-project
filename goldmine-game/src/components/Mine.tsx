@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 export function Mine() {
     const {
         bucketFilled, panFilled, sluiceBoxFilled, minersMossFilled,
-        gold, scoopPower, panPower, unlockedPanning, unlockedTown,
+        gold, goldAtMine, scoopPower, panPower, unlockedPanning, unlockedTown,
         hasSluiceBox, sluiceGear, hasFurnace, employees,
         bucketUpgrades, panCapUpgrades, vehicleTier, seasonNumber,
         isTraveling, travelProgress, travelDestination,
@@ -20,7 +20,7 @@ export function Mine() {
     } = useGameStore(useShallow((s) => ({
         bucketFilled: s.bucketFilled, panFilled: s.panFilled,
         sluiceBoxFilled: s.sluiceBoxFilled, minersMossFilled: s.minersMossFilled,
-        gold: s.gold, scoopPower: s.scoopPower, panPower: s.panPower,
+        gold: s.gold, goldAtMine: s.goldAtMine, scoopPower: s.scoopPower, panPower: s.panPower,
         unlockedPanning: s.unlockedPanning, unlockedTown: s.unlockedTown,
         hasSluiceBox: s.hasSluiceBox, sluiceGear: s.sluiceGear,
         hasFurnace: s.hasFurnace, employees: s.employees,
@@ -416,30 +416,39 @@ export function Mine() {
                             </button>
                         </div>
 
-                        {gold > 0 && (
+                        {goldAtMine > 0 && (
                             <p className="text-xs text-frontier-dust text-center">
-                                {gold.toFixed(2)} oz flakes on hand
+                                ⛰️ {goldAtMine.toFixed(2)} oz flakes at mine (undelivered)
                             </p>
                         )}
 
-                        {(furnaceBars > 0 || goldBars > 0 || goldBarsCertified > 0) && (
+                        {furnaceBars > 0 && (
                             <div className="flex items-center justify-between p-2 bg-frontier-nugget/10 border border-frontier-nugget/30 rounded-sm">
                                 <div className="text-sm font-semibold text-frontier-bone">
-                                    <div>🧱 {(furnaceBars + goldBars).toFixed(2)} oz bars</div>
-                                    {goldBarsCertified > 0 && (
-                                        <div className="text-xs text-frontier-nugget">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz</div>
-                                    )}
-                                    {goldBars > 0 && hasDriver && (
-                                        <div className="text-xs text-frontier-sage">Driver will carry bars at full value</div>
-                                    )}
+                                    <div>🧱 {furnaceBars.toFixed(2)} oz bars ready</div>
                                 </div>
                                 <button
                                     onClick={collectBars}
                                     disabled={isTraveling}
                                     className="frontier-btn-primary text-sm px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    Collect
+                                    Pull from Furnace
                                 </button>
+                            </div>
+                        )}
+
+                        {(goldBars > 0 || goldBarsCertified > 0) && (
+                            <div className="p-2 bg-frontier-nugget/10 border border-frontier-nugget/30 rounded-sm text-sm font-semibold text-frontier-bone">
+                                <div>🧱 {goldBars.toFixed(2)} oz bars at mine</div>
+                                {goldBarsCertified > 0 && (
+                                    <div className="text-xs text-frontier-nugget">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz on delivery</div>
+                                )}
+                                {hasDriver && (
+                                    <div className="text-xs text-frontier-sage">Driver will haul bars at full value</div>
+                                )}
+                                {!hasDriver && (
+                                    <div className="text-xs text-frontier-dust">Travel to Town to sell</div>
+                                )}
                             </div>
                         )}
 
@@ -477,8 +486,8 @@ export function Mine() {
                           text: '💡 A Furnace smelts gold flakes into bars — certify them at the Assayer for a 20% bonus. Buy in Town → Blacksmith → Equipment.' },
                         { show: hasFurnace && !hasDriver && vehicleTier >= 2,
                           text: '💡 Hire a Driver in Town → Tavern to automatically haul your gold.' },
-                        { show: !hasDriver && gold > 0.5 && unlockedTown && !isTraveling,
-                          text: '💡 Head to Town to spend your gold on upgrades and workers.' },
+                        { show: !hasDriver && (gold > 0.5 || goldAtMine > 0.5) && unlockedTown && !isTraveling,
+                          text: goldAtMine > 0.5 ? '💡 Head to Town to sell your gold — it\'s sitting undelivered at the mine!' : '💡 Head to Town to spend your gold on upgrades and workers.' },
                     ];
                     const tip = tips.find(t => t.show);
                     if (!tip) return null;
