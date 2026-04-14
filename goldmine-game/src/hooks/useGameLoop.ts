@@ -16,7 +16,9 @@ export function useGameLoop() {
             if (lastRef.current == null) {
                 lastRef.current = now
             }
-            const dt = now - lastRef.current
+            // Clamp dt to 1 second max — prevents hundreds of catch-up ticks
+            // when the tab is backgrounded and RAF is throttled by the browser.
+            const dt = Math.min(now - lastRef.current, 1000)
             lastRef.current = now
 
             // Call stepSimulation directly from the store

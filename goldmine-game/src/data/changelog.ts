@@ -7,6 +7,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.30.2',
+        date: '2026-04-14',
+        title: 'Fix blank page when returning to backgrounded tab',
+        changes: [
+            'Game loop now clamps delta time to 1 second max — returning to a backgrounded tab no longer triggers hundreds of catch-up ticks that freeze the page',
+        ],
+    },
+    {
         version: 'v1.30.1',
         date: '2026-04-14',
         title: 'Bug fixes — gold dupe, certifier XP, rate display',
