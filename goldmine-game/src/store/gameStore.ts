@@ -1694,15 +1694,11 @@ export const gameStore = createStore<GameState>()(
                             const richGain = Math.min(actualGain, newPatchRemaining);
                             newPatchRemaining -= richGain;
                             if (newPatchRemaining <= 0) newPatchActive = false;
-                            newRichDirtInBucket = Math.min(newBucketFilled + actualGain, bucketCap) <= bucketCap
-                                ? newRichDirtInBucket + richGain
-                                : newRichDirtInBucket;
+                            newRichDirtInBucket = Math.min(newRichDirtInBucket + richGain, bucketCap);
                         }
                         newBucketFilled = Math.min(newBucketFilled + actualGain, bucketCap);
                     }
 
-                    const dirtChange = 0;
-                    const paydirtChange = 0;
                     let goldGained = 0;
 
                     // Prospectors consume from the pan progress bar and produce gold
@@ -1761,7 +1757,7 @@ export const gameStore = createStore<GameState>()(
                         const tripDuration = getTravelDurationTicks(s.vehicleTier);
                         const capacity = getDriverCapacity(s.driverCapUpgrades);
 
-                        if (newDriverTripTicks === 0) {
+                        if (newDriverTripTicks === 0 && travelDeliveredGold === 0) {
                             // Driver is idle — prioritize bars, fill remaining capacity with flakes from mine stock
                             const availableBars = s.goldBars - driverLoadedBars;
                             const availableFlakes = s.goldAtMine + goldGained;
@@ -1887,7 +1883,7 @@ export const gameStore = createStore<GameState>()(
                         if (e.assignedRole === null) return e;
                         if (e.assignedRole === 'miner' && minersIdle) return e;
                         if (e.assignedRole === 'prospector' && prospectsIdle) return e;
-                        if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || s.goldBars < 0.001)) return e;
+                        if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || newGoldBars < 0.001)) return e;
                         const role = e.assignedRole;
                         const oldXp = e.xpByRole[role] ?? 0;
                         const oldLevel = getEmployeeLevel(oldXp, e.rarity);
@@ -1917,8 +1913,8 @@ export const gameStore = createStore<GameState>()(
                         patchActive: newPatchActive,
                         patchRemaining: newPatchRemaining,
                         patchCapacity: newPatchCapacity,
-                        dirt: s.dirt + dirtChange,
-                        paydirt: s.paydirt + paydirtChange,
+                        dirt: s.dirt,
+                        paydirt: s.paydirt,
                         // goldAtMine: earned but undelivered — grows with goldGained, shrinks when driver or player takes it
                         goldAtMine: travelDeliveredGold > 0
                             ? 0  // player arrived at town — all mine stock cleared

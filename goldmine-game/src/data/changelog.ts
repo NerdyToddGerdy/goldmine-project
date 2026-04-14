@@ -7,6 +7,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.30.1',
+        date: '2026-04-14',
+        title: 'Bug fixes — gold dupe, certifier XP, rate display',
+        changes: [
+            'Fixed: driver no longer loads cargo in the same tick the player arrives at town, preventing double-counted gold',
+            'Fixed: certifier XP now correctly checks bars produced this tick (including furnace auto-collect) instead of stale pre-tick value',
+            'Fixed: ResourceBar gold rate was displaying 5× too high due to accidental division by BASE_EXTRACTION; now matches actual output',
+            'Fixed: rich dirt bucket accumulation now properly capped at bucket capacity',
+        ],
+    },
+    {
         version: 'v1.30',
         date: '2026-04-14',
         title: 'Meaningful travel — gold delivery loop',

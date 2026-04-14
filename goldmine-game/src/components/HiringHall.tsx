@@ -92,15 +92,14 @@ function DraftPool() {
                         const canAfford = gold >= cost;
                         return (
                             <EmployeeCard key={emp.id} emp={emp}>
-                                <div className="flex items-center justify-between pt-1">
-                                    <span className="text-xs text-frontier-dust">Hire: <span className="font-semibold text-frontier-bone">{cost} oz</span></span>
+                                <div className="flex items-center justify-end pt-1">
                                     <button
                                         onClick={() => gameStore.getState().hireEmployee(emp.id)}
                                         disabled={!canAfford}
                                         className="frontier-btn-primary text-xs px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ background: 'linear-gradient(to bottom, var(--fw-sage), var(--fw-pine))', borderColor: 'var(--fw-pine)' }}
                                     >
-                                        Hire
+                                        Hire ({cost} oz)
                                     </button>
                                 </div>
                             </EmployeeCard>

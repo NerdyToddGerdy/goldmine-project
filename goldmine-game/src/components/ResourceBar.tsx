@@ -1,4 +1,4 @@
-import { useGameStore, getAssignedPower, PROSPECTOR_PAN_RATE, SLUICE_EXTRACTION_RATE, BASE_EXTRACTION, type FloatingNumber } from "../store/gameStore";
+import { useGameStore, getAssignedPower, PROSPECTOR_PAN_RATE, SLUICE_EXTRACTION_RATE, BASE_EXTRACTION, MAX_EXTRACTION_RATE, type FloatingNumber } from "../store/gameStore";
 import { formatNumber, formatRate } from "../utils/format";
 
 export function ResourceBar() {
@@ -11,12 +11,14 @@ export function ResourceBar() {
     const hasFurnace = useGameStore((s) => s.hasFurnace);
     const panFilled = useGameStore((s) => s.panFilled);
 
+    const panSpeedUpgrades = useGameStore((s) => s.panSpeedUpgrades);
     const prospectsIdle = panFilled < 1;
     const prospectorPower = prospectsIdle ? 0 : getAssignedPower(employees, 'prospector');
     const sluiceOpPower = getAssignedPower(employees, 'sluiceOperator');
     let extractionRate = BASE_EXTRACTION;
     extractionRate += sluiceOpPower * SLUICE_EXTRACTION_RATE * sluiceGear;
-    const goldRate = prospectorPower * PROSPECTOR_PAN_RATE * extractionRate / BASE_EXTRACTION;
+    extractionRate = Math.min(extractionRate, MAX_EXTRACTION_RATE);
+    const goldRate = prospectorPower * PROSPECTOR_PAN_RATE * (1 + 0.2 * panSpeedUpgrades) * extractionRate;
 
     const floatingNumbers = useGameStore((s) => s.floatingNumbers);
     const goldFloats = floatingNumbers.filter((f) => f.resource === 'gold');
