@@ -1,4 +1,5 @@
 export { Building } from './Building';
+export { SpriteAnimation } from './SpriteAnimation';
 export { ProgressBar } from './ProgressBar';
 export { Tooltip } from './Tooltip';
 export { UpgradeButton } from './UpgradeButton';

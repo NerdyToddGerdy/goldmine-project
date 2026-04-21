@@ -348,4 +348,12 @@ button {
   .frontier-input:focus {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 2px color-mix(in srgb, var(--fw-ember) 50%, transparent);
   }
+
+  /* ── Building Facades ── */
+  .building-window-lit {
+    box-shadow: 0 0 6px 2px rgba(200, 121, 65, 0.5), inset 0 0 4px rgba(253, 230, 138, 0.6);
+  }
+  .group:hover .building-window-lit {
+    box-shadow: 0 0 10px 3px rgba(200, 121, 65, 0.75), inset 0 0 6px rgba(253, 230, 138, 0.8);
+  }
 }

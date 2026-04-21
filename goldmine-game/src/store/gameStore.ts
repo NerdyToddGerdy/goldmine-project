@@ -1692,6 +1692,11 @@ export const gameStore = createStore<GameState>()(
                         goldGained = panConsumed * extractionRate * paydirtMultiplier;
                     }
 
+                    // Unlock town the first time gold is panned (auto or manual)
+                    if (!s.unlockedTown && (goldGained > 0 || s.goldAtMine > 0)) {
+                        townJustUnlocked = true;
+                    }
+
                     // Player travel progress
                     let newIsTraveling = s.isTraveling;
                     let newTravelProgress = s.travelProgress;
@@ -1920,7 +1925,7 @@ export const gameStore = createStore<GameState>()(
                 });
 
                 if (townJustUnlocked) {
-                    get().addToast('🏘️ You arrived at Town for the first time!', 'info');
+                    get().addToast('🏘️ Town unlocked — head there to sell your gold!', 'info');
                 }
                 if (deliveredOnArrival > 0) {
                     get().addToast(`💰 Sold ${deliveredOnArrival.toFixed(1)} oz to the Trader!`, 'success');

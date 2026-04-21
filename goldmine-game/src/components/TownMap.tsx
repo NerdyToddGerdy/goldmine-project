@@ -176,7 +176,7 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
             {/* Town buildings */}
             <div>
                 <p className="frontier-label mb-3 text-center">Town</p>
-                <div className="flex flex-wrap justify-center gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-4 justify-items-center">
                     <Building
                         emoji="🏪"
                         name="Trading Post"
@@ -211,6 +211,14 @@ export function TownMap({ onOpenPanel }: TownMapProps) {
                         onClick={() => onOpenPanel('blacksmith')}
                     />
                 </div>
+                {/* Boardwalk strip */}
+                <div
+                    className="mt-1 w-full h-2.5 rounded-b-sm"
+                    style={{
+                        background: 'linear-gradient(to bottom, var(--fw-hide), var(--fw-rust))',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.4)'
+                    }}
+                />
             </div>
         </div>
     );

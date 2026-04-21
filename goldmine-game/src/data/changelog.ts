@@ -7,6 +7,52 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.31.5',
+        date: '2026-04-17',
+        title: 'Sprite animation fixes',
+        changes: [
+            'Town tab now correctly unlocks after first manual pan (was only firing for auto-prospector gold)',
+            'Digging animation now only plays on Scoop Dirt click, not continuously',
+            'Applied blend mode to dig sprite to suppress baked-in checkered background',
+        ],
+    },
+    {
+        version: 'v1.31.4',
+        date: '2026-04-17',
+        title: 'Character sprite animations',
+        changes: [
+            'Travel bar now shows an animated miner walking with shovel (to town) or bucket (to mine) instead of an emoji',
+            'Bucket section shows a digging animation while the miner is actively working',
+        ],
+    },
+    {
+        version: 'v1.31.3',
+        date: '2026-04-17',
+        title: 'Crew sections hidden until Tavern is built',
+        changes: [
+            'Crew assignment rows in each mine panel are now hidden until the Tavern opens — cleaner early game with no empty roster slots',
+        ],
+    },
+    {
+        version: 'v1.31.2',
+        date: '2026-04-17',
+        title: 'Town unlocks on first gold panned',
+        changes: [
+            'Town tab now unlocks the first time you pan gold at the mine, rather than requiring you to travel there first',
+        ],
+    },
+    {
+        version: 'v1.31.1',
+        date: '2026-04-14',
+        title: 'Town buildings redesigned as western facades',
+        changes: [
+            'Town buildings now look like Western frontier storefronts — peaked false-front roofline, sign board with emoji and name, two windows, arched door',
+            'Locked buildings appear dark and abandoned with boarded-up windows',
+            'Unlocked buildings have warm amber window glow that intensifies on hover',
+            'Building grid updated to 2-column on mobile, 4-column on wider screens, with a boardwalk strip below',
+        ],
+    },
+    {
         version: 'v1.31',
         date: '2026-04-14',
         title: 'Trader fuel runs replace oil system',

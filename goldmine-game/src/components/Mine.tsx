@@ -1,5 +1,8 @@
+import { useState, useRef } from 'react';
 import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, GOLD_BAR_CERTIFIED_BONUS, getSettlementStage, FLAKES_HAUL_FEE } from "../store/gameStore";
-import { ProgressBar, Tooltip } from "./ui";
+import { ProgressBar, Tooltip, SpriteAnimation } from "./ui";
+import minerWalkSrc from '../assets/miner-walk.png';
+import minerDigSrc from '../assets/miner-dig.png';
 import { Roster } from "./HiringHall";
 import { formatNumber } from "../utils/format";
 import { useShallow } from "zustand/react/shallow";
@@ -8,7 +11,7 @@ export function Mine() {
     const {
         bucketFilled, panFilled, sluiceBoxFilled, minersMossFilled,
         gold, goldAtMine, scoopPower, panPower, unlockedPanning, unlockedTown,
-        hasSluiceBox, sluiceGear, hasFurnace, employees,
+        hasSluiceBox, sluiceGear, hasFurnace, employees, storyNPCs,
         bucketUpgrades, panCapUpgrades, vehicleTier, seasonNumber,
         isTraveling, travelProgress, travelDestination,
         furnaceGear, devMode, tickCount,
@@ -23,7 +26,7 @@ export function Mine() {
         gold: s.gold, goldAtMine: s.goldAtMine, scoopPower: s.scoopPower, panPower: s.panPower,
         unlockedPanning: s.unlockedPanning, unlockedTown: s.unlockedTown,
         hasSluiceBox: s.hasSluiceBox, sluiceGear: s.sluiceGear,
-        hasFurnace: s.hasFurnace, employees: s.employees,
+        hasFurnace: s.hasFurnace, employees: s.employees, storyNPCs: s.storyNPCs,
         bucketUpgrades: s.bucketUpgrades, panCapUpgrades: s.panCapUpgrades,
         vehicleTier: s.vehicleTier, seasonNumber: s.seasonNumber,
         isTraveling: s.isTraveling, travelProgress: s.travelProgress,
@@ -39,6 +42,7 @@ export function Mine() {
         driverCapUpgrades: s.driverCapUpgrades,
     })));
 
+    const tavernBuilt = storyNPCs.tavernBuilt;
     const settlementName = getSettlementStage(seasonNumber).name;
     const effectiveBucketCap = getEffectiveBucketCapacity(bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(panCapUpgrades);
@@ -48,7 +52,14 @@ export function Mine() {
     const secsRemaining = Math.ceil((totalTravelTicks - travelProgress) / 60);
     const vehicleEmoji = TRAVEL_EMOJIS[vehicleTier as 0|1|2|3];
 
-    const scoopDirt = () => gameStore.getState().scoopDirt();
+    const [scoopAnimating, setScoopAnimating] = useState(false);
+    const scoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const scoopDirt = () => {
+        gameStore.getState().scoopDirt();
+        if (scoopTimerRef.current) clearTimeout(scoopTimerRef.current);
+        setScoopAnimating(true);
+        scoopTimerRef.current = setTimeout(() => setScoopAnimating(false), 700);
+    };
     const emptyBucket = () => gameStore.getState().emptyBucket();
     const detectPatch = () => gameStore.getState().detectPatch();
     const cleanMoss = () => gameStore.getState().cleanMoss();
@@ -104,7 +115,7 @@ export function Mine() {
                                     Cancel
                                 </button>
                             </div>
-                            <div className="relative h-7">
+                            <div className="relative h-14">
                                 <div className="absolute inset-0 frontier-progress-track rounded-sm overflow-hidden">
                                     <div
                                         className="h-full frontier-progress-fill-sage transition-all duration-100"
@@ -114,12 +125,18 @@ export function Mine() {
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <span className="text-xs font-bold text-frontier-bone drop-shadow-sm">{secsRemaining}s</span>
                                 </div>
-                                <div
-                                    className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
-                                    style={{ left: `${travelPct}%`, transform: 'translateX(-50%) translateY(-50%) scaleX(-1)' }}
-                                >
-                                    {vehicleEmoji}
-                                </div>
+                                <SpriteAnimation
+                                    src={minerWalkSrc}
+                                    frameWidth={352} frameHeight={256}
+                                    totalWidth={1408} totalHeight={768}
+                                    frameCount={4}
+                                    rowIndex={travelDestination === 'town' ? 1 : 2}
+                                    fps={8}
+                                    displayHeight={56}
+                                    playing={true}
+                                    className="absolute pointer-events-none transition-all duration-100"
+                                    style={{ left: `${travelPct}%`, top: '50%', transform: 'translateX(-50%) translateY(-50%)' }}
+                                />
                             </div>
                         </div>
                     ) : (
@@ -175,9 +192,11 @@ export function Mine() {
                             </button>
                         </div>
                     )}
-                    <div className="pt-1 border-t border-frontier-iron/20">
-                        <Roster roles={['detectorOperator']} />
-                    </div>
+                    {tavernBuilt && (
+                        <div className="pt-1 border-t border-frontier-iron/20">
+                            <Roster roles={['detectorOperator']} />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -253,6 +272,20 @@ export function Mine() {
                         </div>
                     </div>
 
+                    <div className="flex justify-center">
+                        <SpriteAnimation
+                            src={minerDigSrc}
+                            frameWidth={342} frameHeight={768}
+                            totalWidth={1368} totalHeight={768}
+                            frameCount={4}
+                            rowIndex={0}
+                            fps={6}
+                            displayHeight={80}
+                            playing={scoopAnimating}
+                            style={{ mixBlendMode: 'multiply' }}
+                        />
+                    </div>
+
                     <button
                         onClick={scoopDirt}
                         disabled={bucketIsFull || isTraveling}
@@ -275,9 +308,11 @@ export function Mine() {
                         </button>
                     )}
 
-                    <div className="pt-1 border-t border-frontier-iron/20">
-                        <Roster roles={['miner', 'hauler']} />
-                    </div>
+                    {tavernBuilt && (
+                        <div className="pt-1 border-t border-frontier-iron/20">
+                            <Roster roles={['miner', 'hauler']} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Sluice Box Section */}
@@ -318,9 +353,11 @@ export function Mine() {
                         >
                             🌿 Clean Moss → Pan (+3 paydirt)
                         </button>
-                        <div className="pt-1 border-t border-frontier-iron/20">
-                            <Roster roles={['sluiceOperator']} />
-                        </div>
+                        {tavernBuilt && (
+                            <div className="pt-1 border-t border-frontier-iron/20">
+                                <Roster roles={['sluiceOperator']} />
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -364,9 +401,11 @@ export function Mine() {
                             )
                         </button>
 
-                        <div className="pt-1 border-t border-frontier-iron/20">
-                            <Roster roles={['prospector']} />
-                        </div>
+                        {tavernBuilt && (
+                            <div className="pt-1 border-t border-frontier-iron/20">
+                                <Roster roles={['prospector']} />
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -457,9 +496,11 @@ export function Mine() {
                                 Furnace Operators are auto-loading, smelting &amp; collecting
                             </p>
                         )}
-                        <div className="pt-1 border-t border-frontier-iron/20">
-                            <Roster roles={['furnaceOperator']} />
-                        </div>
+                        {tavernBuilt && (
+                            <div className="pt-1 border-t border-frontier-iron/20">
+                                <Roster roles={['furnaceOperator']} />
+                            </div>
+                        )}
                     </div>
                 )}
 

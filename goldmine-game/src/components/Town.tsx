@@ -4,7 +4,8 @@ import { HiringHall } from "./HiringHall";
 import { TownMap, type TownPanel } from "./TownMap";
 import { Assayer } from "./Assayer";
 import { Blacksmith } from "./Blacksmith";
-import { UpgradeButton } from "./ui";
+import { UpgradeButton, SpriteAnimation } from "./ui";
+import minerWalkSrc from '../assets/miner-walk.png';
 
 const PANEL_LABELS: Record<TownPanel, string> = {
     shop:        '🏪 Trading Post',
@@ -63,7 +64,7 @@ export function Town() {
                             Cancel
                         </button>
                     </div>
-                    <div className="relative h-7">
+                    <div className="relative h-14">
                         <div className="absolute inset-0 frontier-progress-track rounded-sm overflow-hidden flex">
                             <div
                                 className="h-full frontier-progress-fill-amber transition-all duration-100 ml-auto"
@@ -73,12 +74,18 @@ export function Town() {
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <span className="text-xs font-bold text-frontier-bone drop-shadow-sm">{secsRemaining}s</span>
                         </div>
-                        <div
-                            className="absolute top-1/2 text-lg leading-none pointer-events-none transition-all duration-100"
-                            style={{ left: `${100 - travelPct}%`, transform: 'translateX(-50%) translateY(-50%)' }}
-                        >
-                            {vehicleEmoji}
-                        </div>
+                        <SpriteAnimation
+                            src={minerWalkSrc}
+                            frameWidth={352} frameHeight={256}
+                            totalWidth={1408} totalHeight={768}
+                            frameCount={4}
+                            rowIndex={2}
+                            fps={8}
+                            displayHeight={56}
+                            playing={true}
+                            className="absolute pointer-events-none transition-all duration-100"
+                            style={{ left: `${100 - travelPct}%`, top: '50%', transform: 'translateX(-50%) translateY(-50%)' }}
+                        />
                     </div>
                 </div>
             )}
