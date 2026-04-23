@@ -7,6 +7,51 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        version: 'v1.34.1',
+        date: '2026-04-22',
+        title: 'Heavy Machinery visible at the Mine',
+        changes: [
+            'Excavator and Wash Plant now show as a panel at the Mine when purchased',
+            'Fuel tank level displayed with a color-coded gauge (green → orange → red)',
+            'Each machine shows RUNNING or IDLE status with its active multiplier',
+            'Out-of-fuel warning directs player to refuel at the Trading Post',
+        ],
+    },
+    {
+        version: 'v1.34',
+        date: '2026-04-22',
+        title: 'Gold bars split: mine vs town',
+        changes: [
+            'Bars no longer vanish when you travel — they move from mine to town like gold flakes do',
+            'Gold Bars (At Mine) shows bars produced by the furnace, not yet delivered',
+            'Gold Bars (Town) accumulates as bars arrive; sell them at the Trading Post',
+            'Driver now hauls bars to town stock instead of auto-converting them to gold',
+            'Assayer certification now works on bars at the mine; certified bars still deliver at +20%',
+        ],
+    },
+    {
+        version: 'v1.33',
+        date: '2026-04-22',
+        title: 'Per-role crew skills',
+        changes: [
+            'Each role now has its own skill — Miner, Hauler, Prospector, etc.',
+            'Skill stats are only shown for roles you have unlocked',
+            'Skill multiplier (×1.0, ×2.5…) grows as the worker gains experience in that role',
+            'Replaces the abstract Brawn/Dexterity/Technical/Hustle stat system',
+        ],
+    },
+    {
+        version: 'v1.32',
+        date: '2026-04-17',
+        title: 'Driver is now a crew role',
+        changes: [
+            'Driver is now a standard crew role — assign a worker in the Mine Transport section',
+            'Unlocks after purchasing the Sluice Box; post the job opening for 300 oz',
+            'Driver cargo capacity scales with employee level',
+            'Removes the separate Hire Driver purchase and Larger Carrier upgrade',
+        ],
+    },
+    {
         version: 'v1.31.5',
         date: '2026-04-17',
         title: 'Sprite animation fixes',

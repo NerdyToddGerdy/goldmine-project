@@ -9,7 +9,6 @@ const FLAGS = [
     { key: 'unlockedTown',           label: '🏘️ Town' },
     { key: 'hasSluiceBox',           label: '💧 Sluice Box' },
     { key: 'hasFurnace',             label: '⚒️ Furnace' },
-    { key: 'hasDriver',              label: '🚗 Driver' },
 ] as const;
 
 type FlagKey = typeof FLAGS[number]['key'];
@@ -42,7 +41,6 @@ export function DevPanel() {
         unlockedTown: s.unlockedTown,
         hasSluiceBox: s.hasSluiceBox,
         hasFurnace: s.hasFurnace,
-        hasDriver: s.hasDriver,
     }));
 
     const snap = useGameStore(s => ({
@@ -173,7 +171,7 @@ export function DevPanel() {
                             onClick={() => gameStore.setState({
                                 unlockedPanning: true, unlockedTown: true,
                                 hasSluiceBox: true,
-                                hasFurnace: true, hasDriver: true,
+                                hasFurnace: true,
                             })}
                             className="frontier-btn-ghost text-xs px-2 py-1 border border-frontier-iron/60 text-frontier-dust"
                         >

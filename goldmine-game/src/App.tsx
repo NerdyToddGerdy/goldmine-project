@@ -7,7 +7,7 @@ import {ResourceBar} from "./components/ResourceBar.tsx";
 import {ToastContainer} from "./components/ToastContainer.tsx";
 import {WhatsNewModal} from "./components/ui";
 import {useGameLoop} from "./hooks/useGameLoop.ts";
-import {gameStore, useGameStore} from "./store/gameStore.ts";
+import {gameStore, useGameStore, getSettlementStage} from "./store/gameStore.ts";
 import {CHANGELOG} from "./data/changelog.ts";
 import {useState, useEffect} from "react";
 
@@ -16,6 +16,8 @@ type Tab = 'mine' | 'town' | 'settings' | 'dev';
 function App() {
     useGameLoop()
     const unlockedTown = useGameStore((s) => s.unlockedTown)
+    const seasonNumber = useGameStore((s) => s.seasonNumber)
+    const settlement = getSettlementStage(seasonNumber)
     const location = useGameStore((s) => s.location)
     const isTraveling = useGameStore((s) => s.isTraveling)
     const lastSeenChangelogVersion = useGameStore((s) => s.lastSeenChangelogVersion)
@@ -100,7 +102,7 @@ function App() {
                             onClick={() => handleTabClick('town')}
                             className={activeTab === 'town' ? 'frontier-tab-active' : 'frontier-tab-inactive'}
                         >
-                            🏘️ Town
+                            {settlement.emoji} {settlement.name}
                         </button>
                     )}
                     <button

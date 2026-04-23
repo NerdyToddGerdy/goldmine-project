@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, computeEmployeeStats, STAT_BASE, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS } from '../store/gameStore';
+import { gameStore, useGameStore, getHireCost, getEmployeeRolePower, getEmployeeLevel, SKILL_BASE, SKILL_PER_LEVEL, EMPLOYEE_LEVEL_CAPS, MERGE_COSTS, RARITY_ORDER, JOB_POSTING_COSTS, DEFAULT_ROLE_SLOTS, ROLE_SLOT_COSTS } from '../store/gameStore';
 import type { Employee, Role } from '../store/schema';
 
 const RARITY_STYLES: Record<string, { border: string; badge: string; text: string }> = {
@@ -14,30 +14,30 @@ const ROLE_META: Record<Role, { label: string; icon: string; equipment?: string 
     miner:            { label: 'Miner',             icon: '⛏️' },
     hauler:           { label: 'Hauler',             icon: '🛒' },
     prospector:       { label: 'Prospector',         icon: '🔭' },
-    sluiceOperator:   { label: 'Sluice Operator',    icon: '🚿', equipment: 'Sluice Box'     },
-    furnaceOperator:  { label: 'Furnace Operator',   icon: '⚗️', equipment: 'Furnace'        },
-    detectorOperator: { label: 'Detector Operator',  icon: '🔍', equipment: 'Metal Detector' },
-    certifier:        { label: 'Certifier',          icon: '⚖️', equipment: 'Assayer Level 2' },
+    sluiceOperator:   { label: 'Sluice Operator',    icon: '🚿', equipment: 'Sluice Box'        },
+    driver:           { label: 'Driver',              icon: '🤠', equipment: 'Sluice Box'        },
+    furnaceOperator:  { label: 'Furnace Operator',   icon: '⚗️', equipment: 'Furnace'           },
+    detectorOperator: { label: 'Detector Operator',  icon: '🔍', equipment: 'Metal Detector'    },
+    certifier:        { label: 'Certifier',          icon: '⚖️', equipment: 'Assayer Level 2'   },
+    teamster:         { label: 'Teamster',            icon: '⛽', equipment: 'Excavator/Washplant' },
 };
 
-const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
+const ROLE_ORDER: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'driver', 'furnaceOperator', 'detectorOperator', 'certifier', 'teamster'];
 
-function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
-    return (
-        <div className="flex items-center gap-2">
-            <span className="w-10 shrink-0 text-frontier-dust">{label}</span>
-            <div className="flex-1 h-1.5 rounded-sm bg-frontier-iron/30 overflow-hidden">
-                <div className="h-full rounded-sm bg-frontier-nugget" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
-            </div>
-            <span className="w-8 text-right font-semibold text-frontier-bone">{value}/{max}</span>
-        </div>
-    );
+function getUnlockedRoles(state: { hasSluiceBox: boolean; hasFurnace: boolean; hasMetalDetector: boolean; assayerLevel: number; hasExcavator: boolean; hasWashplant: boolean }): Role[] {
+    const roles: Role[] = ['miner', 'hauler', 'prospector'];
+    if (state.hasSluiceBox)                     roles.push('sluiceOperator', 'driver');
+    if (state.hasFurnace)                        roles.push('furnaceOperator');
+    if (state.hasMetalDetector)                  roles.push('detectorOperator');
+    if (state.assayerLevel >= 2)                 roles.push('certifier');
+    if (state.hasExcavator || state.hasWashplant) roles.push('teamster');
+    return roles;
 }
 
-function EmployeeCard({ emp, children }: { emp: Employee; children?: React.ReactNode }) {
+function EmployeeCard({ emp, unlockedRoles, children }: { emp: Employee; unlockedRoles: Role[]; children?: React.ReactNode }) {
     const s = RARITY_STYLES[emp.rarity];
-    const stats = computeEmployeeStats(emp);
-    const statMax = STAT_BASE[emp.rarity] + EMPLOYEE_LEVEL_CAPS[emp.rarity];
+    const cap = EMPLOYEE_LEVEL_CAPS[emp.rarity];
+    const maxPower = SKILL_BASE[emp.rarity] + cap * SKILL_PER_LEVEL;
     return (
         <div className={`has-texture p-3 rounded-sm border-2 space-y-2 bg-frontier-parchment dark:bg-frontier-dirt ${s.border}`}>
             <div className="flex items-center justify-between">
@@ -45,10 +45,21 @@ function EmployeeCard({ emp, children }: { emp: Employee; children?: React.React
                 <span className={`text-xs font-bold capitalize ${s.badge}`}>{emp.rarity}</span>
             </div>
             <div className="space-y-1 text-xs">
-                <StatBar label="Brawn"  value={stats.brawn}     max={statMax} />
-                <StatBar label="Dex"    value={stats.dexterity} max={statMax} />
-                <StatBar label="Tech"   value={stats.technical} max={statMax} />
-                <StatBar label="Hustle" value={stats.hustle}    max={statMax} />
+                {unlockedRoles.map(role => {
+                    const power = getEmployeeRolePower(emp, role);
+                    return (
+                        <div key={role} className="flex items-center gap-2">
+                            <span className="w-16 shrink-0 text-frontier-dust">{ROLE_META[role].label}</span>
+                            <div className="flex-1 h-1.5 rounded-sm bg-frontier-iron/30 overflow-hidden">
+                                <div className="h-full rounded-sm bg-frontier-nugget" style={{ width: `${Math.min(100, (power / maxPower) * 100)}%` }} />
+                            </div>
+                            <span className="w-10 text-right font-semibold text-frontier-bone">×{power.toFixed(1)}</span>
+                        </div>
+                    );
+                })}
+                {unlockedRoles.length === 0 && (
+                    <p className="text-frontier-iron text-center py-1">No roles unlocked yet</p>
+                )}
             </div>
             {children}
         </div>
@@ -61,6 +72,13 @@ function DraftPool() {
     const gold = useGameStore(s => s.gold);
     const draftPool = useGameStore(s => s.draftPool);
     const refreshCost = useGameStore(s => s.draftPoolRefreshCost);
+    const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
+    const hasFurnace = useGameStore(s => s.hasFurnace);
+    const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
+    const assayerLevel = useGameStore(s => s.npcLevels.assayer);
+    const hasExcavator = useGameStore(s => s.hasExcavator);
+    const hasWashplant = useGameStore(s => s.hasWashplant);
+    const unlockedRoles = getUnlockedRoles({ hasSluiceBox, hasFurnace, hasMetalDetector, assayerLevel, hasExcavator, hasWashplant });
 
     useEffect(() => {
         if (draftPool.length === 0) {
@@ -89,7 +107,7 @@ function DraftPool() {
                         const cost = getHireCost(emp);
                         const canAfford = gold >= cost;
                         return (
-                            <EmployeeCard key={emp.id} emp={emp}>
+                            <EmployeeCard key={emp.id} emp={emp} unlockedRoles={unlockedRoles}>
                                 <div className="flex items-center justify-end pt-1">
                                     <button
                                         onClick={() => gameStore.getState().hireEmployee(emp.id)}
@@ -113,6 +131,13 @@ function DraftPool() {
 
 function Bench() {
     const employees = useGameStore(s => s.employees);
+    const hasSluiceBox = useGameStore(s => s.hasSluiceBox);
+    const hasFurnace = useGameStore(s => s.hasFurnace);
+    const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
+    const assayerLevel = useGameStore(s => s.npcLevels.assayer);
+    const hasExcavator = useGameStore(s => s.hasExcavator);
+    const hasWashplant = useGameStore(s => s.hasWashplant);
+    const unlockedRoles = getUnlockedRoles({ hasSluiceBox, hasFurnace, hasMetalDetector, assayerLevel, hasExcavator, hasWashplant });
     const bench = employees.filter(e => e.assignedRole === null);
 
     return (
@@ -123,7 +148,7 @@ function Bench() {
             ) : (
                 <div className="space-y-2">
                     {bench.map(emp => (
-                        <EmployeeCard key={emp.id} emp={emp}>
+                        <EmployeeCard key={emp.id} emp={emp} unlockedRoles={unlockedRoles}>
                             <div className="flex items-center justify-end pt-1">
                                 <button
                                     onClick={() => gameStore.getState().dismissEmployee(emp.id)}
@@ -241,25 +266,32 @@ export function Roster({ roles }: { roles?: Role[] } = {}) {
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const hasMetalDetector = useGameStore(s => s.hasMetalDetector);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
+    const hasExcavator = useGameStore(s => s.hasExcavator);
+    const hasWashplant = useGameStore(s => s.hasWashplant);
     const postedJobs = useGameStore(s => s.postedJobs);
     const gold = useGameStore(s => s.gold);
     const [collapsed, setCollapsed] = useState(false);
 
     const bench = employees.filter(e => e.assignedRole === null);
     const activeRoles = roles ?? ROLE_ORDER;
+    const hasHeavyMachinery = hasExcavator || hasWashplant;
 
     function equipmentOwned(role: Role): boolean {
         if (role === 'sluiceOperator') return hasSluiceBox;
+        if (role === 'driver') return hasSluiceBox;
         if (role === 'furnaceOperator') return hasFurnace;
         if (role === 'detectorOperator') return hasMetalDetector;
+        if (role === 'teamster') return hasHeavyMachinery;
         return true;
     }
 
     function isLocked(role: Role): boolean {
         if (role === 'sluiceOperator') return !hasSluiceBox || !postedJobs.sluiceOperator;
+        if (role === 'driver') return !hasSluiceBox || !postedJobs.driver;
         if (role === 'furnaceOperator') return !hasFurnace || !postedJobs.furnaceOperator;
         if (role === 'detectorOperator') return !hasMetalDetector || !postedJobs.detectorOperator;
         if (role === 'certifier') return assayerLevel < 2;
+        if (role === 'teamster') return !hasHeavyMachinery || !postedJobs.teamster;
         return false;
     }
 
@@ -444,7 +476,7 @@ function Forge() {
                                                 <span className={`text-xs px-1 rounded-sm capitalize ${s.badge}`}>{emp.rarity}</span>
                                             </div>
                                             <div className="flex gap-2 mt-0.5 text-xs text-frontier-dust">
-                                                {(() => { const st = computeEmployeeStats(emp); return (<><span>Brawn {st.brawn}</span><span>Dex {st.dexterity}</span><span>Tech {st.technical}</span><span>Hustle {st.hustle}</span></>); })()}
+                                                <span className="capitalize">{emp.rarity}</span>
                                             </div>
                                         </div>
                                         {isSel && <span className="text-frontier-nugget font-bold text-sm">✓</span>}
@@ -467,17 +499,9 @@ function Forge() {
                     </div>
 
                     {canForge && targetRarity && (
-                        <div className="space-y-1 text-xs text-frontier-aged">
-                            <div className="flex gap-3 justify-center font-body">
-                                {(['Brawn', 'Dex', 'Tech', 'Hustle'] as const).map(label => (
-                                    <div key={label} className="text-center">
-                                        <div className="text-frontier-dust">{label}</div>
-                                        <div className="font-bold text-frontier-nugget">{STAT_BASE[targetRarity]}</div>
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-center text-frontier-dust">"{sel[0].name}" · {targetRarity} · starts at base {STAT_BASE[targetRarity]}</p>
-                        </div>
+                        <p className="text-xs text-center text-frontier-dust">
+                            "{sel[0].name}" · {targetRarity} · starts at ×{SKILL_BASE[targetRarity].toFixed(1)} base skill
+                        </p>
                     )}
 
                     <button

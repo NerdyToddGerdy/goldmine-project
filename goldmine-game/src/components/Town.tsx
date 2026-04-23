@@ -1,4 +1,4 @@
-import { gameStore, getUpgradeCost, useGameStore, VEHICLE_TIERS, DRIVER_COST, getTravelDurationTicks, getDriverCapacity, MAX_DRIVER_CAP_UPGRADES, DRIVER_BASE_CAPACITY, TRADER_FUEL_COST, FUEL_TANK_CAP } from "../store/gameStore";
+import { gameStore, useGameStore, VEHICLE_TIERS, getTravelDurationTicks, TRADER_FUEL_COST, FUEL_TANK_CAP } from "../store/gameStore";
 import { useState } from "react";
 import { HiringHall } from "./HiringHall";
 import { TownMap, type TownPanel } from "./TownMap";
@@ -25,14 +25,13 @@ export function Town() {
     const [openPanel, setOpenPanel] = useState<TownPanel | null>(null);
 
     const gold = useGameStore((s) => s.gold);
+    const goldBars = useGameStore((s) => s.goldBars);
     const vehicleTier = useGameStore((s) => s.vehicleTier);
-    const hasDriver = useGameStore((s) => s.hasDriver);
     const traderLevel = useGameStore((s) => s.npcLevels.trader);
     const npcLevels = useGameStore((s) => s.npcLevels);
     const isTraveling = useGameStore((s) => s.isTraveling);
     const travelProgress = useGameStore((s) => s.travelProgress);
     const travelDestination = useGameStore((s) => s.travelDestination);
-    const driverCapUpgrades = useGameStore((s) => s.driverCapUpgrades);
     const fuelTank = useGameStore((s) => s.fuelTank);
     const traderFuelTripTicks = useGameStore((s) => s.traderFuelTripTicks);
     const hasExcavator = useGameStore((s) => s.hasExcavator);
@@ -144,17 +143,20 @@ export function Town() {
                                 />
                             );
                         })}
-                        {hasDriver && (
-                            <UpgradeButton
-                                name={`Larger Carrier (${driverCapUpgrades}/${MAX_DRIVER_CAP_UPGRADES})`}
-                                description={`Driver carries +5 oz per upgrade. Current: ${getDriverCapacity(driverCapUpgrades)} oz (base ${DRIVER_BASE_CAPACITY} oz).`}
-                                cost={getUpgradeCost('largerCarrier', driverCapUpgrades)}
-                                locked={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES}
-                                canAfford={driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES && gold >= getUpgradeCost('largerCarrier', driverCapUpgrades)}
-                                playerMoney={gold}
-                                onBuy={() => gameStore.getState().buyUpgrade('largerCarrier')}
-                                icon={driverCapUpgrades >= MAX_DRIVER_CAP_UPGRADES ? '✅' : '📦'}
-                            />
+                        {/* Sell Bars — visible when player has bars in town */}
+                        {goldBars > 0 && (
+                            <div className="p-3 rounded-sm border border-frontier-nugget/40 bg-frontier-nugget/5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-frontier-bone">🧱 Gold Bars</span>
+                                    <span className="text-sm font-bold text-frontier-nugget">{goldBars.toFixed(2)} oz</span>
+                                </div>
+                                <button
+                                    onClick={() => gameStore.getState().sellBars()}
+                                    className="w-full frontier-btn-primary text-sm"
+                                >
+                                    Sell All Bars (+{goldBars.toFixed(2)} oz)
+                                </button>
+                            </div>
                         )}
 
                         {/* Trader Fuel Runs — visible once excavator or washplant is owned */}
@@ -200,20 +202,6 @@ export function Town() {
                 {openPanel === 'tavern' && (
                     <div className={`space-y-4${isTraveling ? ' pointer-events-none opacity-50' : ''}`}>
                         <HiringHall />
-                        <UpgradeButton
-                            name="Hire Driver"
-                            description={hasDriver
-                                ? 'Driver is working — auto-sells gold on round trips'
-                                : traderLevel < 4
-                                    ? `Requires Trader Level 4 (currently ${traderLevel})`
-                                    : 'Auto-sells your gold at Town without you traveling'}
-                            cost={DRIVER_COST}
-                            locked={hasDriver}
-                            canAfford={!hasDriver && gold >= DRIVER_COST && traderLevel >= 4}
-                            playerMoney={gold}
-                            onBuy={() => gameStore.getState().buyDriver()}
-                            icon={hasDriver ? '✅' : '🤠'}
-                        />
                     </div>
                 )}
 

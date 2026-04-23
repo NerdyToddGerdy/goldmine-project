@@ -2,7 +2,7 @@ import { gameStore, useGameStore, CERT_FEE, GOLD_BAR_CERTIFIED_BONUS } from '../
 
 export function Assayer() {
     const gold = useGameStore(s => s.gold);
-    const goldBars = useGameStore(s => s.goldBars);
+    const goldBarsAtMine = useGameStore(s => s.goldBarsAtMine);
     const goldBarsCertified = useGameStore(s => s.goldBarsCertified);
     const hasFurnace = useGameStore(s => s.hasFurnace);
     const assayerLevel = useGameStore(s => s.npcLevels.assayer);
@@ -19,7 +19,7 @@ export function Assayer() {
         );
     }
 
-    const canCertify = gold >= CERT_FEE && goldBars >= 0.001;
+    const canCertify = gold >= CERT_FEE && goldBarsAtMine >= 0.001;
     const certifiedBonus = ((GOLD_BAR_CERTIFIED_BONUS - 1) * 100).toFixed(0);
 
     return (
@@ -27,20 +27,20 @@ export function Assayer() {
             <h3 className="font-display text-base text-frontier-bone tracking-wide">⚖️ Assayer Office</h3>
             <p className="text-xs text-frontier-dust">
                 Certified bars yield <span className="font-semibold text-frontier-nugget">+{certifiedBonus}% gold</span> when collected.
-                Pay {CERT_FEE} oz to certify all bars in hand.
+                Pay {CERT_FEE} oz to certify all bars at the mine.
             </p>
 
             {/* Current inventory */}
             <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-sm bg-frontier-coal/30 border border-frontier-iron/40 text-center">
-                    <p className="text-xs text-frontier-dust mb-0.5">Uncertified Bars</p>
-                    <p className="text-lg font-bold text-frontier-bone">{goldBars.toFixed(2)} oz</p>
+                    <p className="text-xs text-frontier-dust mb-0.5">Bars at Mine</p>
+                    <p className="text-lg font-bold text-frontier-bone">{goldBarsAtMine.toFixed(2)} oz</p>
                 </div>
                 <div className="p-3 rounded-sm bg-frontier-nugget/10 border border-frontier-nugget/40 text-center">
                     <p className="text-xs text-frontier-nugget mb-0.5">Certified Bars</p>
                     <p className="text-lg font-bold text-frontier-nugget">{goldBarsCertified.toFixed(2)} oz</p>
                     {goldBarsCertified > 0 && (
-                        <p className="text-xs text-frontier-ember">→ {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz on collect</p>
+                        <p className="text-xs text-frontier-ember">→ {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz on delivery</p>
                     )}
                 </div>
             </div>
@@ -58,10 +58,10 @@ export function Assayer() {
                 >
                     Certify All Bars ({CERT_FEE} oz)
                 </button>
-                {!canCertify && goldBars < 0.001 && (
-                    <p className="text-xs text-frontier-dust text-center">No uncertified bars in inventory</p>
+                {!canCertify && goldBarsAtMine < 0.001 && (
+                    <p className="text-xs text-frontier-dust text-center">No uncertified bars at the mine</p>
                 )}
-                {!canCertify && goldBars >= 0.001 && gold < CERT_FEE && (
+                {!canCertify && goldBarsAtMine >= 0.001 && gold < CERT_FEE && (
                     <p className="text-xs text-frontier-rust text-center">Not enough gold (need {CERT_FEE} oz)</p>
                 )}
             </div>

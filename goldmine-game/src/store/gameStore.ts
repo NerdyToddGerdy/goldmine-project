@@ -170,7 +170,6 @@ export type GameState = {
 
     // Travel mechanic (persisted)
     vehicleTier: number  // 0=on foot, 1=mule cart, 2=steam wagon, 3=motor truck
-    hasDriver: boolean   // hired a driver to auto-sell gold
 
     // Travel state (transient, not persisted)
     isTraveling: boolean
@@ -193,12 +192,12 @@ export type GameState = {
     furnaceFilled: number     // oz of gold flakes currently loaded in furnace
     furnaceRunning: boolean   // switch state — smelting is active
     furnaceBars: number       // bars produced inside furnace, not yet collected
-    goldBars: number          // bars in player's possession (sellable)
+    goldBarsAtMine: number    // bars at the mine (furnace output, undelivered)
+    goldBars: number          // bars at town (delivered via travel or driver, manually sellable)
 
     // Driver carrier (persisted)
     driverCarryingFlakes: number // oz of raw flakes currently in transit
     driverCarryingBars: number   // oz of gold bars currently in transit
-    driverCapUpgrades: number    // Larger Carrier upgrade level (0–3)
     goldBarsCertified: number    // bars certified by Assayer (collect at 1.2× gold bonus)
 
     // Engine-powered machinery (v1.29) + trader fuel runs (v1.31)
@@ -253,11 +252,11 @@ export type GameState = {
     startTravel: (destination: 'mine' | 'town') => void // begins timed travel
     cancelTravel: () => void // aborts travel, player stays at current location
     buyVehicle: (tier: number) => boolean
-    buyDriver: () => boolean
     loadFurnace: () => void  // transfer gold flakes → furnaceFilled (up to FURNACE_CAPACITY)
     toggleFurnace: () => void // toggle furnaceRunning switch
-    collectBars: () => void  // move furnaceBars → goldBars
-    certifyBars: () => boolean  // pay CERT_FEE in gold, move goldBars → goldBarsCertified (collect at 1.2×)
+    collectBars: () => void  // move furnaceBars → goldBarsAtMine
+    certifyBars: () => boolean  // pay CERT_FEE in gold, move goldBarsAtMine → goldBarsCertified (collect at 1.2×)
+    sellBars: () => void  // convert goldBars (at town) → gold wallet
     buyUpgrade: (upgrade: string) => boolean // returns success
 
     // Hiring Hall actions (#113, #114)
@@ -307,7 +306,6 @@ export const UPGRADES = {
     sluiceWorker: { baseCost: 75, multiplier: 1.2, extractionBonus: 0.1 }, // +10% extraction per worker
     furnaceWorker: { baseCost: 150, multiplier: 1.25 }, // auto-loads, smelts, and collects gold bars
     detectorWorker: { baseCost: 100, multiplier: 1.2, spotsPerSec: 0.5 },
-    largerCarrier: { baseCost: 250, multiplier: 1.6 }, // +5 oz driver capacity per upgrade
 };
 
 // Equipment costs (one-time purchases - unlock workers)
@@ -321,8 +319,10 @@ export const EQUIPMENT = {
 // Cost to post the job opening after buying the equipment (resets each season)
 export const JOB_POSTING_COSTS: Partial<Record<Role, number>> = {
     sluiceOperator:   300,
+    driver:           300,
     furnaceOperator:  2500,
     detectorOperator: 600,
+    teamster:         500,
 };
 
 // Vehicle tiers for travel mechanic
@@ -332,8 +332,6 @@ export const VEHICLE_TIERS = [
     { name: 'Steam Wagon', travelSecs: 4,   cost: 750 },
     { name: 'Motor Truck', travelSecs: 2,   cost: 3000 },
 ] as const;
-
-export const DRIVER_COST = 5000;
 
 export function getTravelDurationTicks(vehicleTier: number): number {
     return (VEHICLE_TIERS[vehicleTier as 0|1|2|3]?.travelSecs ?? 60) * 60;
@@ -365,13 +363,8 @@ export function getTraderHeadStart(traderLevel: number): number {
 }
 
 // Driver carrier constants
-export const DRIVER_BASE_CAPACITY = 10;    // oz per trip at no upgrades
-export const DRIVER_CAP_BONUS_OZ = 5;      // oz added per Larger Carrier upgrade
-export const MAX_DRIVER_CAP_UPGRADES = 3;
-
-export function getDriverCapacity(capUpgrades: number): number {
-    return DRIVER_BASE_CAPACITY + capUpgrades * DRIVER_CAP_BONUS_OZ;
-}
+export const DRIVER_BASE_CAPACITY = 10;  // oz per trip at power 0
+export const DRIVER_CAP_RATE = 8;        // oz per power unit
 
 // Tool upgrade tiers (5 tiers, fixed costs) — defined in data/tools.ts
 export { MAX_TOOL_TIER, TOOL_TIERS } from "../data/tools";
@@ -395,43 +388,18 @@ export const SLUICE_DRAIN_BOOST_RATE = 8 / 15; // drain multiplier per power uni
 export const SLUICE_EXTRACTION_RATE = 4 / 37.5;// extraction bonus per power unit
 export const DETECTOR_PROGRESS_RATE = 8 / 15;  // spots/sec per power unit
 
-/** Starting stat value by rarity — all four stats begin at this value */
-export const STAT_BASE: Record<Rarity, number> = {
-    common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5,
+// Per-role skill system — power comes directly from role-specific XP level
+export const SKILL_BASE: Record<Rarity, number> = {
+    common: 1.0, uncommon: 1.5, rare: 2.0, epic: 2.5, legendary: 3.0,
 };
-
-/** Compute current stats from xpByRole + rarity (replaces stored stats) */
-export function computeEmployeeStats(emp: Employee) {
-    const base = STAT_BASE[emp.rarity];
-    const lvl = (role: Role) => getEmployeeLevel(emp.xpByRole[role] ?? 0, emp.rarity);
-    const allRoles: Role[] = ['miner', 'hauler', 'prospector', 'sluiceOperator', 'furnaceOperator', 'detectorOperator', 'certifier'];
-    const totalLevels = allRoles.reduce((s, r) => s + lvl(r), 0);
-    return {
-        brawn:     base + Math.max(lvl('miner'), lvl('hauler')),
-        dexterity: base + lvl('prospector'),
-        technical: base + Math.max(lvl('sluiceOperator'), lvl('furnaceOperator'), lvl('detectorOperator'), lvl('certifier')),
-        hustle:    base + Math.floor(totalLevels / 5),
-    };
-}
+export const SKILL_PER_LEVEL = 0.3; // power added per level-up in a role
 
 export const MAX_EXTRACTION_RATE = 0.8; // sluice ops cannot push extraction above this
 
-/** Primary stat power for a given role (sqrt-scaled for diminishing returns) */
+/** Power for a role = rarity base + role level × 0.3 */
 export function getEmployeeRolePower(e: Employee, role: Role): number {
-    const { brawn, dexterity, technical, hustle } = computeEmployeeStats(e);
-    const sh = Math.sqrt(hustle);
-    switch (role) {
-        case 'miner':
-        case 'hauler':
-            return Math.sqrt(brawn) * 0.5 + sh * 0.25;
-        case 'prospector':
-            return Math.sqrt(dexterity) * 0.5 + sh * 0.25;
-        case 'sluiceOperator':
-        case 'furnaceOperator':
-        case 'detectorOperator':
-        case 'certifier':
-            return Math.sqrt(technical) * 0.5 + sh * 0.25;
-    }
+    const level = getEmployeeLevel(e.xpByRole[role] ?? 0, e.rarity);
+    return SKILL_BASE[e.rarity] + level * SKILL_PER_LEVEL;
 }
 
 export const EMPLOYEE_LEVEL_CAPS: Record<Rarity, number> = {
@@ -474,15 +442,17 @@ export function getHireCost(e: Employee): number {
 // CERT_FEE is defined above (line ~293). UNCERTIFIED_BAR_PENALTY removed (no penalty in gold-as-currency model).
 
 // Role slot upgrades (#117) — all roles start at 1 slot; extras are purchased
-export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 };
+export const DEFAULT_ROLE_SLOTS: RoleSlots = { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, driver: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, teamster: 1 };
 export const ROLE_SLOT_COSTS: Record<Role, number[]> = {
     miner:            [100, 250, 500, 900, 1400],   // max 6
     hauler:           [150, 400, 800],               // max 4
     prospector:       [150, 350, 650, 1100],         // max 5
     sluiceOperator:   [300, 650, 1200],              // max 4
+    driver:           [600, 1200],                   // max 3
     furnaceOperator:  [450, 900],                    // max 3
     detectorOperator: [400, 800],                    // max 3
     certifier:        [1000],                        // max 2
+    teamster:         [800],                         // max 2
 };
 
 const _EMP_FIRST_NAMES = ['Jake', 'Clara', 'Hank', 'Mae', 'Buck', 'Ruth', 'Clem', 'Ida', 'Silas', 'Nell', 'Amos', 'Vera', 'Ezra', 'Pearl', 'Jeb', 'Flora', 'Gus', 'Ada', 'Doc', 'Lily'];
@@ -600,7 +570,6 @@ export const gameStore = createStore<GameState>()(
 
             // Travel mechanic
             vehicleTier: 0,
-            hasDriver: false,
             isTraveling: false,
             travelProgress: 0,
             travelDestination: 'mine' as const,
@@ -621,12 +590,12 @@ export const gameStore = createStore<GameState>()(
             furnaceFilled: 0,
             furnaceRunning: false,
             furnaceBars: 0,
+            goldBarsAtMine: 0,
             goldBars: 0,
 
             // Driver carrier
             driverCarryingFlakes: 0,
             driverCarryingBars: 0,
-            driverCapUpgrades: 0,
             goldBarsCertified: 0,
 
             // Engine-powered machinery
@@ -686,7 +655,6 @@ export const gameStore = createStore<GameState>()(
                     unlockedTown: false,
                     runGoldMined: 0,
                     vehicleTier: 0,
-                    hasDriver: false,
                     isTraveling: false,
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
@@ -703,10 +671,10 @@ export const gameStore = createStore<GameState>()(
                     furnaceFilled: 0,
                     furnaceRunning: false,
                     furnaceBars: 0,
+                    goldBarsAtMine: 0,
                     goldBars: 0,
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
-                    driverCapUpgrades: 0,
                     goldBarsCertified: 0,
                     _accumulator: 0,
                     devMode: false,
@@ -759,7 +727,6 @@ export const gameStore = createStore<GameState>()(
                     panCapUpgrades: 0,
                     panSpeedUpgrades: 0,
                     vehicleTier: 0,
-                    hasDriver: false,
                     isTraveling: false,
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
@@ -782,10 +749,10 @@ export const gameStore = createStore<GameState>()(
                     furnaceFilled: 0,
                     furnaceRunning: false,
                     furnaceBars: 0,
+                    goldBarsAtMine: 0,
                     goldBars: 0,
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
-                    driverCapUpgrades: 0,
                     goldBarsCertified: 0,
                     lastSeenChangelogVersion: defaultSaveV39().lastSeenChangelogVersion,
                     totalGoldExtracted: 0,
@@ -837,7 +804,6 @@ export const gameStore = createStore<GameState>()(
                     panCapUpgrades: s.panCapUpgrades,
                     panSpeedUpgrades: s.panSpeedUpgrades,
                     vehicleTier: s.vehicleTier,
-                    hasDriver: s.hasDriver,
                     timePlayed: s.timePlayed,
                     darkMode: s.darkMode,
                     lastSeenChangelogVersion: s.lastSeenChangelogVersion,
@@ -854,10 +820,10 @@ export const gameStore = createStore<GameState>()(
                     furnaceFilled: s.furnaceFilled,
                     furnaceRunning: s.furnaceRunning,
                     furnaceBars: s.furnaceBars,
+                    goldBarsAtMine: s.goldBarsAtMine,
                     goldBars: s.goldBars,
                     driverCarryingFlakes: s.driverCarryingFlakes,
                     driverCarryingBars: s.driverCarryingBars,
-                    driverCapUpgrades: s.driverCapUpgrades,
                     goldBarsCertified: s.goldBarsCertified,
                     postedJobs: s.postedJobs,
                     hasExcavator: s.hasExcavator,
@@ -918,7 +884,6 @@ export const gameStore = createStore<GameState>()(
                     panCapUpgrades: migrated.panCapUpgrades,
                     panSpeedUpgrades: migrated.panSpeedUpgrades,
                     vehicleTier: migrated.vehicleTier,
-                    hasDriver: migrated.hasDriver,
                     timePlayed: migrated.timePlayed,
                     darkMode: migrated.darkMode,
                     lastSeenChangelogVersion: migrated.lastSeenChangelogVersion,
@@ -935,10 +900,10 @@ export const gameStore = createStore<GameState>()(
                     furnaceFilled: migrated.furnaceFilled,
                     furnaceRunning: migrated.furnaceRunning,
                     furnaceBars: migrated.furnaceBars,
+                    goldBarsAtMine: migrated.goldBarsAtMine,
                     goldBars: migrated.goldBars,
                     driverCarryingFlakes: migrated.driverCarryingFlakes,
                     driverCarryingBars: migrated.driverCarryingBars,
-                    driverCapUpgrades: migrated.driverCapUpgrades,
                     goldBarsCertified: migrated.goldBarsCertified,
                     postedJobs: migrated.postedJobs,
                     hasExcavator: migrated.hasExcavator,
@@ -1123,16 +1088,6 @@ export const gameStore = createStore<GameState>()(
                 return true;
             },
 
-            buyDriver: () => {
-                const s = get();
-                if (s.hasDriver) return false;
-                if (s.vehicleTier < 2) return false; // requires Steam Wagon
-                if (s.gold < DRIVER_COST) return false;
-                set({ gold: s.gold - DRIVER_COST, hasDriver: true });
-                get().addToast('🤠 Driver hired! He will auto-sell your gold.', 'success');
-                return true;
-            },
-
             // ─── Hiring Hall actions (#113, #114) ────────────────────────────
 
             hireEmployee: (employeeId: string) => {
@@ -1247,11 +1202,10 @@ export const gameStore = createStore<GameState>()(
             },
 
             collectBars: () => {
-                // Pull finished bars from the furnace into mine inventory (goldBars).
-                // They remain at the mine until the player travels to town or the driver hauls them.
+                // Pull finished bars from the furnace into mine stock (goldBarsAtMine).
                 set((s) => {
                     if (s.furnaceBars <= 0) return s;
-                    return { goldBars: s.goldBars + s.furnaceBars, furnaceBars: 0 };
+                    return { goldBarsAtMine: s.goldBarsAtMine + s.furnaceBars, furnaceBars: 0 };
                 });
             },
 
@@ -1259,9 +1213,20 @@ export const gameStore = createStore<GameState>()(
                 const s = get();
                 if (!s.storyNPCs.assayerArrived) return false;
                 if (s.gold < CERT_FEE) return false;
-                if (s.goldBars < 0.001) return false;
-                set({ gold: s.gold - CERT_FEE, goldBarsCertified: s.goldBarsCertified + s.goldBars, goldBars: 0 });
+                if (s.goldBarsAtMine < 0.001) return false;
+                set({ gold: s.gold - CERT_FEE, goldBarsCertified: s.goldBarsCertified + s.goldBarsAtMine, goldBarsAtMine: 0 });
                 return true;
+            },
+
+            sellBars: () => {
+                set((s) => {
+                    if (s.goldBars < 0.001) return s;
+                    return {
+                        gold: s.gold + s.goldBars,
+                        runGoldMined: s.runGoldMined + s.goldBars,
+                        goldBars: 0,
+                    };
+                });
             },
 
             buyUpgrade: (upgrade: string) => {
@@ -1357,14 +1322,6 @@ export const gameStore = createStore<GameState>()(
                         set({ gold: s.gold - cost, hasMotherlode: true });
                         get().addToast('💎 Motherlode Upgrade installed!', 'success');
                         return true;
-                    }
-                } else if (upgrade === 'largerCarrier') {
-                    if (s.hasDriver && s.driverCapUpgrades < MAX_DRIVER_CAP_UPGRADES) {
-                        const cost = getUpgradeCost('largerCarrier', s.driverCapUpgrades);
-                        if (s.gold >= cost) {
-                            set({ gold: s.gold - cost, driverCapUpgrades: s.driverCapUpgrades + 1 });
-                            return true;
-                        }
                     }
                 }
 
@@ -1488,7 +1445,6 @@ export const gameStore = createStore<GameState>()(
                     panCapUpgrades: 0,
                     panSpeedUpgrades: 0,
                     vehicleTier: 0,
-                    hasDriver: false,
                     isTraveling: false,
                     travelProgress: 0,
                     travelDestination: 'mine' as const,
@@ -1511,7 +1467,6 @@ export const gameStore = createStore<GameState>()(
                     goldBars: 0,
                     driverCarryingFlakes: 0,
                     driverCarryingBars: 0,
-                    driverCapUpgrades: 0,
                     goldBarsCertified: 0,
                     _accumulator: 0,
                     toasts: [],
@@ -1526,6 +1481,7 @@ export const gameStore = createStore<GameState>()(
 
             _fixedTick: () => {
                 let townJustUnlocked = false;
+                let panningJustUnlocked = false;
                 let deliveredOnArrival = 0;
                 const devEvents: string[] = [];
                 const npcArrivals: string[] = [];
@@ -1559,6 +1515,15 @@ export const gameStore = createStore<GameState>()(
                             newFuelTank = Math.min(FUEL_TANK_CAP, newFuelTank + TRADER_FUEL_AMOUNT);
                             newTraderFuelTripTicks = 0;
                         }
+                    }
+                    // Teamster automation: auto-send for fuel when tank < 40% and no run in progress
+                    const teamsterPower = getAssignedPower(s.employees, 'teamster');
+                    let teamsterFuelCost = 0;
+                    if (teamsterPower > 0 && newTraderFuelTripTicks === 0
+                            && newFuelTank < FUEL_TANK_CAP * 0.4 && newFuelTank < FUEL_TANK_CAP
+                            && s.gold >= TRADER_FUEL_COST) {
+                        newTraderFuelTripTicks = 1;
+                        teamsterFuelCost = TRADER_FUEL_COST;
                     }
 
                     // Excavator multiplier: ×3 dirt rate when fueled
@@ -1671,6 +1636,8 @@ export const gameStore = createStore<GameState>()(
                         }
                         newBucketFilled = Math.min(newBucketFilled + actualGain, bucketCap);
                     }
+                    // Unlock panning when bucket fills via miners (mirrors manual scoopDirt unlock)
+                    if (!s.unlockedPanning && newBucketFilled >= bucketCap) panningJustUnlocked = true;
 
                     let goldGained = 0;
 
@@ -1701,7 +1668,8 @@ export const gameStore = createStore<GameState>()(
                     let newIsTraveling = s.isTraveling;
                     let newTravelProgress = s.travelProgress;
                     let newLocation = s.location;
-                    let travelDeliveredGold = 0; // gold delivered on arriving at town
+                    let travelDeliveredGold = 0; // gold (flakes + certified) delivered on arriving at town
+                    let arrivedAtTown = false;
 
                     if (s.isTraveling) {
                         const travelDuration = getTravelDurationTicks(s.vehicleTier);
@@ -1711,49 +1679,52 @@ export const gameStore = createStore<GameState>()(
                             newIsTraveling = false;
                             newTravelProgress = 0;
                             if (newLocation === 'town') {
+                                arrivedAtTown = true;
                                 if (!s.unlockedTown) townJustUnlocked = true;
-                                // Auto-deposit: all mine stock converts to spendable gold on arrival
+                                // Flakes and certified bars auto-sell to gold wallet on arrival
+                                // Raw bars move to goldBars (at town) — handled in state update below
                                 const flakesDelivered = s.goldAtMine + goldGained;
-                                const barsDelivered = s.goldBars;
                                 const certifiedDelivered = s.goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS;
-                                travelDeliveredGold = flakesDelivered + barsDelivered + certifiedDelivered;
-                                deliveredOnArrival = travelDeliveredGold; // capture for toast after set()
-                                // goldGained flows to wallet via travelDeliveredGold; handled below
+                                travelDeliveredGold = flakesDelivered + certifiedDelivered;
+                                deliveredOnArrival = travelDeliveredGold;
                             }
                         }
                     }
 
-                    // Driver round-trip: load bars first, then flakes from mine stock; deposit to gold balance
+                    // Driver round-trip: load bars (from mine) first, then flakes; deposit to town stock
                     let driverLoadedFlakes = 0;
-                    let driverLoadedBars = 0;
                     let newDriverCarryingFlakes = s.driverCarryingFlakes;
                     let newDriverCarryingBars = s.driverCarryingBars;
-                    let driverDepositedGold = 0;
+                    let driverDepositedGold = 0;   // flakes → gold wallet (with haul fee)
+                    let driverDepositedBars = 0;   // bars → goldBars at town (full value)
                     let newDriverTripTicks = s.driverTripTicks;
+                    let newGoldBarsAtMine = s.goldBarsAtMine;
 
-                    if (s.hasDriver) {
+                    const driverPower = getAssignedPower(s.employees, 'driver');
+                    if (driverPower > 0) {
                         const tripDuration = getTravelDurationTicks(s.vehicleTier);
-                        const capacity = getDriverCapacity(s.driverCapUpgrades);
+                        const capacity = DRIVER_BASE_CAPACITY + driverPower * DRIVER_CAP_RATE;
 
-                        if (newDriverTripTicks === 0 && travelDeliveredGold === 0) {
-                            // Driver is idle — prioritize bars, fill remaining capacity with flakes from mine stock
-                            const availableBars = s.goldBars - driverLoadedBars;
+                        if (newDriverTripTicks === 0 && !arrivedAtTown) {
+                            // Driver is idle — prioritize bars from mine, fill remaining with flakes
+                            const availableBars = newGoldBarsAtMine;
                             const availableFlakes = s.goldAtMine + goldGained;
                             const barsToLoad = Math.min(Math.max(0, availableBars), capacity);
                             const flakesToLoad = Math.min(Math.max(0, availableFlakes), capacity - barsToLoad);
                             if (barsToLoad > 0 || flakesToLoad > 0) {
-                                driverLoadedBars = barsToLoad;
                                 driverLoadedFlakes = flakesToLoad;
                                 newDriverCarryingBars = barsToLoad;
                                 newDriverCarryingFlakes = flakesToLoad;
+                                newGoldBarsAtMine -= barsToLoad;
                                 newDriverTripTicks = 1;
                             }
                         } else {
                             newDriverTripTicks++;
                             if (newDriverTripTicks === tripDuration) {
-                                // Arrived at town — bars at full value; flakes lose 15% haul fee
-                                driverDepositedGold = newDriverCarryingBars + newDriverCarryingFlakes * (1 - FLAKES_HAUL_FEE);
-                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver deposited ${driverDepositedGold.toFixed(2)}oz → gold (bars: ${newDriverCarryingBars.toFixed(2)}, flakes×0.85: ${(newDriverCarryingFlakes * (1 - FLAKES_HAUL_FEE)).toFixed(2)})`);
+                                // Arrived at town — bars go to goldBars (full value); flakes lose haul fee
+                                driverDepositedBars = newDriverCarryingBars;
+                                driverDepositedGold = newDriverCarryingFlakes * (1 - FLAKES_HAUL_FEE);
+                                if (s.devMode) devEvents.push(`[${s.tickCount}] Driver deposited bars: ${driverDepositedBars.toFixed(2)}oz → goldBars, flakes: ${driverDepositedGold.toFixed(2)}oz → gold`);
                                 newDriverCarryingBars = 0;
                                 newDriverCarryingFlakes = 0;
                             }
@@ -1768,7 +1739,7 @@ export const gameStore = createStore<GameState>()(
                     let newFurnaceFilled = s.furnaceFilled;
                     let newFurnaceRunning = s.furnaceRunning;
                     let newFurnaceBars = s.furnaceBars;
-                    let newGoldBars = s.goldBars;
+                    const newGoldBars = s.goldBars; // bars at town — not changed by furnace
 
                     if (s.hasFurnace) {
                         // Furnace worker automation: auto-load, auto-start, auto-collect
@@ -1785,9 +1756,9 @@ export const gameStore = createStore<GameState>()(
                             if (newFurnaceFilled > 0 && !newFurnaceRunning) {
                                 newFurnaceRunning = true;
                             }
-                            // Auto-collect: move furnaceBars → goldBars
+                            // Auto-collect: move furnaceBars → goldBarsAtMine
                             if (newFurnaceBars > 0) {
-                                newGoldBars += newFurnaceBars;
+                                newGoldBarsAtMine += newFurnaceBars;
                                 newFurnaceBars = 0;
                             }
                         }
@@ -1805,15 +1776,15 @@ export const gameStore = createStore<GameState>()(
                         }
                     }
 
-                    // Certifier automation (#125): auto-certify bars on a power-scaled cycle
+                    // Certifier automation (#125): auto-certify mine bars on a power-scaled cycle
                     let newGoldBarsCertified = s.goldBarsCertified;
                     let certFeeCharged = 0;
-                    if (certifierPower > 0 && s.hasFurnace && newGoldBars >= 0.001) {
+                    if (certifierPower > 0 && s.hasFurnace && newGoldBarsAtMine >= 0.001) {
                         const certCycle = Math.max(30, Math.floor(120 / certifierPower));
                         if (s.tickCount % certCycle === 0 && s.gold >= CERT_FEE) {
                             certFeeCharged = CERT_FEE;
-                            newGoldBarsCertified += newGoldBars;
-                            newGoldBars = 0;
+                            newGoldBarsCertified += newGoldBarsAtMine;
+                            newGoldBarsAtMine = 0;
                         }
                     }
 
@@ -1847,14 +1818,16 @@ export const gameStore = createStore<GameState>()(
                     // ── Employee XP Gain (#118) ───────────────────────────────────────────
                     const ROLE_DISPLAY: Record<Role, string> = {
                         miner: 'Miner', hauler: 'Hauler', prospector: 'Prospector',
-                        sluiceOperator: 'Sluice Operator', furnaceOperator: 'Furnace Operator',
+                        sluiceOperator: 'Sluice Operator', driver: 'Driver',
+                        furnaceOperator: 'Furnace Operator',
                         detectorOperator: 'Detector Operator', certifier: 'Certifier',
+                        teamster: 'Teamster',
                     };
                     const newEmployees = s.employees.map(e => {
                         if (e.assignedRole === null) return e;
                         if (e.assignedRole === 'miner' && minersIdle) return e;
                         if (e.assignedRole === 'prospector' && prospectsIdle) return e;
-                        if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || newGoldBars < 0.001)) return e;
+                        if (e.assignedRole === 'certifier' && (s.npcLevels.assayer < 2 || !s.hasFurnace || newGoldBarsAtMine < 0.001)) return e;
                         const role = e.assignedRole;
                         const oldXp = e.xpByRole[role] ?? 0;
                         const oldLevel = getEmployeeLevel(oldXp, e.rarity);
@@ -1887,33 +1860,36 @@ export const gameStore = createStore<GameState>()(
                         dirt: s.dirt,
                         paydirt: s.paydirt,
                         // goldAtMine: earned but undelivered — grows with goldGained, shrinks when driver or player takes it
-                        goldAtMine: travelDeliveredGold > 0
-                            ? 0  // player arrived at town — all mine stock cleared
+                        goldAtMine: arrivedAtTown
+                            ? 0  // player arrived at town — all mine flakes cleared
                             : Math.max(0, s.goldAtMine + goldGained - driverLoadedFlakes - autoFurnaceLoad),
                         // gold: spendable wallet — grows only on delivery (travel or driver)
-                        gold: travelDeliveredGold > 0
-                            ? s.gold + travelDeliveredGold - certFeeCharged
-                            : s.gold + driverDepositedGold - certFeeCharged,
-                        goldBars: travelDeliveredGold > 0
-                            ? 0  // cleared on town arrival
-                            : Math.max(0, newGoldBars - driverLoadedBars),
-                        goldBarsCertified: travelDeliveredGold > 0
-                            ? 0  // cleared on town arrival
+                        gold: arrivedAtTown
+                            ? s.gold + travelDeliveredGold + driverDepositedGold - certFeeCharged - teamsterFuelCost
+                            : s.gold + driverDepositedGold - certFeeCharged - teamsterFuelCost,
+                        // goldBarsAtMine: bars at mine (furnace output) — cleared when player travels or driver hauls
+                        goldBarsAtMine: arrivedAtTown
+                            ? 0  // bars move to goldBars (at town) on arrival
+                            : Math.max(0, newGoldBarsAtMine),
+                        // goldBars: bars at town — accumulate on delivery, sold manually
+                        goldBars: newGoldBars + (arrivedAtTown ? newGoldBarsAtMine : driverDepositedBars),
+                        goldBarsCertified: arrivedAtTown
+                            ? 0  // cleared on town arrival (converted to gold via travelDeliveredGold)
                             : newGoldBarsCertified,
                         furnaceFilled: newFurnaceFilled,
                         furnaceRunning: newFurnaceRunning,
                         furnaceBars: newFurnaceBars,
                         driverCarryingFlakes: newDriverCarryingFlakes,
                         driverCarryingBars: newDriverCarryingBars,
-                        driverCapUpgrades: s.driverCapUpgrades,
-                        // runGoldMined: advances on delivery, not on earn (tracks season progress)
-                        runGoldMined: s.runGoldMined + (travelDeliveredGold > 0 ? travelDeliveredGold : driverDepositedGold),
+                        // runGoldMined: advances on gold wallet delivery (flakes + certified); bars counted on sell
+                        runGoldMined: s.runGoldMined + (arrivedAtTown ? travelDeliveredGold : driverDepositedGold),
                         totalGoldExtracted: s.totalGoldExtracted + goldGained,
                         isTraveling: newIsTraveling,
                         travelProgress: newTravelProgress,
                         location: newLocation,
                         storyNPCs: newStoryNPCs,
                         npcLevels: newNpcLevels,
+                        unlockedPanning: s.unlockedPanning || panningJustUnlocked,
                         unlockedTown: s.unlockedTown || townJustUnlocked,
                         driverTripTicks: newDriverTripTicks,
                         fuelTank: newFuelTank,
@@ -1981,7 +1957,6 @@ export const gameStore = createStore<GameState>()(
             panCapUpgrades: state.panCapUpgrades,
             panSpeedUpgrades: state.panSpeedUpgrades,
             vehicleTier: state.vehicleTier,
-            hasDriver: state.hasDriver,
             timePlayed: state.timePlayed,
             darkMode: state.darkMode,
             lastSeenChangelogVersion: state.lastSeenChangelogVersion,
@@ -1998,10 +1973,10 @@ export const gameStore = createStore<GameState>()(
             furnaceFilled: state.furnaceFilled,
             furnaceRunning: state.furnaceRunning,
             furnaceBars: state.furnaceBars,
+            goldBarsAtMine: state.goldBarsAtMine,
             goldBars: state.goldBars,
             driverCarryingFlakes: state.driverCarryingFlakes,
             driverCarryingBars: state.driverCarryingBars,
-            driverCapUpgrades: state.driverCapUpgrades,
             goldBarsCertified: state.goldBarsCertified,
             hasExcavator: state.hasExcavator,
             hasWashplant: state.hasWashplant,
@@ -2031,7 +2006,7 @@ export const gameStore = createStore<GameState>()(
                 state.driverCarryingFlakes = 0;
             }
             if (state.driverCarryingBars > 0) {
-                state.goldBars += state.driverCarryingBars;
+                state.goldBarsAtMine += state.driverCarryingBars;
                 state.driverCarryingBars = 0;
             }
             if (state.sluiceBoxFilled < 0) state.sluiceBoxFilled = 0;

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { gameStore, useGameStore, BASE_EXTRACTION, EQUIPMENT, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, getDriverCapacity, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, GOLD_BAR_CERTIFIED_BONUS, getSettlementStage, FLAKES_HAUL_FEE } from "../store/gameStore";
+import { gameStore, useGameStore, BASE_EXTRACTION, getEffectiveBucketCapacity, getEffectivePanCapacity, VEHICLE_TIERS, getTravelDurationTicks, FURNACE_CAPACITY, SMELT_RATE_BASE, DRIVER_BASE_CAPACITY, DRIVER_CAP_RATE, getAssignedPower, countAssigned, SLUICE_EXTRACTION_RATE, GOLD_BAR_CERTIFIED_BONUS, getSettlementStage, getSeasonGoal, FLAKES_HAUL_FEE, SLUICE_CONVERSION_RATIO, PAYDIRT_YIELD_MULTIPLIER, FUEL_TANK_CAP, EXCAVATOR_MINE_MULT, WASHPLANT_SLUICE_MULT } from "../store/gameStore";
 import { ProgressBar, Tooltip, SpriteAnimation } from "./ui";
 import minerWalkSrc from '../assets/miner-walk.png';
 import minerDigSrc from '../assets/miner-dig.png';
@@ -11,39 +11,42 @@ export function Mine() {
     const {
         bucketFilled, panFilled, sluiceBoxFilled, minersMossFilled,
         gold, goldAtMine, scoopPower, panPower, unlockedPanning, unlockedTown,
-        hasSluiceBox, sluiceGear, hasFurnace, employees, storyNPCs,
-        bucketUpgrades, panCapUpgrades, vehicleTier, seasonNumber,
+        hasSluiceBox, sluiceGear, hasFurnace, employees,
+        bucketUpgrades, panCapUpgrades, vehicleTier, seasonNumber, runGoldMined,
         isTraveling, travelProgress, travelDestination,
         furnaceGear, devMode, tickCount,
-        driverTripTicks, hasDriver, isPaused,
+        driverTripTicks, isPaused,
         hasMetalDetector, richDirtInBucket,
         detectProgress, detectTarget, patchActive, patchRemaining, patchCapacity,
-        furnaceFilled, furnaceRunning, furnaceBars, goldBars, goldBarsCertified,
-        driverCarryingFlakes, driverCarryingBars, driverCapUpgrades,
+        furnaceFilled, furnaceRunning, furnaceBars, goldBarsAtMine, goldBarsCertified,
+        driverCarryingFlakes, driverCarryingBars,
+        hasExcavator, hasWashplant, fuelTank,
     } = useGameStore(useShallow((s) => ({
         bucketFilled: s.bucketFilled, panFilled: s.panFilled,
         sluiceBoxFilled: s.sluiceBoxFilled, minersMossFilled: s.minersMossFilled,
         gold: s.gold, goldAtMine: s.goldAtMine, scoopPower: s.scoopPower, panPower: s.panPower,
         unlockedPanning: s.unlockedPanning, unlockedTown: s.unlockedTown,
         hasSluiceBox: s.hasSluiceBox, sluiceGear: s.sluiceGear,
-        hasFurnace: s.hasFurnace, employees: s.employees, storyNPCs: s.storyNPCs,
+        hasFurnace: s.hasFurnace, employees: s.employees,
         bucketUpgrades: s.bucketUpgrades, panCapUpgrades: s.panCapUpgrades,
-        vehicleTier: s.vehicleTier, seasonNumber: s.seasonNumber,
+        vehicleTier: s.vehicleTier, seasonNumber: s.seasonNumber, runGoldMined: s.runGoldMined,
         isTraveling: s.isTraveling, travelProgress: s.travelProgress,
         travelDestination: s.travelDestination,
         furnaceGear: s.furnaceGear, devMode: s.devMode, tickCount: s.tickCount,
-        driverTripTicks: s.driverTripTicks, hasDriver: s.hasDriver, isPaused: s.isPaused,
+        driverTripTicks: s.driverTripTicks, isPaused: s.isPaused,
         hasMetalDetector: s.hasMetalDetector, richDirtInBucket: s.richDirtInBucket,
         detectProgress: s.detectProgress, detectTarget: s.detectTarget,
         patchActive: s.patchActive, patchRemaining: s.patchRemaining, patchCapacity: s.patchCapacity,
         furnaceFilled: s.furnaceFilled, furnaceRunning: s.furnaceRunning,
-        furnaceBars: s.furnaceBars, goldBars: s.goldBars, goldBarsCertified: s.goldBarsCertified,
+        furnaceBars: s.furnaceBars, goldBarsAtMine: s.goldBarsAtMine, goldBarsCertified: s.goldBarsCertified,
         driverCarryingFlakes: s.driverCarryingFlakes, driverCarryingBars: s.driverCarryingBars,
-        driverCapUpgrades: s.driverCapUpgrades,
+        hasExcavator: s.hasExcavator, hasWashplant: s.hasWashplant, fuelTank: s.fuelTank,
     })));
 
-    const tavernBuilt = storyNPCs.tavernBuilt;
     const settlementName = getSettlementStage(seasonNumber).name;
+    const seasonGoal = getSeasonGoal(seasonNumber);
+    const seasonPct = Math.min(100, (runGoldMined / seasonGoal) * 100);
+    const nearEnd = seasonPct >= 70;
     const effectiveBucketCap = getEffectiveBucketCapacity(bucketUpgrades);
     const effectivePanCap = getEffectivePanCapacity(panCapUpgrades);
     const TRAVEL_EMOJIS = { 0: '🚶', 1: '🐴', 2: '🚂', 3: '🚛' } as const;
@@ -73,6 +76,7 @@ export function Mine() {
     extractionRate += getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear;
 
     const goldPerPan = panPower * extractionRate;
+    const driverPower = getAssignedPower(employees, 'driver');
 
     const bucketIsFull = bucketFilled >= effectiveBucketCap;
     const panIsFull = panFilled >= effectivePanCap;
@@ -98,6 +102,23 @@ export function Mine() {
     return (
         <div className="space-y-6">
             <h2 className="font-display text-base text-frontier-bone">⛏️ The Mine</h2>
+
+            {/* Season progress */}
+            <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs text-frontier-sage">
+                    <span className="font-semibold">Season earnings</span>
+                    <span className="font-body">{runGoldMined.toFixed(0)} oz / {seasonGoal.toLocaleString()} oz</span>
+                </div>
+                <div className="relative h-3 rounded-sm overflow-hidden border" style={{ background: 'linear-gradient(to bottom, #0e1a08, #1a2e0f)', borderColor: 'var(--fw-pine)' }}>
+                    <div
+                        className={`h-full transition-all duration-300 ${nearEnd ? 'bg-gradient-to-r from-blue-700 to-indigo-800' : 'frontier-progress-fill-sage'}`}
+                        style={{ width: `${seasonPct}%` }}
+                    />
+                    {nearEnd && (
+                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-xs leading-none">❄️</span>
+                    )}
+                </div>
+            </div>
 
             {/* Travel to Town */}
             {(unlockedTown || gold > 0) && (
@@ -157,7 +178,10 @@ export function Mine() {
             {/* Metal Detector Section */}
             {hasMetalDetector && (
                 <div className="frontier-panel space-y-3">
-                    <h3 className="text-sm font-semibold text-frontier-dust">🔍 Metal Detector</h3>
+                    <div>
+                        <h3 className="text-sm font-semibold text-frontier-dust">🔍 Metal Detector</h3>
+                        <p className="text-xs text-frontier-iron mt-0.5">Locates rich dirt patches — rich dirt yields more gold per unit than regular dirt</p>
+                    </div>
 
                     {patchActive ? (
                         <div className="space-y-2">
@@ -192,7 +216,7 @@ export function Mine() {
                             </button>
                         </div>
                     )}
-                    {tavernBuilt && (
+                    {employees.length > 0 && (
                         <div className="pt-1 border-t border-frontier-iron/20">
                             <Roster roles={['detectorOperator']} />
                         </div>
@@ -200,47 +224,55 @@ export function Mine() {
                 </div>
             )}
 
-            {/* Driver Status Card */}
-            {hasDriver && (() => {
+            {/* Transport Section */}
+            {hasSluiceBox && (() => {
+                const driverPower = getAssignedPower(employees, 'driver');
                 const tripDuration = getTravelDurationTicks(vehicleTier);
-                const capacity = getDriverCapacity(driverCapUpgrades);
-                const tripSecs = Math.round(tripDuration / 60);
+                const capacity = DRIVER_BASE_CAPACITY + driverPower * DRIVER_CAP_RATE;
                 const isOutbound = driverTripTicks > 0 && driverTripTicks <= tripDuration;
                 const isReturning = driverTripTicks > tripDuration;
-                const phaseLabel = isOutbound
-                    ? `🚗 To Bank (${Math.ceil((tripDuration - driverTripTicks) / 60)}s)`
-                    : isReturning
-                    ? `↩️ Returning (${Math.ceil((tripDuration * 2 - driverTripTicks) / 60)}s)`
-                    : '💤 Waiting for gold…';
                 const barValue = isOutbound ? driverTripTicks : isReturning ? driverTripTicks - tripDuration : 0;
                 return (
-                    <div className="frontier-panel border-frontier-nugget/50 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-frontier-bone">🚗 Driver</h3>
-                            <span className="text-xs text-frontier-dust">{capacity} oz cap · {tripSecs}s trip</span>
+                    <div className="frontier-panel space-y-3">
+                        <div>
+                            <h3 className="text-sm font-semibold text-frontier-dust">🤠 Transport</h3>
+                            <p className="text-xs text-frontier-iron mt-0.5">
+                                Automatically hauls gold to town — capacity grows with driver level
+                            </p>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-frontier-aged">
-                            <span>{phaseLabel}</span>
-                            {isOutbound && (driverCarryingBars > 0 || driverCarryingFlakes > 0) && (
-                                <span className="font-semibold">
-                                    {driverCarryingBars > 0 && `${formatNumber(driverCarryingBars)} oz bars`}
-                                    {driverCarryingBars > 0 && driverCarryingFlakes > 0 && ' + '}
-                                    {driverCarryingFlakes > 0 && (
-                                        <span>
-                                            {formatNumber(driverCarryingFlakes)} oz flakes
-                                            <span className="text-frontier-rust ml-1">(−{(FLAKES_HAUL_FEE * 100).toFixed(0)}%)</span>
+                        {driverPower > 0 && driverTripTicks > 0 && (
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs text-frontier-aged">
+                                    <span>
+                                        {isOutbound
+                                            ? `🚗 To Town (${Math.ceil((tripDuration - driverTripTicks) / 60)}s)`
+                                            : `↩️ Returning (${Math.ceil((tripDuration * 2 - driverTripTicks) / 60)}s)`}
+                                    </span>
+                                    {isOutbound && (driverCarryingBars > 0 || driverCarryingFlakes > 0) && (
+                                        <span className="font-semibold">
+                                            {driverCarryingBars > 0 && `${formatNumber(driverCarryingBars)} oz bars`}
+                                            {driverCarryingBars > 0 && driverCarryingFlakes > 0 && ' + '}
+                                            {driverCarryingFlakes > 0 && (
+                                                <span>
+                                                    {formatNumber(driverCarryingFlakes)} oz flakes
+                                                    <span className="text-frontier-rust ml-1">(−{(FLAKES_HAUL_FEE * 100).toFixed(0)}%)</span>
+                                                </span>
+                                            )}
                                         </span>
                                     )}
-                                </span>
-                            )}
-                        </div>
-                        {driverTripTicks > 0 && (
-                            <ProgressBar
-                                value={barValue}
-                                max={tripDuration}
-                                color="amber"
-                                isActive={true}
-                            />
+                                </div>
+                                <ProgressBar value={barValue} max={tripDuration} color="amber" isActive={true} />
+                            </div>
+                        )}
+                        {driverPower > 0 && (
+                            <p className="text-xs text-frontier-dust">
+                                Capacity: {capacity.toFixed(1)} oz · Trip: {Math.round(tripDuration / 60)}s
+                            </p>
+                        )}
+                        {employees.length > 0 && (
+                            <div className="pt-1 border-t border-frontier-iron/20">
+                                <Roster roles={['driver']} />
+                            </div>
                         )}
                     </div>
                 );
@@ -308,18 +340,69 @@ export function Mine() {
                         </button>
                     )}
 
-                    {tavernBuilt && (
+                    {employees.length > 0 && (
                         <div className="pt-1 border-t border-frontier-iron/20">
                             <Roster roles={['miner', 'hauler']} />
                         </div>
                     )}
                 </div>
 
+                {/* Heavy Machinery Section */}
+                {(hasExcavator || hasWashplant) && (() => {
+                    const fueled = fuelTank > 0;
+                    const fuelPct = Math.min(100, (fuelTank / FUEL_TANK_CAP) * 100);
+                    const fuelColor = fuelPct > 40 ? 'bg-amber-500' : fuelPct > 15 ? 'bg-frontier-ember' : 'bg-red-600';
+                    return (
+                        <div className="frontier-panel space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-semibold text-frontier-bone">⚙️ Heavy Machinery</h3>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-sm ${fueled ? 'bg-frontier-sage/20 text-frontier-sage' : 'bg-frontier-rust/20 text-frontier-rust'}`}>
+                                    {fueled ? 'RUNNING' : 'OUT OF FUEL'}
+                                </span>
+                            </div>
+
+                            {/* Fuel gauge */}
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs text-frontier-dust">
+                                    <span>⛽ Fuel Tank</span>
+                                    <span className="font-semibold text-frontier-bone">{fuelTank.toFixed(1)} / {FUEL_TANK_CAP} gal</span>
+                                </div>
+                                <div className="h-2.5 rounded-sm bg-frontier-iron/30 overflow-hidden">
+                                    <div className={`h-full rounded-sm transition-all duration-500 ${fuelColor}`} style={{ width: `${fuelPct}%` }} />
+                                </div>
+                                {!fueled && (
+                                    <p className="text-xs text-frontier-rust text-center">Refuel at the Trading Post in Town</p>
+                                )}
+                            </div>
+
+                            {/* Machine status rows */}
+                            <div className="space-y-1.5 text-xs">
+                                {hasExcavator && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-frontier-dust">🚜 Excavator</span>
+                                        <span className={fueled ? 'text-frontier-sage font-semibold' : 'text-frontier-iron'}>
+                                            {fueled ? `×${EXCAVATOR_MINE_MULT} mining rate` : 'idle — no fuel'}
+                                        </span>
+                                    </div>
+                                )}
+                                {hasWashplant && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-frontier-dust">🏭 Wash Plant</span>
+                                        <span className={fueled ? 'text-frontier-sage font-semibold' : 'text-frontier-iron'}>
+                                            {fueled ? `×${WASHPLANT_SLUICE_MULT} sluice speed` : 'idle — no fuel'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* Sluice Box Section */}
                 {unlockedPanning && hasSluiceBox && (
                     <div className="frontier-panel space-y-3">
                         <div>
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-1">
                                 <Tooltip content={<>Sluice gear ×{sluiceGear} — adds {(getAssignedPower(employees, 'sluiceOperator') * SLUICE_EXTRACTION_RATE * sluiceGear).toFixed(4)} to extraction rate per sluice operator power</>}>
                                     <span className="text-sm font-semibold text-frontier-bone underline decoration-dotted cursor-help">🚿 Sluice Box</span>
                                 </Tooltip>
@@ -327,6 +410,7 @@ export function Mine() {
                                     {sluiceBoxFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
+                            <p className="text-xs text-frontier-iron mb-2">Concentrates dirt into paydirt — yields {(SLUICE_CONVERSION_RATIO * PAYDIRT_YIELD_MULTIPLIER).toFixed(2)}× more gold per bucket than raw panning</p>
                             <ProgressBar value={sluiceBoxFilled} max={effectivePanCap} color="cyan" isActive={sluiceIsDraining} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {sluiceIsDraining
@@ -353,7 +437,7 @@ export function Mine() {
                         >
                             🌿 Clean Moss → Pan (+3 paydirt)
                         </button>
-                        {tavernBuilt && (
+                        {employees.length > 0 && (
                             <div className="pt-1 border-t border-frontier-iron/20">
                                 <Roster roles={['sluiceOperator']} />
                             </div>
@@ -365,7 +449,7 @@ export function Mine() {
                 {unlockedPanning && (
                     <div className="frontier-panel space-y-3">
                         <div>
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-1">
                                 <Tooltip content={<>Pan power ×{panPower.toFixed(2)} — scales gold per pan click. Base extract: {BASE_EXTRACTION.toFixed(3)}</>}>
                                     <span className="text-sm font-semibold text-frontier-bone underline decoration-dotted cursor-help">
                                         🥘 Pan
@@ -375,6 +459,7 @@ export function Mine() {
                                     {panFilled.toFixed(1)} / {effectivePanCap}
                                 </span>
                             </div>
+                            <p className="text-xs text-frontier-iron mb-2">Extracts gold flakes from dirt — {goldPerPan.toFixed(3)} oz per click at current pan power</p>
                             <ProgressBar value={panFilled} max={effectivePanCap} color="yellow" isActive={countAssigned(employees, 'prospector') > 0 && !panIsFull} isFull={panIsFull} />
                             <div className="h-5 mt-1 flex items-center justify-center">
                                 {isTraveling
@@ -401,7 +486,7 @@ export function Mine() {
                             )
                         </button>
 
-                        {tavernBuilt && (
+                        {employees.length > 0 && (
                             <div className="pt-1 border-t border-frontier-iron/20">
                                 <Roster roles={['prospector']} />
                             </div>
@@ -412,18 +497,17 @@ export function Mine() {
                 {/* Furnace Section */}
                 {hasFurnace && (
                     <div className="frontier-panel space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-frontier-bone">🔥 Furnace</h3>
-                            <Tooltip content={<>Smelt rate: {SMELT_RATE_BASE} base × {furnaceGear} gear = {SMELT_RATE_BASE * furnaceGear} oz/sec</>}>
-                                <span className="text-xs text-frontier-ember underline decoration-dotted cursor-help">
-                                    {SMELT_RATE_BASE * furnaceGear} oz/sec
-                                </span>
-                            </Tooltip>
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-sm font-semibold text-frontier-bone">🔥 Furnace</h3>
+                                <Tooltip content={<>Smelt rate: {SMELT_RATE_BASE} base × {furnaceGear} gear = {SMELT_RATE_BASE * furnaceGear} oz/sec</>}>
+                                    <span className="text-xs text-frontier-ember underline decoration-dotted cursor-help">
+                                        {SMELT_RATE_BASE * furnaceGear} oz/sec
+                                    </span>
+                                </Tooltip>
+                            </div>
+                            <p className="text-xs text-frontier-iron">Smelts flakes into bars — bars skip the {(FLAKES_HAUL_FEE * 100).toFixed(0)}% driver haul fee, keeping full value on delivery</p>
                         </div>
-
-                        <p className="text-xs text-frontier-dust">
-                            ✨ Flakes → 🧱 Bars — bars avoid the {(FLAKES_HAUL_FEE * 100).toFixed(0)}% driver haul fee
-                        </p>
 
                         <div>
                             <div className="flex items-center justify-between mb-1">
@@ -476,16 +560,16 @@ export function Mine() {
                             </div>
                         )}
 
-                        {(goldBars > 0 || goldBarsCertified > 0) && (
+                        {(goldBarsAtMine > 0 || goldBarsCertified > 0) && (
                             <div className="p-2 bg-frontier-nugget/10 border border-frontier-nugget/30 rounded-sm text-sm font-semibold text-frontier-bone">
-                                <div>🧱 {goldBars.toFixed(2)} oz bars at mine</div>
+                                <div>🧱 {goldBarsAtMine.toFixed(2)} oz bars at mine</div>
                                 {goldBarsCertified > 0 && (
                                     <div className="text-xs text-frontier-nugget">⚖️ {goldBarsCertified.toFixed(2)} oz certified → {(goldBarsCertified * GOLD_BAR_CERTIFIED_BONUS).toFixed(2)} oz on delivery</div>
                                 )}
-                                {hasDriver && (
-                                    <div className="text-xs text-frontier-sage">Driver will haul bars at full value</div>
+                                {driverPower > 0 && (
+                                    <div className="text-xs text-frontier-sage">Driver will haul bars to town</div>
                                 )}
-                                {!hasDriver && (
+                                {driverPower <= 0 && (
                                     <div className="text-xs text-frontier-dust">Travel to Town to sell</div>
                                 )}
                             </div>
@@ -496,7 +580,7 @@ export function Mine() {
                                 Furnace Operators are auto-loading, smelting &amp; collecting
                             </p>
                         )}
-                        {tavernBuilt && (
+                        {employees.length > 0 && (
                             <div className="pt-1 border-t border-frontier-iron/20">
                                 <Roster roles={['furnaceOperator']} />
                             </div>
@@ -504,44 +588,6 @@ export function Mine() {
                     </div>
                 )}
 
-                {/* Contextual tips */}
-                {(() => {
-                    const tips = [
-                        { show: !unlockedPanning,
-                          text: '⛏️ Fill the bucket to start panning!', amber: true },
-                        { show: unlockedPanning && !hasSluiceBox && gold >= EQUIPMENT.sluiceBox.cost,
-                          text: `💡 You can afford the Sluice Box! Buy it in Town → Blacksmith → Equipment.` },
-                        { show: unlockedPanning && !hasSluiceBox,
-                          text: `💡 Save up ${EQUIPMENT.sluiceBox.cost} oz for the Sluice Box in Town — concentrates dirt into richer paydirt (3 paydirt per click vs 1).` },
-                        { show: hasSluiceBox && countAssigned(employees, 'miner') === 0 && countAssigned(employees, 'prospector') === 0,
-                          text: '💡 Hire Miners and Prospectors in Town → Tavern → Hiring Hall to automate the mine.' },
-                        { show: hasSluiceBox && countAssigned(employees, 'miner') === 0,
-                          text: '💡 Hire a Miner in Town → Tavern → Hiring Hall to auto-fill the bucket.' },
-                        { show: hasSluiceBox && countAssigned(employees, 'prospector') === 0,
-                          text: '💡 Hire a Prospector in Town → Tavern → Hiring Hall to auto-pan gold.' },
-                        { show: hasSluiceBox && countAssigned(employees, 'sluiceOperator') === 0 && countAssigned(employees, 'miner') > 0 && countAssigned(employees, 'prospector') > 0,
-                          text: '💡 Hire a Sluice Operator in Town → Tavern → Hiring Hall to boost gold extraction and auto-clean the moss.' },
-                        { show: !hasMetalDetector && hasSluiceBox && gold >= EQUIPMENT.metalDetector.cost,
-                          text: `💡 You can afford a Metal Detector (${EQUIPMENT.metalDetector.cost} oz) — finds rich dirt patches for better yields.` },
-                        { show: !hasFurnace && hasSluiceBox && gold > 2,
-                          text: '💡 A Furnace smelts gold flakes into bars — certify them at the Assayer for a 20% bonus. Buy in Town → Blacksmith → Equipment.' },
-                        { show: hasFurnace && !hasDriver && vehicleTier >= 2,
-                          text: '💡 Hire a Driver in Town → Tavern to automatically haul your gold.' },
-                        { show: !hasDriver && (gold > 0.5 || goldAtMine > 0.5) && unlockedTown && !isTraveling,
-                          text: goldAtMine > 0.5 ? '💡 Head to Town to sell your gold — it\'s sitting undelivered at the mine!' : '💡 Head to Town to spend your gold on upgrades and workers.' },
-                    ];
-                    const tip = tips.find(t => t.show);
-                    if (!tip) return null;
-                    return (
-                        <div className={`text-sm italic text-center p-3 rounded-sm ${
-                            tip.amber
-                                ? 'text-frontier-ember'
-                                : 'text-frontier-aged bg-frontier-dirt/40 border border-frontier-iron/60'
-                        }`}>
-                            {tip.text}
-                        </div>
-                    );
-                })()}
             </div>
 
             {/* Dev debug overlay */}
@@ -562,7 +608,7 @@ export function Mine() {
                         </div>
                         <ProgressBar value={panFilled} max={effectivePanCap} />
                     </div>
-                    {hasDriver && (
+                    {driverPower > 0 && (
                         <div>
                             <div className="flex justify-between mb-1 text-frontier-iron">
                                 <span>Driver Trip</span>

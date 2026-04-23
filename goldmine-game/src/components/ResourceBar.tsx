@@ -4,6 +4,7 @@ import { formatNumber, formatRate } from "../utils/format";
 export function ResourceBar() {
     const gold = useGameStore((s) => s.gold);
     const goldAtMine = useGameStore((s) => s.goldAtMine);
+    const goldBarsAtMine = useGameStore((s) => s.goldBarsAtMine);
     const goldBars = useGameStore((s) => s.goldBars);
 
     const employees = useGameStore((s) => s.employees);
@@ -23,7 +24,7 @@ export function ResourceBar() {
     const floatingNumbers = useGameStore((s) => s.floatingNumbers);
     const goldFloats = floatingNumbers.filter((f) => f.resource === 'gold');
 
-    const pendingTotal = goldAtMine + goldBars;
+    const pendingMine = goldAtMine + goldBarsAtMine;
 
     return (
         <div className="space-y-1.5">
@@ -35,7 +36,7 @@ export function ResourceBar() {
                         rate={goldRate}
                         icon="✨"
                         color="yellow"
-                        pendingLine={pendingTotal > 0 ? `⛰️ ${formatNumber(pendingTotal)} oz at mine` : undefined}
+                        pendingLine={pendingMine > 0 ? `⛰️ ${formatNumber(pendingMine)} oz at mine` : undefined}
                     />
                     {goldFloats.map((f: FloatingNumber) => (
                         <span key={f.id} className="absolute top-0 right-2 text-xs font-bold text-frontier-nugget animate-float-up pointer-events-none">
@@ -45,11 +46,12 @@ export function ResourceBar() {
                 </div>
                 {hasFurnace && goldBars > 0 && (
                     <ResourceCard
-                        label="Gold Bars"
+                        label="Gold Bars (Town)"
                         value={goldBars}
                         rate={0}
                         icon="🧱"
                         color="amber"
+                        pendingLine="Sell at Trading Post"
                     />
                 )}
             </div>

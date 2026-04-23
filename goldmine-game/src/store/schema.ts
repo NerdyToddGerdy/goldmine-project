@@ -3,10 +3,10 @@
 import { CHANGELOG } from '../data/changelog';
 
 export const STORAGE_KEY = "goldmine:save";
-export const SCHEMA_VERSION = 39 as const; // bump when persist shape changes
+export const SCHEMA_VERSION = 42 as const; // bump when persist shape changes
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'furnaceOperator' | 'detectorOperator' | 'certifier';
+export type Role = 'miner' | 'hauler' | 'prospector' | 'sluiceOperator' | 'driver' | 'furnaceOperator' | 'detectorOperator' | 'certifier' | 'teamster';
 export type NPCId = 'trader' | 'tavernKeeper' | 'assayer' | 'blacksmith';
 
 export interface Employee {
@@ -22,9 +22,11 @@ export interface RoleSlots {
     hauler: number;
     prospector: number;
     sluiceOperator: number;
+    driver: number;
     furnaceOperator: number;
     detectorOperator: number;
     certifier: number;
+    teamster: number;
 }
 
 export interface StoryNPCState {
@@ -524,13 +526,29 @@ export type SaveV39 = Omit<SaveV38, 'version' | 'hasOilDerrick' | 'crudeTank'> &
     traderFuelTripTicks: number;
 };
 
-export type LatestSave = SaveV39;
+// v40: Driver converted to standard crew role — hasDriver and driverCapUpgrades removed
+export type SaveV40 = Omit<SaveV39, 'version' | 'hasDriver' | 'driverCapUpgrades'> & {
+    version: 40;
+};
+
+// v41: goldBars split into goldBarsAtMine (at mine, undelivered) + goldBars (at town, sellable)
+export type SaveV41 = Omit<SaveV40, 'version'> & {
+    version: 41;
+    goldBarsAtMine: number;
+};
+
+// v42: teamster crew role added (auto fuel runs)
+export type SaveV42 = Omit<SaveV41, 'version'> & {
+    version: 42;
+};
+
+export type LatestSave = SaveV42;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function migrateToLatest(raw: unknown, fromVersion: number | undefined): LatestSave {
     // No data? return to clean by default
     if (!raw || typeof raw != "object") {
-        return defaultSaveV39();
+        return defaultSaveV42();
     }
 
     // v1 -> v6: dirtyGold -> paydirt, add new fields
@@ -1571,8 +1589,29 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         }, 39);
     }
 
-    // Already v39, ensure fields exist
-    const s = raw as Partial<SaveV39>;
+    if (fromVersion === 39) {
+        // v39 → v40: driver converted to crew role — drop hasDriver and driverCapUpgrades
+        const s = raw as Partial<SaveV39>;
+        const { hasDriver: _hd, driverCapUpgrades: _dc, ...rest } = s as any;
+        return migrateToLatest({ ...rest, version: 40 }, 40);
+    }
+
+    if (fromVersion === 40) {
+        // v40 → v41: split goldBars into goldBarsAtMine (at mine) + goldBars (at town)
+        // Old goldBars were "at mine" — carry them over as goldBarsAtMine
+        const s = raw as Partial<SaveV40>;
+        return migrateToLatest({ ...s, version: 41, goldBarsAtMine: s.goldBars ?? 0, goldBars: 0 }, 41);
+    }
+
+    if (fromVersion === 41) {
+        // v41 → v42: teamster role added — just ensure roleSlots has teamster
+        const s = raw as Partial<SaveV41>;
+        const roleSlots = { ...s.roleSlots, teamster: s.roleSlots?.teamster ?? 1 };
+        return migrateToLatest({ ...s, version: 42, roleSlots } as any, 42);
+    }
+
+    // Already v42, ensure fields exist
+    const s = raw as Partial<SaveV42>;
     const storyNPCs: StoryNPCState = {
         traderArrived: s.storyNPCs?.traderArrived ?? false,
         tavernBuilt: s.storyNPCs?.tavernBuilt ?? false,
@@ -1586,7 +1625,7 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         blacksmith: storyNPCs.blacksmithArrived ? 1 : 0,
     };
     return {
-        version: 39,
+        version: 42,
         tickCount: s.tickCount ?? 0,
         timeScale: s.timeScale ?? 1,
         location: s.location ?? 'mine',
@@ -1611,7 +1650,6 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         darkMode: s.darkMode ?? false,
         runGoldMined: s.runGoldMined ?? 0,
         vehicleTier: s.vehicleTier ?? 0,
-        hasDriver: s.hasDriver ?? false,
         bucketUpgrades: s.bucketUpgrades ?? 0,
         panCapUpgrades: s.panCapUpgrades ?? 0,
         panSpeedUpgrades: s.panSpeedUpgrades ?? 0,
@@ -1631,20 +1669,22 @@ export function migrateToLatest(raw: unknown, fromVersion: number | undefined): 
         furnaceFilled: s.furnaceFilled ?? 0,
         furnaceRunning: s.furnaceRunning ?? false,
         furnaceBars: s.furnaceBars ?? 0,
+        goldBarsAtMine: s.goldBarsAtMine ?? 0,
         goldBars: s.goldBars ?? 0,
         goldBarsCertified: s.goldBarsCertified ?? 0,
         driverCarryingFlakes: s.driverCarryingFlakes ?? 0,
         driverCarryingBars: s.driverCarryingBars ?? 0,
-        driverCapUpgrades: s.driverCapUpgrades ?? 0,
         employees: s.employees ?? [],
         roleSlots: {
             miner: s.roleSlots?.miner ?? 1,
             hauler: s.roleSlots?.hauler ?? 1,
             prospector: s.roleSlots?.prospector ?? 1,
             sluiceOperator: s.roleSlots?.sluiceOperator ?? 1,
+            driver: s.roleSlots?.driver ?? 1,
             furnaceOperator: s.roleSlots?.furnaceOperator ?? 1,
             detectorOperator: s.roleSlots?.detectorOperator ?? 1,
             certifier: s.roleSlots?.certifier ?? 1,
+            teamster: s.roleSlots?.teamster ?? 1,
         },
         storyNPCs,
         seasonNumber: s.seasonNumber ?? 1,
@@ -1730,7 +1770,7 @@ export function defaultSaveV31(): SaveV31 {
         vaultBars: 0,
         goldBarsCertified: 0,
         employees: [],
-        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
+        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, driver: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, teamster: 1 },
         storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
         seasonNumber: 1,
         npcsRetained: 0,
@@ -1797,7 +1837,7 @@ export function defaultSaveV32(): SaveV32 {
         vaultBars: 0,
         goldBarsCertified: 0,
         employees: [],
-        roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, furnaceOperator: 2, detectorOperator: 2, certifier: 1 },
+        roleSlots: { miner: 5, hauler: 1, prospector: 5, sluiceOperator: 3, driver: 1, furnaceOperator: 2, detectorOperator: 2, certifier: 1, teamster: 1 },
         storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
         seasonNumber: 1,
         npcsRetained: 0,
@@ -1848,8 +1888,20 @@ export function defaultSaveV38(): SaveV38 {
 }
 
 export function defaultSaveV39(): SaveV39 {
+    return defaultSaveV42() as unknown as SaveV39;
+}
+
+export function defaultSaveV40(): SaveV40 {
+    return defaultSaveV42() as unknown as SaveV40;
+}
+
+export function defaultSaveV41(): SaveV41 {
+    return defaultSaveV42() as unknown as SaveV41;
+}
+
+export function defaultSaveV42(): SaveV42 {
     return {
-        version: 39,
+        version: 42,
         tickCount: 0,
         timeScale: 1,
         location: 'mine',
@@ -1878,7 +1930,6 @@ export function defaultSaveV39(): SaveV39 {
         seasonNumber: 1,
         npcsRetained: 0,
         vehicleTier: 0,
-        hasDriver: false,
         bucketUpgrades: 0,
         panCapUpgrades: 0,
         panSpeedUpgrades: 0,
@@ -1896,17 +1947,17 @@ export function defaultSaveV39(): SaveV39 {
         furnaceFilled: 0,
         furnaceRunning: false,
         furnaceBars: 0,
+        goldBarsAtMine: 0,
         goldBars: 0,
         goldBarsCertified: 0,
         driverCarryingFlakes: 0,
         driverCarryingBars: 0,
-        driverCapUpgrades: 0,
         hasExcavator: false,
         hasWashplant: false,
         fuelTank: 0,
         traderFuelTripTicks: 0,
         employees: [],
-        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1 },
+        roleSlots: { miner: 1, hauler: 1, prospector: 1, sluiceOperator: 1, driver: 1, furnaceOperator: 1, detectorOperator: 1, certifier: 1, teamster: 1 },
         storyNPCs: { traderArrived: false, tavernBuilt: false, assayerArrived: false, blacksmithArrived: false },
         draftPool: [],
         draftPoolRefreshCost: 10,
